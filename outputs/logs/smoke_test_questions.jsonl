@@ -1,0 +1,5 @@
+{"id": "gsm8k_0001", "dataset": "gsm8k", "question": "Tom has 3 apples and buys 2 more. How many apples does he have now?", "gold_answer": "5"}
+{"id": "gsm8k_0002", "dataset": "gsm8k", "question": "Maria gives 4 pencils to Luis and has 6 left. How many pencils did Maria have at first?", "gold_answer": "10"}
+{"id": "gsm8k_0003", "dataset": "gsm8k", "question": "A bakery sold 12 muffins in the morning and 8 more after lunch. How many muffins did it sell?", "gold_answer": "20"}
+{"id": "gsm8k_0004", "dataset": "gsm8k", "question": "Noah had 15 marbles and lost 7 marbles. How many marbles are left?", "gold_answer": "8"}
+{"id": "gsm8k_0005", "dataset": "gsm8k", "question": "Chen reads 5 pages on Monday and 9 pages on Tuesday. How many more pages did Chen read on Tuesday?", "gold_answer": "4"}

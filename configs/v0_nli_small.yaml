@@ -1,0 +1,30 @@
+project_name: recover_attention_project
+stage: v0_nli_small
+seed: 42
+
+paths:
+  raw_data: data/examples/questions_small.jsonl
+  questions: data/processed/questions.jsonl
+  candidate_spans: data/processed/candidate_spans.jsonl
+  ablated_questions: data/processed/ablated_questions.jsonl
+  masked_questions: data/processed/masked_questions.jsonl
+  nli_scores: data/processed/nli_scores.jsonl
+  log_dir: outputs/logs
+
+candidate_extraction:
+  enabled_types:
+    - number
+    - entity
+    - operation
+    - relation
+    - question_target
+
+ablation:
+  enabled_types:
+    - delete
+    - generalize
+    - mask
+  mask_token: "[MASK]"
+
+nli:
+  backend: "stub"
