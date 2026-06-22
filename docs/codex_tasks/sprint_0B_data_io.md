@@ -198,7 +198,7 @@ python scripts/00_smoke_test.py --config configs/v0_nli_small.yaml
 ```
 
 ```bash
-pytest -q
+python -m pytest -q
 ```
 
 ---

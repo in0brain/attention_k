@@ -468,7 +468,7 @@ _require_bool(record, field, name)
 完成后运行：
 
 ```bash
-pytest -q
+python -m pytest -q
 ```
 
 如果 Sprint 0B 的 smoke test 已存在，也运行：

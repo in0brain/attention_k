@@ -101,12 +101,12 @@ Preflight 必须包括：
 5. 是否需要参考 `docs/reference/*`
 6. 是否发现 task card 与当前提示词冲突
 
-如果当前提示词、task card、AGENTS.md、SKILL.md 发生冲突，优先级为：
+如果当前用户消息、task card、AGENTS.md、SKILL.md 发生冲突，优先级为：
 当前用户消息 > 当前 task card > AGENTS.md > docs/skill/SKILL.md > docs/prompts.md > docs/reference/*
-并在最后在`遗留问题`中给用户报告冲突部分。
+如发现冲突，必须在最终回复的“遗留问题”中报告冲突内容和采用的优先级依据。
 如果发现需要修改允许列表之外的文件，先停止并询问用户。
 
-Preflight 输出后，再开始修改。
+Preflight 输出后必须暂停，等待用户确认后再修改文件。
 
 # 三、硬约束
 
@@ -189,7 +189,7 @@ Preflight 输出后，再开始修改。
 完成后请回复：
 
 1. 本次完成内容
-2. 新增/修改文件
+2. 新增/修改文件；如果当前目录是 git 仓库，请运行并报告 `git diff --name-only` 的结果。如果不是 git 仓库，请说明未检测到 git 仓库。
 3. 运行命令
 4. 检查结果
 5. PROGRESS.md 更新摘要
