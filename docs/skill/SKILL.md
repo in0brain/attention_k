@@ -1,42 +1,39 @@
 ---
 
 name: reasoning-aware-attention-guidance
-description: Use this skill when developing the Reasoning-Aware Attention Guidance experiment. It guides Codex through small, staged implementation tasks for baseline CoT, candidate span extraction, NLI semantic necessity, semantic recoverability, trajectory stability, attention anchor labeling, oracle attention guidance, and probe-guided attention guidance. It must prevent premature work on model downloading, large-scale inference, hidden-state caching, attention steering, probe training, or paper-level evaluation unless explicitly allowed by the current task card.
---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+description: Use this skill when working on the Reasoning-Aware Attention Guidance project. This skill is only the entry point and document router. It tells Codex which project documents to read, how to resolve document priority, and where to find task-specific guidance. It does not define the sprint roadmap, canonical pipeline order, schema details, or current next task.
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 # Reasoning-Aware Attention Guidance Skill
 
-## 1. Purpose
+## 1. Role of This Skill
 
-This skill governs development of the **Reasoning-Aware Attention Guidance** experiment.
+This file is the Skill entry point for the project.
 
-The project is not a plain hallucination classifier.
-
-The project is also not merely key span discovery.
-
-The project aims to build a staged experimental pipeline:
+It only defines:
 
 ```text
-Token / Span Intervention
-→ Reasoning Dependency Discovery
-→ Attention Importance Hierarchy
-→ Attention Steering
-→ Stable Reasoning Trajectory
-→ Reduced Hallucination
+1. which documents Codex should read first
+2. where different kinds of project knowledge live
+3. how to resolve conflicts between documents
+4. when to use reference documents
+5. what this file must not contain
 ```
 
-The final experimental target is to discover and validate attention anchors for reasoning-time attention guidance.
-
-Expected downstream outputs include:
+This file does not define:
 
 ```text
-attention_importance_score
-attention_anchor_label
-guidance_action
-guidance_strength
+1. the current sprint roadmap
+2. the current next task
+3. the canonical pipeline order
+4. detailed jsonl schemas
+5. method definitions
+6. experiment stage details
+7. prompt templates
+8. implementation requirements
 ```
 
-NLI and recoverability are auxiliary signals for attention importance discovery. They are not the final goal.
+Those belong to the routed documents listed below.
 
 ---
 
@@ -51,519 +48,315 @@ docs/skill/SKILL.md
 docs/codex_tasks/<current_task_card>.md
 ```
 
-If the current task card explicitly requires additional skill subdocuments, read them after `docs/skill/SKILL.md`.
+The current task card is the direct execution boundary.
 
-Common skill subdocuments:
-
-```text
-docs/skill/codex_tasks.md
-docs/skill/experiment_guide.md
-docs/skill/method.md
-docs/skill/label_schema.md
-docs/skill/prompts.md
-```
-
-Do not read all subdocuments by default unless the current task card requires them.
+If the user gives a direct instruction that functions as the task card, Codex must treat the current user instruction as the direct execution boundary.
 
 ---
 
-## 3. Skill Subdocuments
+## 3. Document Router
 
-The following files provide lightweight execution knowledge.
+Use the following documents according to the task.
 
-```text
-docs/skill/codex_tasks.md
-Sprint route, task card rules, execution boundaries, and long-term roadmap.
+### 3.1 AGENTS.md
 
-docs/skill/experiment_guide.md
-Experiment flow, stage inputs and outputs, directory conventions, and running boundaries.
-
-docs/skill/method.md
-Method concepts, terminology boundaries, signal roles, and common misunderstandings.
-
-docs/skill/label_schema.md
-jsonl schemas, field meanings, allowed labels, and schema synchronization notes.
-
-docs/skill/prompts.md
-Reusable Codex prompt templates.
-```
-
-Default rule:
+Use for:
 
 ```text
-Read docs/skill/SKILL.md first.
-Read a subdocument only when the current task card asks for it or when it is directly relevant.
-Do not treat subdocuments as permission to expand scope.
-If a subdocument conflicts with the current task card, follow the current task card and report the conflict.
+Codex behavior rules
+Preflight rules
+environment rules
+file ownership rules
+coding style rules
+scope control
+progress update rules
+forbidden actions
 ```
+
+Do not duplicate AGENTS.md rules here.
+
+---
+
+### 3.2 PROGRESS.md
+
+Use for:
+
+```text
+current project state
+completed sprint summary
+latest runnable commands
+current unresolved issues
+next recommended sprint
+```
+
+PROGRESS.md is a current-state index, not a full historical log.
+
+Detailed progress history should live under:
+
+```text
+docs/progress/
+```
+
+---
+
+### 3.3 docs/codex_tasks/*.md
+
+Use for:
+
+```text
+the current sprint goal
+allowed files
+forbidden files
+required inputs
+expected outputs
+implementation details
+tests and checks
+completion format
+```
+
+The current task card has priority over general guidance documents.
+
+Do not start a sprint unless the user explicitly asks Codex to execute that sprint or provides a current task card.
+
+---
+
+### 3.4 docs/skill/codex_tasks.md
+
+Use for:
+
+```text
+task card conventions
+sprint execution rules
+Preflight expectations
+task splitting principles
+scope boundaries
+```
+
+This file may contain lightweight planning notes, but it is not the source of truth for the current sprint.
+
+If it conflicts with the current task card, follow the current task card and report the conflict.
+
+---
+
+### 3.5 docs/skill/experiment_guide.md
+
+Use for:
+
+```text
+experiment flow
+stage input and output relationships
+directory conventions
+stage boundaries
+running order when explicitly needed
+```
+
+This file explains the experiment process.
+
+It should not override the current task card.
+
+---
+
+### 3.6 docs/skill/method.md
+
+Use for:
+
+```text
+method concepts
+terminology
+signal roles
+conceptual boundaries
+common methodological misunderstandings
+```
+
+This file explains what concepts mean.
+
+It should not define current implementation scope.
+
+---
+
+### 3.7 docs/skill/label_schema.md
+
+Use for:
+
+```text
+jsonl schemas
+field names
+field meanings
+allowed enum values
+record examples
+schema synchronization notes
+```
+
+This file defines data formats.
+
+Code implementation still follows the current task card.
+
+---
+
+### 3.8 docs/skill/prompts.md
+
+Use for:
+
+```text
+reusable prompt templates
+structured output templates
+LLM instruction templates
+judge prompt templates
+recovery prompt templates
+```
+
+This file only provides reusable prompt text.
+
+Do not treat prompt templates as permission to call a model unless the current task card explicitly allows model usage.
+
+---
+
+### 3.9 docs/reference/*
+
+Use for:
+
+```text
+long-form project plans
+full experiment guides
+archived design documents
+background reference material
+```
+
+Reference documents are not read by default.
+
+They are only used when explicitly allowed.
 
 ---
 
 ## 4. Conflict Priority
 
-If instructions conflict, follow this priority:
-
-```text
-Current user instruction
-> Current task card
-> AGENTS.md
-> PROGRESS.md
-> docs/skill/SKILL.md
-> docs/skill/*.md
-> docs/skill/prompts.md
-> docs/reference/*
-```
-
-If Codex finds a conflict, it must:
-
-```text
-1. Report the conflict in Preflight.
-2. State which instruction it will follow.
-3. Record the conflict again in the final “Known Issues” or “遗留问题” section.
-```
+Conflict priority is defined in AGENTS.md.
 
 ---
 
 ## 5. Reference Documents Rule
 
-`docs/reference/*` contains long-term full reference documents.
-
-Do not use `docs/reference/*` as the default execution source.
+Do not read `docs/reference/*` by default.
 
 Only read `docs/reference/*` when:
 
 ```text
-1. The current task card explicitly requires it.
-2. The current user instruction explicitly asks for it.
-3. The current task is impossible to resolve without it and the user has approved using it.
+1. the current user instruction explicitly asks for it
+2. the current task card explicitly asks for it
+3. the current task cannot be completed without it and the user approves using it
 ```
 
 Even when reference documents are read, do not implement future-stage content unless the current task card explicitly permits it.
 
 ---
 
-## 6. Current Development Philosophy
+## 6. Subdocument Reading Rule
 
-Use small-step agile development.
+Do not read all `docs/skill/*.md` files by default.
 
-Each sprint must satisfy:
+Read a skill subdocument only when:
 
 ```text
-one goal
-few files
-clear input
-clear output
-clear command
-clear tests or checks
-PROGRESS.md update
-no automatic next sprint
+1. the current task card asks for it
+2. the current user instruction asks for it
+3. it is directly necessary to resolve the current task
 ```
 
-If a task card is too broad, stop and report that it should be split.
+If a subdocument is missing, report it in Preflight.
 
-Do not modify files outside the current task card unless the task would otherwise become unrunnable. If such a modification is necessary, report it before editing whenever possible.
+Do not invent missing document content.
 
 ---
 
-## 7. Current High-Level Roadmap
+## 7. Current Task Rule
 
-The current staged roadmap is:
-
-```text
-Sprint 0:
-Engineering foundation and Skill framework.
-
-Sprint 1:
-Baseline CoT and reasoning trajectory foundation.
-
-Sprint 2:
-Candidate Span and NLI semantic necessity.
-
-Sprint 3:
-Mask / Remove Intervention and semantic recoverability.
-
-Sprint 4:
-Trajectory stability and answer stability.
-
-Sprint 5:
-Attention importance hierarchy and attention anchor labeling.
-
-Sprint 6:
-Oracle attention guidance.
-
-Sprint 7:
-Probe-guided attention guidance.
-
-Sprint 8:
-Hallucination reduction evaluation.
-```
-
-Important stage boundaries:
+The current task is determined by:
 
 ```text
-Sprint 0 only builds engineering and documentation foundations.
-Sprint 1 may use stub or fixture outputs and should not require real model inference by default.
-Sprint 2 may use rule-based span extraction and NLI stub first.
-Sprint 3 may use recovery stub first.
-Do not implement attention guidance before Sprint 6.
-Do not train probes before Sprint 7.
-Do not run large-scale experiments unless a task card explicitly allows it.
+1. the current user instruction
+2. the current task card
+3. PROGRESS.md current-state index
 ```
+
+This file must not contain a hard-coded current next sprint.
+
+This file must not contain a fixed sprint roadmap.
+
+This file must not contain a canonical pipeline order.
 
 ---
 
-## 8. Current Scope Control
+## 8. Scope Rule
 
-Current work must be limited to the current sprint.
+Do not use this Skill file to expand the task scope.
 
-Do not start the next sprint automatically.
+If a routed document mentions future work, that future work is not allowed unless the current task card explicitly permits it.
 
-Do not implement any of the following unless the current task card explicitly asks:
-
-```text
-real model downloading
-real model inference
-external API calls
-large-scale data processing
-large-scale hidden-state caching
-large-scale attention-map caching
-trajectory stability scoring
-attention steering
-probe training
-paper-level evaluation
-```
-
-Especially do not implement the following during Sprint 0, Sprint 1, Sprint 2, or Sprint 3:
+Examples:
 
 ```text
-oracle attention guidance
-probe-guided attention guidance
+A schema document may mention future records.
+A method document may mention attention guidance.
+A reference plan may mention probe training.
 ```
+
+These mentions are informational only.
+
+They are not execution permission.
 
 ---
 
-## 9. Data Format Rule
+## 9. Preflight Routing Checklist
 
-All intermediate experiment artifacts should use:
-
-```text
-jsonl
-```
-
-Each line must be one valid JSON object.
-
-Do not use the following as primary intermediate formats:
+Before modifying files, Codex should use this routing checklist:
 
 ```text
-csv
-excel
-pickle
-sqlite
-parquet
+1. Read AGENTS.md.
+2. Read PROGRESS.md.
+3. Read docs/skill/SKILL.md.
+4. Read the current task card.
+5. Read only the additional documents requested by the task card.
+6. Report any missing required documents.
+7. Report any conflicts between the task card and other documents.
+8. Follow the current task card unless the current user instruction overrides it.
 ```
 
-Binary tensor files such as `.pt` are allowed only for hidden states or attention maps when the task card explicitly permits caching.
-
-Large tensors must not be embedded directly into jsonl records. Store paths in manifest files instead.
-
-Detailed schemas are defined in:
-
-```text
-docs/skill/label_schema.md
-```
-
-Do not duplicate full schema definitions in this file.
+The detailed Preflight format is defined in AGENTS.md and/or the current task card.
 
 ---
 
-## 10. Canonical File Flow
+## 10. What This File Must Not Contain
 
-The full target pipeline is:
+This file must not contain:
 
 ```text
-data/examples/questions_small.jsonl
-→ data/processed/questions.jsonl
-→ data/processed/baseline_cot.jsonl
-→ data/processed/baseline_trajectory_manifest.jsonl
-→ data/processed/candidate_spans.jsonl
-→ data/processed/ablated_questions.jsonl
-→ data/processed/nli_scores.jsonl
-→ data/processed/masked_questions.jsonl
-→ data/processed/recover_outputs.jsonl
-→ data/processed/recover_scores.jsonl
-→ data/processed/intervention_manifest.jsonl
-→ data/processed/trajectory_stability_scores.jsonl
-→ data/processed/answer_stability_scores.jsonl
-→ data/processed/attention_anchor_labels.jsonl
-→ data/processed/oracle_guidance_results.jsonl
-→ data/processed/probe_guidance_results.jsonl
-→ outputs/evaluation/*
+1. a hard-coded sprint roadmap
+2. a hard-coded current next sprint
+3. a canonical file flow
+4. detailed schema definitions
+5. full method explanations
+6. full prompt templates
+7. implementation instructions for a specific sprint
+8. claims about experimental results
+9. instructions to call real models
+10. instructions to train probes
+11. instructions to run attention guidance
 ```
 
-Do not skip earlier files unless the current task card explicitly provides a replacement input.
-
-Do not create future-stage files before the corresponding sprint.
+If any of the above is needed, put it in the appropriate routed document instead.
 
 ---
 
-## 11. Core Method Boundaries
+## 11. Minimal Completion Principle
 
-### 11.1 Candidate Span
+A sprint is complete only according to the current task card.
 
-Candidate span extraction only identifies possible reasoning-relevant spans.
+This Skill file does not define sprint completion criteria.
 
-It does not determine final importance.
-
-It does not produce attention anchors.
-
-### 11.2 NLI Semantic Necessity
-
-NLI semantic necessity estimates whether deleting, generalizing, or replacing a span changes the question semantics.
-
-NLI is an auxiliary signal.
-
-It does not replace recoverability, trajectory stability, answer stability, or attention steering.
-
-### 11.3 Semantic Recoverability
-
-Semantic recoverability estimates whether a masked span can be stably recovered from context.
-
-Recovery must recover the question only.
-
-Do not solve the problem inside recovery prompts.
-
-### 11.4 Trajectory Stability
-
-Trajectory stability studies whether span intervention changes the model’s reasoning trajectory.
-
-Do not implement it before the corresponding task card.
-
-### 11.5 Attention Anchor Labeling
-
-Attention anchor labeling combines multiple signals into:
+Completion criteria should be read from:
 
 ```text
-attention_importance_score
-attention_anchor_label
-guidance_action
-guidance_strength
+docs/codex_tasks/<current_task_card>.md
 ```
 
-Do not decide anchor labels from a single signal alone.
-
-### 11.6 Attention Guidance
-
-Attention guidance is a later validation and intervention stage.
-
-Oracle guidance validates whether known anchors help.
-
-Probe-guided guidance is a later automatic method.
-
-Do not implement either early.
-
----
-
-## 12. Common Misunderstandings
-
-Avoid the following mistakes:
-
-```text
-NLI is the final task.
-Recoverability is the final task.
-Key span discovery is the final task.
-A hallucination classifier is the project goal.
-Information Loss automatically means Strong Anchor.
-Non-recoverable automatically means Strong Anchor.
-Equivalent automatically means Distractor.
-High raw attention automatically means important.
-Low raw attention automatically means unimportant.
-Oracle guidance is the deployable final method.
-Probe training can start before anchor labels are stable.
-```
-
-Correct principle:
-
-```text
-Multiple signals form evidence.
-Evidence supports attention_importance_score.
-attention_importance_score supports attention_anchor_label.
-attention_anchor_label supports guidance_action and guidance_strength.
-Attention guidance experiments validate whether those labels are useful.
-```
-
----
-
-## 13. Environment Rules
-
-Default environment:
-
-```text
-conda env: recover_attention
-python: 3.10
-```
-
-Dependency installation must use:
-
-```bash
-python -m pip install -r requirements.txt
-```
-
-Testing must use:
-
-```bash
-python -m pytest -q
-```
-
-Do not use:
-
-```bash
-pip install ...
-pytest -q
-```
-
-Do not use:
-
-```text
-.venv
-```
-
-unless the user explicitly changes the environment plan.
-
-If Python or pip points to the wrong environment, stop and report.
-
----
-
-## 14. Preflight Rule
-
-Before modifying files, Codex must output a Preflight.
-
-Preflight must include:
-
-```text
-1. Files read
-2. Files allowed to modify
-3. Files forbidden to modify
-4. Commands to run
-5. Whether docs/reference/* is needed
-6. Detected conflicts, if any
-```
-
-After Preflight, Codex must pause and wait for user confirmation.
-
-Do not modify files before confirmation.
-
----
-
-## 15. File Ownership Rules
-
-Human-maintained files:
-
-```text
-README.md
-AGENTS.md
-docs/skill/SKILL.md
-docs/skill/*.md
-docs/reference/*
-```
-
-Codex may modify these only when the current user instruction and current task card explicitly allow it.
-
-Codex-maintained file:
-
-```text
-PROGRESS.md
-```
-
-Update after every completed sprint.
-
-Task-card-controlled files:
-
-```text
-Only modify files listed in the current task card.
-```
-
----
-
-## 16. Progress Update Rule
-
-After completing a sprint, update `PROGRESS.md` with:
-
-```text
-sprint name
-completed work
-new or modified files
-input files
-output files
-commands run
-test/check results
-known issues
-next recommended sprint
-```
-
-Keep PROGRESS.md concise.
-Use PROGRESS.md as the current-state index.
-Archive detailed sprint logs under docs/progress/.
-Do not let PROGRESS.md grow indefinitely.
-
-Do not claim research conclusions without real outputs.
-
-Do not claim attention guidance improves performance unless an actual guidance evaluation has been run.
-
----
-
-## 17. Error Handling Rule
-
-If expected inputs are missing:
-
-```text
-1. Do not invent experimental data.
-2. Report the missing file.
-3. If the task card allows sample creation, create only the specified minimal sample.
-4. Otherwise stop and ask for the required input.
-```
-
-If a command fails:
-
-```text
-1. Do not continue to the next stage.
-2. Report the failed command.
-3. Report the error message.
-4. Report the current Python path.
-5. Report modified files.
-6. Do not expand the modification scope without user approval.
-```
-
-If a reference document is missing:
-
-```text
-1. Do not invent it.
-2. Continue only if it is not required for the current task.
-3. Record that it was absent.
-```
-
----
-
-## 18. Acceptance Philosophy
-
-A sprint is complete only when:
-
-```text
-the requested files exist
-the requested command runs
-the output format matches the relevant schema
-the tests or smoke checks pass
-PROGRESS.md is updated
-no next-stage work was started
-```
-
-Partial implementation is acceptable only if clearly recorded in `PROGRESS.md`.
-
----
-
-## 19. Current Next Step
-
-The current next step should be determined from `PROGRESS.md` and the current user instruction.
-
-Do not rely on a hard-coded “Current Next Sprint” in this file.
-
-Do not start any sprint unless the user explicitly asks.
+or from the current user instruction when it acts as the task card.

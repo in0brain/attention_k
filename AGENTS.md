@@ -49,85 +49,11 @@ attention_anchor_label
 guidance_action
 guidance_strength
 ```
-
 ---
 
-## 2. 当前实验边界
+## 2. Codex 工作原则
 
-当前项目采用小步 sprint 推进。
-
-当前已经完成 Sprint 0 的工程基础，包括：
-
-```text
-jsonl 数据读写
-样例数据
-smoke test
-schema 校验
-prepare_data
-基础环境验收
-```
-
-当前优先事项是：
-
-```text
-1. 对齐 docs/skill/* 文档主线。
-2. 对齐 schema 与新版 attention anchor 标签体系。
-3. 再进入 baseline CoT、candidate span、NLI、recoverability 等后续阶段。
-```
-
-不要直接跳到 attention guidance 或 probe training。
-
----
-
-## 3. 高层路线
-
-当前高层路线为：
-
-```text
-Sprint 0:
-工程基础与 Skill 框架
-
-Sprint 1:
-Baseline CoT 与推理轨迹基础
-
-Sprint 2:
-Candidate Span 与 NLI 语义必要性
-
-Sprint 3:
-Mask / Remove Intervention 与 Semantic Recoverability
-
-Sprint 4:
-Trajectory Stability 与 Answer Stability
-
-Sprint 5:
-Attention Importance Hierarchy 与 Anchor Labeling
-
-Sprint 6:
-Oracle Attention Guidance
-
-Sprint 7:
-Probe-Guided Attention Guidance
-
-Sprint 8:
-Hallucination Reduction Evaluation
-```
-
-阶段边界：
-
-```text
-Sprint 0 只做工程和文档地基。
-Sprint 1 可以使用 stub / fixture，不默认调用真实模型。
-Sprint 2 可以先使用 rule-based span extraction 和 NLI stub。
-Sprint 3 可以先使用 recovery stub。
-Sprint 5 之前不要实现 attention guidance。
-Sprint 7 之前不要训练 probe。
-```
-
----
-
-## 4. Codex 工作原则
-
-### 4.1 小步迭代
+### 2.1 小步迭代
 
 每次只完成一个小 sprint。
 
@@ -141,7 +67,7 @@ Sprint 7 之前不要训练 probe。
 
 ---
 
-### 4.2 先 Preflight，后修改
+### 2.2 先 Preflight，后修改
 
 Codex 修改任何文件前，必须先输出 Preflight。
 
@@ -162,7 +88,7 @@ Preflight 输出后必须暂停，等待用户确认。
 
 ---
 
-### 4.3 保持可运行
+### 2.3 保持可运行
 
 每次修改后，必须保证当前项目仍然可以运行。
 
@@ -174,7 +100,7 @@ Preflight 输出后必须暂停，等待用户确认。
 
 ---
 
-### 4.4 统一数据格式
+### 2.4 统一数据格式
 
 所有中间结果默认使用：
 
@@ -200,7 +126,7 @@ hidden states 和 attention maps 这类大 tensor 可以在后续阶段保存为
 
 ---
 
-### 4.5 不要过度设计
+### 2.5 不要过度设计
 
 优先使用简单、清晰、可检查的实现。
 
@@ -214,7 +140,7 @@ hidden states 和 attention maps 这类大 tensor 可以在后续阶段保存为
 
 ---
 
-### 4.6 不要擅自调用模型
+### 2.6 不要擅自调用模型
 
 除非当前 sprint 明确要求，否则不要：
 
@@ -244,7 +170,7 @@ smoke test
 
 ---
 
-## 5. 必读文件规则
+## 3. 必读文件规则
 
 每次执行任务前，Codex 默认必须阅读：
 
@@ -283,7 +209,7 @@ docs/reference/*
 
 ---
 
-## 6. 冲突优先级
+## 4. 冲突优先级
 
 如果指令发生冲突，优先级为：
 
@@ -308,9 +234,9 @@ docs/reference/*
 
 ---
 
-## 7. 文件维护规则
+## 5. 文件维护规则
 
-### 7.1 README.md
+### 5.1 README.md
 
 README.md 是项目说明文件，由研究者维护。
 
@@ -320,7 +246,7 @@ Codex 不应主动重写 README.md。
 
 ---
 
-### 7.2 AGENTS.md
+### 5.2 AGENTS.md
 
 AGENTS.md 是 Codex 工作规则文件，由研究者维护。
 
@@ -330,7 +256,7 @@ Codex 不应主动重写 AGENTS.md。
 
 ---
 
-### 7.3 docs/skill/*
+### 5.3 docs/skill/*
 
 `docs/skill/*` 是 Skill 框架文档，由研究者维护。
 
@@ -360,7 +286,7 @@ docs/skill/prompts.md:
 
 ---
 
-### 7.4 docs/reference/*
+### 5.4 docs/reference/*
 
 `docs/reference/*` 是长期完整参考文档。
 
@@ -370,7 +296,7 @@ Codex 不应默认阅读或修改。
 
 ---
 
-### 7.5 PROGRESS.md
+### 5.5 PROGRESS.md
 
 PROGRESS.md 是实验进度记录文件，由 Codex 每轮任务完成后更新。
 
@@ -403,7 +329,7 @@ Codex 更新 PROGRESS.md 时应保持简洁，避免无限追加长篇日志。
 
 ---
 
-## 8. 代码风格规则
+## 6. 代码风格规则
 
 1. Python 版本默认使用 3.10+。
 2. 所有脚本必须支持命令行参数。
@@ -419,7 +345,7 @@ Codex 更新 PROGRESS.md 时应保持简洁，避免无限追加长篇日志。
 
 ---
 
-## 9. 环境与命令规则
+## 7. 环境与命令规则
 
 当前推荐环境：
 
@@ -459,7 +385,7 @@ pytest -q
 
 ---
 
-## 10. 推荐目录结构
+## 8. 推荐目录结构
 
 ```text
 recover_attention_project/
@@ -538,7 +464,7 @@ recover_attention_project/
 
 ---
 
-## 11. Sprint 完成后回复格式
+## 9. Sprint 完成后回复格式
 
 每次完成任务后，请按照以下格式回复用户：
 
@@ -563,34 +489,7 @@ git status --short
 
 ---
 
-## 12. 当前优先级
-
-当前最高优先级：
-
-```text
-稳定工程框架
-对齐 Skill 文档主线
-统一 jsonl 格式
-明确 schema
-跑通最小可验收文件流
-保证每一步可验收
-```
-
-当前最低优先级：
-
-```text
-模型效果
-大规模实验
-复杂算法
-性能优化
-attention guidance
-probe 训练
-hidden state 大规模分析
-```
-
----
-
-## 13. 禁止事项清单
+## 10. 禁止事项清单
 
 除非当前 task card 明确允许，否则不要做：
 

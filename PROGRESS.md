@@ -23,7 +23,7 @@ Token / Span Intervention
 
 ```text
 Sprint 0H 已完成。
-下一步是 Sprint 1A：Baseline CoT Schema。
+下一步是 Sprint 1A：Candidate Span Extraction，Baseline CoT / trajectory 相关模块后移到 reasoning-risk 或 trajectory 分析阶段，不作为 Sprint 1 起点。
 ```
 
 当前不做：
