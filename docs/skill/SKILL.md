@@ -500,6 +500,11 @@ known issues
 next recommended sprint
 ```
 
+Keep PROGRESS.md concise.
+Use PROGRESS.md as the current-state index.
+Archive detailed sprint logs under docs/progress/.
+Do not let PROGRESS.md grow indefinitely.
+
 Do not claim research conclusions without real outputs.
 
 Do not claim attention guidance improves performance unless an actual guidance evaluation has been run.

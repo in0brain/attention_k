@@ -9,6 +9,7 @@ from typing import Any
 ALLOWED_SPAN_TYPES = {
     "number",
     "entity",
+    "object",
     "operation",
     "relation",
     "question_target",
@@ -18,7 +19,7 @@ ALLOWED_SPAN_TYPES = {
     "cyber_security_term",
 }
 
-ALLOWED_ABLATION_TYPES = {"delete", "generalize", "mask"}
+ALLOWED_ABLATION_TYPES = {"delete", "generalize", "replace", "mask"}
 ALLOWED_NLI_LABELS = {"entailment", "neutral", "contradiction"}
 ALLOWED_SEMANTIC_NECESSITY_LABELS = {
     "Equivalent",
@@ -32,6 +33,19 @@ ALLOWED_RECOVERABILITY_LABELS = {
     "Partially Recoverable",
     "Non-recoverable",
     "Misleading Recovery",
+}
+ALLOWED_ATTENTION_ANCHOR_LABELS = {
+    "Strong Anchor",
+    "Medium Anchor",
+    "Weak Anchor",
+    "Risky Anchor",
+    "Distractor",
+}
+ALLOWED_GUIDANCE_ACTIONS = {
+    "boost",
+    "suppress",
+    "keep",
+    "review",
 }
 
 
@@ -199,6 +213,35 @@ def validate_recover_score_record(record: dict) -> None:
     _require_bool(record, "misleading_recovery", name)
 
 
+def validate_attention_anchor_label_record(record: dict) -> None:
+    name = "attention anchor label record"
+    _require_dict(record, name)
+    _require_fields(
+        record,
+        [
+            "id",
+            "span_id",
+            "span_text",
+            "span_type",
+            "attention_importance_score",
+            "attention_anchor_label",
+            "guidance_action",
+            "guidance_strength",
+            "evidence",
+        ],
+        name,
+    )
+    _require_non_empty_str(record, "id", name)
+    _require_non_empty_str(record, "span_id", name)
+    _require_non_empty_str(record, "span_text", name)
+    _require_enum(record, "span_type", ALLOWED_SPAN_TYPES, name)
+    _require_number(record, "attention_importance_score", name, min_value=0, max_value=1)
+    _require_enum(record, "attention_anchor_label", ALLOWED_ATTENTION_ANCHOR_LABELS, name)
+    _require_enum(record, "guidance_action", ALLOWED_GUIDANCE_ACTIONS, name)
+    _require_number(record, "guidance_strength", name, min_value=0, max_value=1)
+    _require_dict_or_list(record, "evidence", name)
+
+
 def _require_dict(record: Any, name: str) -> None:
     if not isinstance(record, dict):
         raise ValueError(f"{name} must be a dict")
@@ -263,3 +306,8 @@ def _require_number(
 def _require_bool(record: dict, field: str, name: str) -> None:
     if not isinstance(record[field], bool):
         raise ValueError(f"{name} field '{field}' must be a bool")
+
+
+def _require_dict_or_list(record: dict, field: str, name: str) -> None:
+    if not isinstance(record[field], (dict, list)):
+        raise ValueError(f"{name} field '{field}' must be a dict or list")

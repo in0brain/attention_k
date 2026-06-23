@@ -346,7 +346,7 @@ Sprint 0 总结：
 
 下一步建议：
 
-- Sprint 1A：candidate span extraction
+- Sprint 0F：文档主线对齐与下一阶段任务准备
 ```
 
-不要自动开始 Sprint 1A。
+不要自动开始 Sprint 0F。
