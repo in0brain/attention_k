@@ -31,6 +31,12 @@ ALLOWED_SEMANTIC_NECESSITY_LABELS = {
     "Added Assumption",
     "Non-equivalent",
 }
+ALLOWED_SEMANTIC_LABEL_BACKENDS = {"rule_v0"}
+REQUIRED_SEMANTIC_RULE_PARAMETERS = {
+    "equivalent_threshold",
+    "directional_entailment_threshold",
+    "contradiction_threshold",
+}
 ALLOWED_RECOVERABLE_VALUES = {"yes", "no", "uncertain"}
 ALLOWED_RECOVERABILITY_LABELS = {
     "Recoverable",
@@ -299,6 +305,7 @@ def validate_nli_score_record(record: dict) -> None:
 
     _validate_nli_direction(record["forward"], "forward", name)
     _validate_nli_direction(record["backward"], "backward", name)
+    _validate_nli_direction_texts(record, name)
 
     forward_entailment = record["forward"]["scores"]["entailment"]
     backward_entailment = record["backward"]["scores"]["entailment"]
@@ -316,6 +323,123 @@ def validate_nli_score_record(record: dict) -> None:
         raise ValueError(
             f"{name} field 'contradiction_score' must equal "
             "max(forward contradiction, backward contradiction)"
+        )
+
+
+def validate_semantic_label_record(record: dict) -> None:
+    name = "semantic label record"
+    _require_dict(record, name)
+    _require_fields(
+        record,
+        [
+            "semantic_label_id",
+            "nli_id",
+            "ablation_id",
+            "id",
+            "unit_id",
+            "unit_scope",
+            "group_type",
+            "span_ids",
+            "spans",
+            "ablation_type",
+            "original_question",
+            "ablated_question",
+            "nli_backend",
+            "language",
+            "language_setting",
+            "forward",
+            "backward",
+            "bidirectional_entailment_score",
+            "contradiction_score",
+            "semantic_label_backend",
+            "semantic_necessity_label",
+            "semantic_necessity_score",
+            "is_semantically_necessary",
+            "rule_parameters",
+            "decision_reason",
+        ],
+        name,
+    )
+    _require_non_empty_str(record, "semantic_label_id", name)
+    _require_enum(record, "semantic_label_backend", ALLOWED_SEMANTIC_LABEL_BACKENDS, name)
+    expected_semantic_label_id = (
+        f"{record['nli_id']}__sem_{record['semantic_label_backend']}"
+    )
+    if record["semantic_label_id"] != expected_semantic_label_id:
+        raise ValueError(
+            f"{name} field 'semantic_label_id' must equal "
+            "f'{nli_id}__sem_{semantic_label_backend}'"
+        )
+
+    nli_record = {
+        field: record[field]
+        for field in [
+            "nli_id",
+            "ablation_id",
+            "id",
+            "unit_id",
+            "unit_scope",
+            "group_type",
+            "span_ids",
+            "spans",
+            "ablation_type",
+            "original_question",
+            "ablated_question",
+            "nli_backend",
+            "language",
+            "language_setting",
+            "forward",
+            "backward",
+            "bidirectional_entailment_score",
+            "contradiction_score",
+        ]
+    }
+    validate_nli_score_record(nli_record)
+
+    _require_enum(
+        record,
+        "semantic_necessity_label",
+        ALLOWED_SEMANTIC_NECESSITY_LABELS,
+        name,
+    )
+    _require_number(record, "semantic_necessity_score", name, min_value=0, max_value=1)
+    _require_bool(record, "is_semantically_necessary", name)
+    _require_dict(record["rule_parameters"], f"{name} rule_parameters")
+    _require_non_empty_str(record, "decision_reason", name)
+
+    expected_is_necessary = record["semantic_necessity_label"] != "Equivalent"
+    if record["is_semantically_necessary"] != expected_is_necessary:
+        raise ValueError(
+            f"{name} field 'is_semantically_necessary' must be false only for Equivalent"
+        )
+
+    missing_parameters = [
+        parameter
+        for parameter in sorted(REQUIRED_SEMANTIC_RULE_PARAMETERS)
+        if parameter not in record["rule_parameters"]
+    ]
+    if missing_parameters:
+        raise ValueError(
+            f"{name} rule_parameters missing required field(s): "
+            f"{', '.join(missing_parameters)}"
+        )
+    for parameter in sorted(REQUIRED_SEMANTIC_RULE_PARAMETERS):
+        _require_number(
+            record["rule_parameters"],
+            parameter,
+            f"{name} rule_parameters",
+            min_value=0,
+            max_value=1,
+        )
+
+    expected_score = round(
+        max(1.0 - record["bidirectional_entailment_score"], record["contradiction_score"]),
+        10,
+    )
+    if abs(record["semantic_necessity_score"] - expected_score) >= 1e-6:
+        raise ValueError(
+            f"{name} field 'semantic_necessity_score' must equal "
+            "max(1 - bidirectional_entailment_score, contradiction_score)"
         )
 
 
@@ -438,6 +562,17 @@ def _validate_nli_direction(direction_record: Any, direction: str, parent_name: 
 
     if abs(sum(scores.values()) - 1.0) >= 1e-6:
         raise ValueError(f"{score_name} values must sum to 1")
+
+
+def _validate_nli_direction_texts(record: dict, name: str) -> None:
+    if record["forward"]["premise"] != record["original_question"]:
+        raise ValueError(f"{name} forward premise must equal original_question")
+    if record["forward"]["hypothesis"] != record["ablated_question"]:
+        raise ValueError(f"{name} forward hypothesis must equal ablated_question")
+    if record["backward"]["premise"] != record["ablated_question"]:
+        raise ValueError(f"{name} backward premise must equal ablated_question")
+    if record["backward"]["hypothesis"] != record["original_question"]:
+        raise ValueError(f"{name} backward hypothesis must equal original_question")
 
 
 def _require_dict(record: Any, name: str) -> None:

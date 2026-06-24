@@ -21,6 +21,7 @@ from recover_attention.schemas import (
     validate_question_record,
     validate_recover_output_record,
     validate_recover_score_record,
+    validate_semantic_label_record,
 )
 
 
@@ -160,6 +161,24 @@ def valid_nli_score_record() -> dict:
         },
         "bidirectional_entailment_score": 0.35,
         "contradiction_score": 0.05,
+    }
+
+
+def valid_semantic_label_record() -> dict:
+    nli_record = valid_nli_score_record()
+    return {
+        "semantic_label_id": f"{nli_record['nli_id']}__sem_rule_v0",
+        **nli_record,
+        "semantic_label_backend": "rule_v0",
+        "semantic_necessity_label": "Information Loss",
+        "semantic_necessity_score": 0.65,
+        "is_semantically_necessary": True,
+        "rule_parameters": {
+            "equivalent_threshold": 0.70,
+            "directional_entailment_threshold": 0.50,
+            "contradiction_threshold": 0.50,
+        },
+        "decision_reason": "forward entails ablated but backward does not entail original",
     }
 
 
@@ -362,6 +381,17 @@ def test_nli_score_with_invalid_bidirectional_score_raises_value_error() -> None
         validate_nli_score_record(record)
 
 
+def test_nli_score_with_reversed_direction_texts_raises_value_error() -> None:
+    record = valid_nli_score_record()
+    record["forward"]["premise"] = record["ablated_question"]
+    record["forward"]["hypothesis"] = record["original_question"]
+    record["backward"]["premise"] = record["original_question"]
+    record["backward"]["hypothesis"] = record["ablated_question"]
+
+    with pytest.raises(ValueError, match="forward premise"):
+        validate_nli_score_record(record)
+
+
 def test_nli_score_with_semantic_necessity_label_raises_value_error() -> None:
     record = valid_nli_score_record()
     record["semantic_necessity_label"] = "Information Loss"
@@ -383,6 +413,52 @@ def test_old_directional_nli_score_record_raises_value_error() -> None:
 
     with pytest.raises(ValueError, match="forbidden field"):
         validate_nli_score_record(record)
+
+
+def test_valid_semantic_label_record_passes() -> None:
+    assert validate_semantic_label_record(valid_semantic_label_record()) is None
+
+
+def test_semantic_label_missing_semantic_label_id_raises_value_error() -> None:
+    record = valid_semantic_label_record()
+    del record["semantic_label_id"]
+
+    with pytest.raises(ValueError, match="missing required field"):
+        validate_semantic_label_record(record)
+
+
+def test_semantic_label_with_invalid_label_raises_value_error() -> None:
+    record = valid_semantic_label_record()
+    record["semantic_necessity_label"] = "Necessary"
+
+    with pytest.raises(ValueError, match="invalid value"):
+        validate_semantic_label_record(record)
+
+
+def test_semantic_label_with_wrong_score_raises_value_error() -> None:
+    record = valid_semantic_label_record()
+    record["semantic_necessity_score"] = 0.10
+
+    with pytest.raises(ValueError, match="semantic_necessity_score"):
+        validate_semantic_label_record(record)
+
+
+def test_semantic_label_equivalent_marked_necessary_raises_value_error() -> None:
+    record = valid_semantic_label_record()
+    record["semantic_necessity_label"] = "Equivalent"
+    record["is_semantically_necessary"] = True
+
+    with pytest.raises(ValueError, match="is_semantically_necessary"):
+        validate_semantic_label_record(record)
+
+
+def test_semantic_label_non_equivalent_marked_not_necessary_raises_value_error() -> None:
+    record = valid_semantic_label_record()
+    record["semantic_necessity_label"] = "Non-equivalent"
+    record["is_semantically_necessary"] = False
+
+    with pytest.raises(ValueError, match="is_semantically_necessary"):
+        validate_semantic_label_record(record)
 
 
 def test_valid_masked_question_record_passes() -> None:

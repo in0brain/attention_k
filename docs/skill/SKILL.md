@@ -241,6 +241,16 @@ NLI score 的长期接口文档，说明 nli_scores.jsonl schema、双向 NLI �
 
 ---
 
+### 3.8.4 docs/skill/semantic_labels_interface.md
+
+Use for:
+
+```text
+Semantic label interface for semantic_labels.jsonl, including rule_v0, thresholds, label enum, field sources, validation, and downstream consumption.
+```
+
+---
+
 ### 3.9 docs/reference/*
 
 Use for:

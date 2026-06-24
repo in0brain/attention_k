@@ -750,40 +750,78 @@ scores: dict with entailment / neutral / contradiction
 
 # 9. Semantic Label Record
 
-文件：
+Current stable interface:
+
+```text
+docs/skill/semantic_labels_interface.md
+```
+
+File:
 
 ```text
 data/processed/semantic_labels.jsonl
 ```
 
-用途：
+Purpose:
 
 ```text
-Semantic Label Record 是后续 Sprint 1E 的输出。
+Sprint 1E reads data/processed/nli_scores.jsonl and writes semantic necessity labels.
+nli_scores.jsonl remains score-only and does not contain semantic_necessity_label.
+semantic_labels.jsonl is the first current pipeline artifact that contains semantic_necessity_label.
 ```
 
-它读取：
+Required fields:
 
 ```text
-data/processed/nli_scores.jsonl
-```
-
-并根据以下字段构造 semantic necessity label：
-
-```text
-bidirectional_entailment_score
-contradiction_score
-ablation_type
+semantic_label_id
+nli_id
+ablation_id
+id
+unit_id
 unit_scope
 group_type
+span_ids
+spans
+ablation_type
+original_question
+ablated_question
+nli_backend
+language
+language_setting
+forward
+backward
+bidirectional_entailment_score
+contradiction_score
+semantic_label_backend
+semantic_necessity_label
+semantic_necessity_score
+is_semantically_necessary
+rule_parameters
+decision_reason
 ```
 
-说明：
+Current backend:
 
 ```text
-1. semantic_labels.jsonl 的完整 schema 将在 Sprint 1E 实现时由专用接口文档定义。
-2. Sprint 1D 不生成 semantic_labels.jsonl。
-3. Sprint 1D 不把 semantic_necessity_label 写入 nli_scores.jsonl。
+rule_v0
+```
+
+Allowed semantic_necessity_label values:
+
+```text
+Equivalent
+Information Loss
+Added Assumption
+Non-equivalent
+```
+
+Notes:
+
+```text
+1. semantic_label_id = f"{nli_id}__sem_{semantic_label_backend}".
+2. is_semantically_necessary = semantic_necessity_label != "Equivalent".
+3. semantic_necessity_score = round(max(1 - bidirectional_entailment_score, contradiction_score), 10).
+4. The full stable schema is defined in docs/skill/semantic_labels_interface.md.
 ```
 
 ---

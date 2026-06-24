@@ -288,3 +288,81 @@ group_type_counts: {'number_set': 10, 'repeated_surface': 10, 'single': 72}
 下一步建议：
 
 - Sprint 1E：Semantic Necessity Label Rule。
+
+## Sprint 1E：Semantic Necessity Label Rule
+
+已完成内容：
+
+- 实现 rule_v0 semantic necessity label rule。
+- 新增 `validate_semantic_label_record`，校验 1D 复制字段、forward/backward 方向、rule_v0、label enum、rule parameters、boolean consistency 和 semantic_necessity_score。
+- 新增 `src/recover_attention/semantic_labels.py`，提供单条和批量 semantic label 构造函数。
+- 新增 `scripts/06_build_semantic_labels.py` CLI。
+- 新增 `docs/skill/semantic_labels_interface.md` 并在 `docs/skill/SKILL.md` 中索引。
+- 更新 `docs/skill/label_schema.md` 的 Semantic Label Record 摘要。
+- 生成 `data/processed/semantic_labels.jsonl`。
+- 新增 semantic label pytest，并补充 schema validator pytest。
+
+新增或修改文件：
+
+- docs/skill/semantic_labels_interface.md
+- docs/skill/SKILL.md
+- docs/skill/label_schema.md
+- src/recover_attention/schemas.py
+- src/recover_attention/semantic_labels.py
+- scripts/06_build_semantic_labels.py
+- tests/test_semantic_labels.py
+- tests/test_schemas.py
+- data/processed/semantic_labels.jsonl
+- PROGRESS.md
+- docs/progress/sprint_1_history.md
+
+输入文件：
+
+- data/processed/nli_scores.jsonl
+
+输出文件：
+
+- data/processed/semantic_labels.jsonl
+
+运行命令：
+
+```bash
+conda run -n recover_attention python -c "import sys; print(sys.executable); print(sys.version)"
+conda run -n recover_attention python scripts/00_smoke_test.py --config configs/v0_nli_small.yaml
+conda run -n recover_attention python scripts/06_build_semantic_labels.py --input data/processed/nli_scores.jsonl --output data/processed/semantic_labels.jsonl --backend rule_v0 --equivalent-threshold 0.70 --directional-entailment-threshold 0.50 --contradiction-threshold 0.50
+conda run -n recover_attention python -m pytest -q
+```
+
+检查结果：
+
+- Python 路径：`D:\conda\Miniconda3\envs\recover_attention\python.exe`
+- Python 版本：`3.10.20`
+- smoke test 已通过，输出 `[OK] Sprint 0B smoke test passed.`
+- semantic label rule 已通过，生成 `data/processed/semantic_labels.jsonl`。
+- `python -m pytest -q` 已通过，结果为 `138 passed`。
+
+semantic label 数量统计：
+
+```text
+num_input_scores: 92
+num_output_labels: 92
+backend: rule_v0
+rule_parameters: {'equivalent_threshold': 0.7, 'directional_entailment_threshold': 0.5, 'contradiction_threshold': 0.5}
+semantic_necessity_label_counts: {'Information Loss': 90, 'Non-equivalent': 2}
+is_semantically_necessary_counts: {True: 92}
+ablation_type_counts: {'delete': 46, 'generalize': 46}
+unit_scope_counts: {'group': 20, 'single': 72}
+group_type_counts: {'number_set': 10, 'repeated_surface': 10, 'single': 72}
+language_counts: {'en': 92}
+```
+
+遗留问题：
+
+- 裸 `python` 当前指向 base conda：`D:\conda\Miniconda3\python.exe`；本轮使用 `conda run -n recover_attention python ...`。
+- Sprint 1D 历史记录中提到的 `label_schema.md` 旧 NLI label-in-score 遗留问题已在接口对齐和本轮 1E 中修正；当前 `label_schema.md` 已明确 `nli_scores.jsonl` 为 score-only。
+- 本轮未生成 masked_questions、recover_outputs、recover_scores、labels、token_labels 或 attention_anchor_labels。
+- 本轮未实现 recovery、trajectory、attention guidance 或 probe。
+
+下一步建议：
+
+- Sprint 1F：Masked Question Construction for Recoverability。
