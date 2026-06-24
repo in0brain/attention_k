@@ -539,42 +539,81 @@ data/processed/ablated_questions.jsonl
 用途：
 
 ```text
-记录对 candidate span 执行 delete / generalize / replace / mask 后得到的扰动问题。
+记录对 ablation unit 执行 delete / generalize 后得到的扰动问题。
 ```
+
+当前稳定接口以：
+
+```text
+docs/skill/ablated_questions_interface.md
+```
+
+为准。
+
+旧版 span-level schema 已废弃，不作为当前 pipeline 接口。
 
 示例：
 
 ```json
 {
+  "ablation_id": "gsm8k_0001__unit_001__generalize",
   "id": "gsm8k_0001",
-  "span_id": "span_001",
-  "span_text": "3",
-  "span_type": "number",
+  "unit_id": "unit_001",
+  "unit_scope": "single",
+  "group_type": "single",
+  "span_ids": ["span_001"],
+  "spans": [
+    {
+      "span_id": "span_001",
+      "text": "3",
+      "type": "number",
+      "start": 8,
+      "end": 9
+    }
+  ],
   "ablation_type": "generalize",
   "original_question": "Tom has 3 apples and buys 2 more. How many apples does he have now?",
-  "ablated_question": "Tom has some apples and buys 2 more. How many apples does he have now?"
+  "ablated_question": "Tom has some number apples and buys 2 more. How many apples does he have now?"
 }
 ```
 
 字段：
 
 ```text
+ablation_id: str, non-empty
 id: str, non-empty
-span_id: str, non-empty
-span_text: str, non-empty
-span_type: str, one of allowed span types
-ablation_type: str, one of allowed ablation types
+unit_id: str, non-empty
+unit_scope: single / group
+group_type: str, non-empty
+span_ids: non-empty list[str]
+spans: non-empty list[dict]
+ablation_type: delete / generalize
 original_question: str, non-empty
 ablated_question: str, non-empty
+```
+
+`spans` 中每个元素必须包含：
+
+```text
+span_id
+text
+type
+start
+end
 ```
 
 约束：
 
 ```text
-1. NLI 阶段优先使用 delete / generalize / replace。
-2. mask 可以存在，但 recover 阶段更常用 masked_questions.jsonl。
-3. ablated_question 不应为空。
-4. ablation record 不包含 NLI 结果。
+1. 每条 record 对应一个 ablation unit 和一种 ablation_type。
+2. 当前 Sprint 1C 只支持 delete / generalize。
+3. 顶层不再使用 span_id / span_text / span_type 表示 ablation 对象。
+4. span_ids 与 spans 的长度和顺序必须一致。
+5. original_question[start:end] 应等于 span["text"]。
+6. unit_scope = single 时 span_ids 长度为 1。
+7. unit_scope = group 时 span_ids 长度至少为 2。
+8. ablated_question 不应为空，也不应与 original_question 完全相同。
+9. ablation record 不包含 NLI 结果、semantic label、recoverability label 或 attention label。
 ```
 
 ---
@@ -590,87 +629,161 @@ data/processed/nli_scores.jsonl
 用途：
 
 ```text
-记录 original_question 与 ablated_question 的双向 NLI 结果和 semantic necessity 标签。
+记录 original_question 与 ablated_question 的双向 NLI 分数。
+```
+
+当前稳定接口以：
+
+```text
+docs/skill/nli_scores_interface.md
+```
+
+为准。
+
+`nli_scores.jsonl` 只保存 score-only 双向 NLI 结果。
+
+semantic necessity label 由后续 Sprint 1E 写入：
+
+```text
+data/processed/semantic_labels.jsonl
 ```
 
 示例：
 
 ```json
 {
+  "nli_id": "gsm8k_0001__unit_001__generalize__nli_stub_v0",
+  "ablation_id": "gsm8k_0001__unit_001__generalize",
   "id": "gsm8k_0001",
-  "span_id": "span_001",
-  "span_text": "3",
-  "span_type": "number",
+  "unit_id": "unit_001",
+  "unit_scope": "single",
+  "group_type": "single",
+  "span_ids": ["span_001"],
+  "spans": [
+    {
+      "span_id": "span_001",
+      "text": "3",
+      "type": "number",
+      "start": 8,
+      "end": 9
+    }
+  ],
   "ablation_type": "generalize",
-  "original_to_ablated": "entailment",
-  "ablated_to_original": "neutral",
-  "semantic_necessity_label": "Information Loss"
+  "original_question": "Tom has 3 apples and buys 2 more.",
+  "ablated_question": "Tom has some number apples and buys 2 more.",
+  "nli_backend": "stub_v0",
+  "language": "en",
+  "language_setting": "auto",
+  "forward": {
+    "premise": "Tom has 3 apples and buys 2 more.",
+    "hypothesis": "Tom has some number apples and buys 2 more.",
+    "label": "entailment",
+    "scores": {
+      "entailment": 0.75,
+      "neutral": 0.2,
+      "contradiction": 0.05
+    }
+  },
+  "backward": {
+    "premise": "Tom has some number apples and buys 2 more.",
+    "hypothesis": "Tom has 3 apples and buys 2 more.",
+    "label": "neutral",
+    "scores": {
+      "entailment": 0.35,
+      "neutral": 0.6,
+      "contradiction": 0.05
+    }
+  },
+  "bidirectional_entailment_score": 0.35,
+  "contradiction_score": 0.05
 }
 ```
 
 字段：
 
 ```text
+nli_id: str, non-empty
+ablation_id: str, non-empty
 id: str, non-empty
-span_id: str, non-empty
-span_text: str, non-empty
-span_type: str, one of allowed span types
-ablation_type: str, one of allowed ablation types
-original_to_ablated: str, one of entailment/neutral/contradiction
-ablated_to_original: str, one of entailment/neutral/contradiction
-semantic_necessity_label: str, one of allowed semantic necessity labels
+unit_id: str, non-empty
+unit_scope: single / group
+group_type: str, non-empty
+span_ids: non-empty list[str]
+spans: non-empty list[dict]
+ablation_type: delete / generalize
+original_question: str, non-empty
+ablated_question: str, non-empty
+nli_backend: str, currently stub_v0
+language: en / zh
+language_setting: auto / en / zh
+forward: dict
+backward: dict
+bidirectional_entailment_score: number, 0 <= score <= 1
+contradiction_score: number, 0 <= score <= 1
 ```
 
-可选字段：
+`forward` 和 `backward` 字段：
 
 ```text
-nli_backend: str
-confidence: number, 0 <= confidence <= 1
-reason: str
+premise: str, non-empty
+hypothesis: str, non-empty
+label: entailment / neutral / contradiction
+scores: dict with entailment / neutral / contradiction
 ```
 
 约束：
 
 ```text
-1. NLI score record 不包含 recoverability。
-2. NLI score record 不包含 attention anchor label。
-3. NLI 只是 attention importance discovery 的辅助信号。
+1. 每条 record 对应一条 ablated question record。
+2. forward 表示 original_question → ablated_question。
+3. backward 表示 ablated_question → original_question。
+4. scores 中每个 score 必须在 [0, 1]，并且总和接近 1。
+5. bidirectional_entailment_score = min(forward entailment, backward entailment)。
+6. contradiction_score = max(forward contradiction, backward contradiction)。
+7. nli_scores.jsonl 不包含 semantic_necessity_label。
+8. NLI score record 不包含 recoverability。
+9. NLI score record 不包含 attention anchor label。
+10. NLI 只是 attention importance discovery 的辅助信号。
 ```
 
 ---
 
-# 9. NLI 双向标签规则
+# 9. Semantic Label Record
 
-规则如下：
+文件：
 
 ```text
-original_to_ablated = entailment
-ablated_to_original = entailment
-=> Equivalent
+data/processed/semantic_labels.jsonl
 ```
 
+用途：
+
 ```text
-original_to_ablated = entailment
-ablated_to_original != entailment
-=> Information Loss
+Semantic Label Record 是后续 Sprint 1E 的输出。
 ```
 
+它读取：
+
 ```text
-original_to_ablated != entailment
-ablated_to_original = entailment
-=> Added Assumption
+data/processed/nli_scores.jsonl
 ```
 
+并根据以下字段构造 semantic necessity label：
+
 ```text
-original_to_ablated != entailment
-ablated_to_original != entailment
-=> Non-equivalent
+bidirectional_entailment_score
+contradiction_score
+ablation_type
+unit_scope
+group_type
 ```
 
-其中：
+说明：
 
 ```text
-neutral 和 contradiction 都属于 non-entailment。
+1. semantic_labels.jsonl 的完整 schema 将在 Sprint 1E 实现时由专用接口文档定义。
+2. Sprint 1D 不生成 semantic_labels.jsonl。
+3. Sprint 1D 不把 semantic_necessity_label 写入 nli_scores.jsonl。
 ```
 
 ---

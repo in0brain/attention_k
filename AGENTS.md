@@ -269,7 +269,7 @@ docs/skill/SKILL.md:
 Skill 总入口和路由规则。
 
 docs/skill/codex_tasks.md:
-Sprint 路线和 task card 规范。
+task card 写法规范、拆分原则和验收格式。
 
 docs/skill/experiment_guide.md:
 实验流程、阶段输入输出和运行边界。

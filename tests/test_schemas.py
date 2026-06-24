@@ -13,6 +13,7 @@ if str(SRC_DIR) not in sys.path:
 
 from recover_attention.schemas import (
     validate_ablated_question_record,
+    validate_ablation_unit_record,
     validate_attention_anchor_label_record,
     validate_candidate_span_record,
     validate_masked_question_record,
@@ -54,15 +55,51 @@ def valid_candidate_span_record_with_object() -> dict:
     return record
 
 
-def valid_ablated_question_record() -> dict:
+def valid_ablation_unit_record() -> dict:
     return {
         "id": "gsm8k_0001",
-        "span_id": "span_001",
-        "span_text": "3",
-        "span_type": "number",
+        "question": "Tom has 3 apples and buys 2 more. How many apples does he have now?",
+        "units": [
+            {
+                "unit_id": "unit_001",
+                "unit_scope": "single",
+                "group_type": "single",
+                "span_ids": ["span_001"],
+                "spans": [
+                    {
+                        "span_id": "span_001",
+                        "text": "3",
+                        "type": "number",
+                        "start": 8,
+                        "end": 9,
+                    }
+                ],
+                "reason": "single candidate span",
+            }
+        ],
+    }
+
+
+def valid_ablated_question_record() -> dict:
+    return {
+        "ablation_id": "gsm8k_0001__unit_001__generalize",
+        "id": "gsm8k_0001",
+        "unit_id": "unit_001",
+        "unit_scope": "single",
+        "group_type": "single",
+        "span_ids": ["span_001"],
+        "spans": [
+            {
+                "span_id": "span_001",
+                "text": "3",
+                "type": "number",
+                "start": 8,
+                "end": 9,
+            }
+        ],
         "ablation_type": "generalize",
         "original_question": "Tom has 3 apples and buys 2 more. How many apples does he have now?",
-        "ablated_question": "Tom has some apples and buys 2 more. How many apples does he have now?",
+        "ablated_question": "Tom has some number apples and buys 2 more. How many apples does he have now?",
     }
 
 
@@ -72,16 +109,57 @@ def valid_ablated_question_record_with_replace() -> dict:
     return record
 
 
-def valid_nli_score_record() -> dict:
+def old_span_level_ablated_question_record() -> dict:
     return {
         "id": "gsm8k_0001",
         "span_id": "span_001",
         "span_text": "3",
         "span_type": "number",
         "ablation_type": "generalize",
-        "original_to_ablated": "entailment",
-        "ablated_to_original": "neutral",
-        "semantic_necessity_label": "Information Loss",
+        "original_question": "Tom has 3 apples and buys 2 more. How many apples does he have now?",
+        "ablated_question": "Tom has some number apples and buys 2 more. How many apples does he have now?",
+    }
+
+
+def valid_nli_score_record() -> dict:
+    ablated_record = valid_ablated_question_record()
+    return {
+        "nli_id": "gsm8k_0001__unit_001__generalize__nli_stub_v0",
+        "ablation_id": ablated_record["ablation_id"],
+        "id": ablated_record["id"],
+        "unit_id": ablated_record["unit_id"],
+        "unit_scope": ablated_record["unit_scope"],
+        "group_type": ablated_record["group_type"],
+        "span_ids": list(ablated_record["span_ids"]),
+        "spans": [dict(span) for span in ablated_record["spans"]],
+        "ablation_type": ablated_record["ablation_type"],
+        "original_question": ablated_record["original_question"],
+        "ablated_question": ablated_record["ablated_question"],
+        "nli_backend": "stub_v0",
+        "language": "en",
+        "language_setting": "auto",
+        "forward": {
+            "premise": ablated_record["original_question"],
+            "hypothesis": ablated_record["ablated_question"],
+            "label": "entailment",
+            "scores": {
+                "entailment": 0.75,
+                "neutral": 0.20,
+                "contradiction": 0.05,
+            },
+        },
+        "backward": {
+            "premise": ablated_record["ablated_question"],
+            "hypothesis": ablated_record["original_question"],
+            "label": "neutral",
+            "scores": {
+                "entailment": 0.35,
+                "neutral": 0.60,
+                "contradiction": 0.05,
+            },
+        },
+        "bidirectional_entailment_score": 0.35,
+        "contradiction_score": 0.05,
     }
 
 
@@ -181,8 +259,49 @@ def test_candidate_span_with_end_before_start_raises_value_error() -> None:
         validate_candidate_span_record(record)
 
 
+def test_valid_ablation_unit_record_passes() -> None:
+    assert validate_ablation_unit_record(valid_ablation_unit_record()) is None
+
+
+def test_ablation_unit_record_with_empty_units_passes() -> None:
+    record = valid_ablation_unit_record()
+    record["units"] = []
+
+    assert validate_ablation_unit_record(record) is None
+
+
+def test_ablation_unit_group_with_one_span_raises_value_error() -> None:
+    record = valid_ablation_unit_record()
+    record["units"][0]["unit_scope"] = "group"
+    record["units"][0]["group_type"] = "number_set"
+
+    with pytest.raises(ValueError, match="at least two spans"):
+        validate_ablation_unit_record(record)
+
+
+def test_ablation_unit_offset_mismatch_raises_value_error() -> None:
+    record = valid_ablation_unit_record()
+    record["units"][0]["spans"][0]["text"] = "4"
+
+    with pytest.raises(ValueError, match="offsets"):
+        validate_ablation_unit_record(record)
+
+
 def test_valid_ablated_question_record_passes() -> None:
     assert validate_ablated_question_record(valid_ablated_question_record()) is None
+
+
+def test_ablated_question_missing_ablation_id_raises_value_error() -> None:
+    record = valid_ablated_question_record()
+    del record["ablation_id"]
+
+    with pytest.raises(ValueError, match="missing required field"):
+        validate_ablated_question_record(record)
+
+
+def test_old_span_level_ablated_question_record_raises_value_error() -> None:
+    with pytest.raises(ValueError, match="forbidden field"):
+        validate_ablated_question_record(old_span_level_ablated_question_record())
 
 
 def test_ablated_question_with_invalid_ablation_type_raises_value_error() -> None:
@@ -194,18 +313,75 @@ def test_ablated_question_with_invalid_ablation_type_raises_value_error() -> Non
 
 
 def test_ablated_question_with_replace_ablation_type_passes() -> None:
-    assert validate_ablated_question_record(valid_ablated_question_record_with_replace()) is None
+    with pytest.raises(ValueError, match="invalid value"):
+        validate_ablated_question_record(valid_ablated_question_record_with_replace())
+
+
+def test_ablated_question_with_offset_mismatch_raises_value_error() -> None:
+    record = valid_ablated_question_record()
+    record["spans"][0]["text"] = "4"
+
+    with pytest.raises(ValueError, match="offsets"):
+        validate_ablated_question_record(record)
+
+
+def test_ablated_question_with_unchanged_question_raises_value_error() -> None:
+    record = valid_ablated_question_record()
+    record["ablated_question"] = record["original_question"]
+
+    with pytest.raises(ValueError, match="differ"):
+        validate_ablated_question_record(record)
+
+
+def test_ablated_question_group_with_one_span_raises_value_error() -> None:
+    record = valid_ablated_question_record()
+    record["unit_scope"] = "group"
+    record["group_type"] = "number_set"
+
+    with pytest.raises(ValueError, match="at least two spans"):
+        validate_ablated_question_record(record)
 
 
 def test_valid_nli_score_record_passes() -> None:
     assert validate_nli_score_record(valid_nli_score_record()) is None
 
 
-def test_nli_score_with_invalid_semantic_necessity_label_raises_value_error() -> None:
+def test_nli_score_with_invalid_backend_raises_value_error() -> None:
     record = valid_nli_score_record()
-    record["semantic_necessity_label"] = "Important"
+    record["nli_backend"] = "hf_xnli"
 
     with pytest.raises(ValueError, match="invalid value"):
+        validate_nli_score_record(record)
+
+
+def test_nli_score_with_invalid_bidirectional_score_raises_value_error() -> None:
+    record = valid_nli_score_record()
+    record["bidirectional_entailment_score"] = 0.99
+
+    with pytest.raises(ValueError, match="bidirectional_entailment_score"):
+        validate_nli_score_record(record)
+
+
+def test_nli_score_with_semantic_necessity_label_raises_value_error() -> None:
+    record = valid_nli_score_record()
+    record["semantic_necessity_label"] = "Information Loss"
+
+    with pytest.raises(ValueError, match="forbidden field"):
+        validate_nli_score_record(record)
+
+
+def test_old_directional_nli_score_record_raises_value_error() -> None:
+    record = {
+        "id": "gsm8k_0001",
+        "span_id": "span_001",
+        "span_text": "3",
+        "span_type": "number",
+        "ablation_type": "generalize",
+        "original_to_ablated": "entailment",
+        "ablated_to_original": "neutral",
+    }
+
+    with pytest.raises(ValueError, match="forbidden field"):
         validate_nli_score_record(record)
 
 

@@ -23,7 +23,10 @@ question
 → baseline CoT generation
 → hidden states / attention maps cache
 → candidate span extraction
-→ NLI semantic necessity scoring
+→ ablation unit construction
+→ ablated question construction
+→ NLI semantic consistency scoring
+→ semantic necessity label rule
 → mask / remove intervention
 → semantic recoverability scoring
 → trajectory stability scoring
@@ -108,11 +111,14 @@ data/examples/questions_small.jsonl
 → data/processed/baseline_cot.jsonl
 → data/processed/baseline_trajectory_manifest.jsonl
 → data/processed/candidate_spans.jsonl
+→ data/processed/ablation_units.jsonl
 → data/processed/ablated_questions.jsonl
 → data/processed/nli_scores.jsonl
+→ data/processed/semantic_labels.jsonl
 → data/processed/masked_questions.jsonl
 → data/processed/recover_outputs.jsonl
 → data/processed/recover_scores.jsonl
+→ data/processed/labels.jsonl / data/processed/token_labels.jsonl
 → data/processed/intervention_manifest.jsonl
 → data/processed/trajectory_stability_scores.jsonl
 → data/processed/answer_stability_scores.jsonl
@@ -123,6 +129,22 @@ data/examples/questions_small.jsonl
 ```
 
 这些是长期目标，不代表当前阶段都已经存在。
+
+当前 1B-1E 阶段边界：
+
+```text
+ablation_units.jsonl:
+  Sprint 1B 输出，定义 single/group ablation units。
+
+ablated_questions.jsonl:
+  Sprint 1C 输出，对 ablation units 执行 delete / generalize。
+
+nli_scores.jsonl:
+  Sprint 1D 输出，只保存 score-only 双向 NLI 结果。
+
+semantic_labels.jsonl:
+  Sprint 1E 输出，根据 nli_scores 构造 semantic necessity labels。
+```
 
 ---
 

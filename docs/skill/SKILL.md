@@ -2,7 +2,7 @@
 
 name: reasoning-aware-attention-guidance
 description: Use this skill when working on the Reasoning-Aware Attention Guidance project. This skill is only the entry point and document router. It tells Codex which project documents to read, how to resolve document priority, and where to find task-specific guidance. It does not define the sprint roadmap, canonical pipeline order, schema details, or current next task.
---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+---
 
 # Reasoning-Aware Attention Guidance Skill
 
@@ -208,6 +208,36 @@ recovery prompt templates
 This file only provides reusable prompt text.
 
 Do not treat prompt templates as permission to call a model unless the current task card explicitly allows model usage.
+
+---
+
+### 3.8.1 docs/skill/ablation_units_interface.md
+
+Use for:
+
+```text
+Ablation unit 的长期接口文档，说明 ablation_units.jsonl schema、字段含义、实例、模块职责和后续消费方式。
+```
+
+---
+
+### 3.8.2 docs/skill/ablated_questions_interface.md
+
+Use for:
+
+```text
+Ablated question 的长期接口文档，说明 ablated_questions.jsonl schema、字段含义、字段来源、实例、模块职责和后续 NLI 消费方式。
+```
+
+---
+
+### 3.8.3 docs/skill/nli_scores_interface.md
+
+Use for:
+
+```text
+NLI score 的长期接口文档，说明 nli_scores.jsonl schema、双向 NLI 字段、stub backend、language 参数、字段来源和后续 label rule 消费方式。
+```
 
 ---
 
