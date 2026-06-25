@@ -571,3 +571,88 @@ conda run -n recover_attention python -m pytest -q
 下一步建议：
 
 - Sprint 1G：Question Recovery（基于 self-contained recover output interface 实现 `oracle_stub_v0`）。
+
+## Sprint 1G：Question Recovery Stub
+
+已完成内容：
+
+- 实现 unit-level question recovery 的最小可运行 stub。
+- 新增 `src/recover_attention/recover_generation.py`。
+- 新增 `scripts/08_run_recovery.py` CLI。
+- 新增 `tests/test_recover_generation.py`。
+- 使用 `oracle_stub_v0` 从 `masked_questions.jsonl` 生成 `recover_outputs.jsonl`。
+- `oracle_stub_v0` 的行为为 `recovered_question = original_question`，仅用于管线验证，不代表真实模型恢复能力。
+- 每条输入先调用 `validate_masked_question_record`，每条输出写入前调用 `validate_recover_output_record`。
+- 输出为 self-contained unit-level / masked_id-driven record，不包含旧顶层 span 字段，也不包含 recoverability scoring 字段。
+
+新增或修改文件：
+
+- src/recover_attention/recover_generation.py
+- scripts/08_run_recovery.py
+- tests/test_recover_generation.py
+- data/processed/recover_outputs.jsonl
+- PROGRESS.md
+- docs/progress/sprint_1_history.md
+
+输入文件：
+
+- data/processed/masked_questions.jsonl
+
+输出文件：
+
+- data/processed/recover_outputs.jsonl
+
+运行命令：
+
+```bash
+conda run -n recover_attention python scripts/sync_interface_fields.py --check
+conda run -n recover_attention python -m pytest tests/test_interface_consistency.py -q
+conda run -n recover_attention python scripts/00_smoke_test.py --config configs/v0_nli_small.yaml
+conda run -n recover_attention python scripts/08_run_recovery.py --input data/processed/masked_questions.jsonl --output data/processed/recover_outputs.jsonl --backend oracle_stub_v0 --num-samples 1
+conda run -n recover_attention python -m pytest tests/test_recover_generation.py -q
+conda run -n recover_attention python -m pytest -q
+```
+
+检查结果：
+
+- `scripts/sync_interface_fields.py --check` 已通过。
+- `tests/test_interface_consistency.py -q` 已通过，结果为 `20 passed, 2 skipped`。
+- smoke test 已通过，输出 `[OK] Sprint 0B smoke test passed.`。
+- `tests/test_recover_generation.py -q` 已通过，结果为 `11 passed`。
+- `python -m pytest -q` 已通过，结果为 `201 passed, 2 skipped`。
+
+recover output 数量统计：
+
+```text
+num_input_masks: 46
+num_output_recoveries: 46
+num_samples: 1
+recovery_backend: oracle_stub_v0
+unit_scope_counts: {'group': 10, 'single': 36}
+group_type_counts: {'number_set': 5, 'repeated_surface': 5, 'single': 36}
+mask_backend_counts: {'unit_mask_v0': 46}
+mask_strategy_counts: {'replace_each_span': 46}
+```
+
+输出内容检查：
+
+```text
+num_records: 46
+all_fields_match: True
+forbidden_present: []
+all_oracle_recovered_original: True
+sample_id_counts: {0: 46}
+recovery_backend_counts: {'oracle_stub_v0': 46}
+```
+
+遗留问题：
+
+- 裸 `python` 当前指向 base conda：`D:\conda\Miniconda3\python.exe`；本轮使用 `conda run -n recover_attention python ...`。
+- `data/processed/*` 是本地生成产物目录，当前被 `.gitignore` 忽略。
+- `recover_scores.jsonl` 仍是旧 span-level schema；进入 recoverability scoring 前需要单独做 unit-level 接口修正。
+- 本轮未生成 `recover_scores.jsonl`、`labels.jsonl`、`token_labels.jsonl` 或 `attention_anchor_labels.jsonl`。
+- 本轮未实现真实模型 recovery、recoverability scoring、trajectory、attention guidance、hidden states 或 probe。
+
+下一步建议：
+
+- Sprint 1H-prep：Recover Score Interface Alignment。
