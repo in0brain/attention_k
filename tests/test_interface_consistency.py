@@ -43,7 +43,12 @@ LABEL_SCHEMA_SECTIONS = {
 
 
 def _identifiers(block: list[str]) -> set[str]:
-    return {line.strip() for line in block if line.strip() and " " not in line.strip()}
+    return set(_identifier_list(block))
+
+
+def _identifier_list(block: list[str]) -> list[str]:
+    """Field identifier lines, preserving document order (for order-sensitive checks)."""
+    return [line.strip() for line in block if line.strip() and " " not in line.strip()]
 
 
 def _first_text_block_after(lines: list[str], start_index: int) -> list[str]:
@@ -80,12 +85,13 @@ def _all_text_blocks(lines: list[str]) -> list[list[str]]:
     return blocks
 
 
-def _marked_fields(doc_name: str, record_type: str) -> set[str]:
+def _marked_fields(doc_name: str, record_type: str) -> list[str]:
+    """Return the marked block's fields in document order."""
     lines = (SKILL_DIR / doc_name).read_text(encoding="utf-8").splitlines()
     marker = f"<!-- required_fields:{record_type} -->"
     for index, line in enumerate(lines):
         if line.strip() == marker:
-            return _identifiers(_first_text_block_after(lines, index + 1))
+            return _identifier_list(_first_text_block_after(lines, index + 1))
     raise AssertionError(f"machine-readable marker {marker!r} not found in {doc_name}")
 
 
@@ -102,13 +108,17 @@ def _label_schema_section(heading: str) -> list[str]:
 
 @pytest.mark.parametrize("record_type", sorted(INTERFACE_DOCS))
 def test_interface_marker_matches_required_fields(record_type: str) -> None:
-    required = set(REQUIRED_FIELDS[record_type])
+    # Order-sensitive: the generator defines the canonical field order, so the
+    # marker block must match REQUIRED_FIELDS in both content AND order.
+    required = REQUIRED_FIELDS[record_type]
     assert required, f"REQUIRED_FIELDS[{record_type!r}] is empty"
     documented = _marked_fields(INTERFACE_DOCS[record_type], record_type)
     assert documented == required, (
         f"{INTERFACE_DOCS[record_type]} required_fields marker drifted from "
-        f"REQUIRED_FIELDS[{record_type!r}]: only in doc={sorted(documented - required)}, "
-        f"only in schemas={sorted(required - documented)}"
+        f"REQUIRED_FIELDS[{record_type!r}] (order-sensitive).\n"
+        f"  doc:     {documented}\n"
+        f"  schemas: {required}\n"
+        f"  fix with: python scripts/sync_interface_fields.py --write"
     )
 
 
@@ -117,7 +127,7 @@ def test_interface_excludes_forbidden_fields(record_type: str) -> None:
     forbidden = set(FORBIDDEN_FIELDS.get(record_type, ()))
     if not forbidden:
         pytest.skip(f"{record_type} has no forbidden fields")
-    documented = _marked_fields(INTERFACE_DOCS[record_type], record_type)
+    documented = set(_marked_fields(INTERFACE_DOCS[record_type], record_type))
     leaked = documented & forbidden
     assert not leaked, f"{INTERFACE_DOCS[record_type]} lists forbidden field(s): {sorted(leaked)}"
 

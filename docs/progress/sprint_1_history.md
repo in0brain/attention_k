@@ -366,3 +366,82 @@ language_counts: {'en': 92}
 下一步建议：
 
 - Sprint 1F：Masked Question Construction for Recoverability。
+
+## Sprint 1F：Masked Question Construction for Recoverability
+
+已完成内容：
+
+- 实现 unit-level masked question construction 最小可运行版本。
+- 新增 `src/recover_attention/masked_questions.py`，按 `(id, unit_id)` 聚合 semantic label records。
+- 实现 `replace_each_span` mask 构造：unit 内每个 span 各替换为一个 `mask_token`。
+- 聚合 delete / generalize semantic sources，并生成同序的 `source_semantic_label_ids`、`source_nli_ids`、`source_ablation_ids`。
+- 支持 `--only-necessary` 过滤、overlap unit 跳过统计、自定义 `--mask-token` 和 backend 校验。
+- 新增 `scripts/07_build_masked_questions.py` CLI。
+- 新增 masked question pytest，覆盖 single/group/repeated_surface、source 聚合、only-necessary、overlap skip、custom mask token、禁止旧字段和 CLI smoke test。
+- 生成 `data/processed/masked_questions.jsonl`。
+
+新增或修改文件：
+
+- src/recover_attention/masked_questions.py
+- scripts/07_build_masked_questions.py
+- tests/test_masked_questions.py
+- data/processed/masked_questions.jsonl
+- PROGRESS.md
+- docs/progress/sprint_1_history.md
+
+输入文件：
+
+- data/processed/semantic_labels.jsonl
+
+输出文件：
+
+- data/processed/masked_questions.jsonl
+
+运行命令：
+
+```bash
+conda run -n recover_attention python -c "import sys; print(sys.executable); print(sys.version)"
+conda run -n recover_attention python scripts/00_smoke_test.py --config configs/v0_nli_small.yaml
+conda run -n recover_attention python scripts/sync_interface_fields.py
+conda run -n recover_attention python scripts/07_build_masked_questions.py --input data/processed/semantic_labels.jsonl --output data/processed/masked_questions.jsonl --mask-token "[MASK]" --backend unit_mask_v0
+conda run -n recover_attention python -m pytest tests/test_masked_questions.py -q
+conda run -n recover_attention python -m pytest -q
+```
+
+检查结果：
+
+- Python 路径：`D:\conda\Miniconda3\envs\recover_attention\python.exe`
+- Python 版本：`3.10.20`
+- smoke test 已通过，输出 `[OK] Sprint 0B smoke test passed.`
+- interface required_fields 同步检查已通过。
+- masked question construction 已通过，生成 `data/processed/masked_questions.jsonl`。
+- `python -m pytest tests/test_masked_questions.py -q` 已通过，结果为 `12 passed`。
+- `python -m pytest -q` 已通过，结果为 `180 passed, 2 skipped`。
+
+masked question 数量统计：
+
+```text
+num_input_labels: 92
+num_units: 46
+num_output_masks: 46
+num_filtered_not_necessary: 0
+num_skipped_overlap: 0
+mask_token: [MASK]
+mask_backend: unit_mask_v0
+mask_strategy: replace_each_span
+only_necessary: False
+unit_scope_counts: {'group': 10, 'single': 36}
+group_type_counts: {'number_set': 5, 'repeated_surface': 5, 'single': 36}
+source_count_distribution: {2: 46}
+```
+
+遗留问题：
+
+- 裸 `python` 当前指向 base conda：`D:\conda\Miniconda3\python.exe`；本轮使用 `conda run -n recover_attention python ...`。
+- Sprint 1F task card 要求 `python scripts/sync_interface_fields.py --check`，但当前脚本只支持 `--write`，无参模式是 check-only；本轮采用无参检查并通过。
+- 本轮未生成 recover_outputs、recover_scores、labels、token_labels 或 attention_anchor_labels。
+- 本轮未实现 recovery、recoverability scoring、trajectory、attention guidance 或 probe。
+
+下一步建议：
+
+- Sprint 1G：Question Recovery（unit-level recover outputs）。
