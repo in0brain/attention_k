@@ -729,6 +729,97 @@ attention label and guidance fields are rejected.
 
 - Sprint 1H：Recoverability Scoring。
 
+## Sprint 1H：Recoverability Scoring
+
+已完成内容：
+
+- 实现 `stub_rule_v0` recoverability scoring 最小可运行版本。
+- 新增 `src/recover_attention/recover_scoring.py`，按 `masked_id` 聚合 `recover_outputs.jsonl`。
+- 实现 `normalize_question`：仅执行 strip 和连续空白折叠。
+- 对每个 recover output 输入 record 调用 `validate_recover_output_record`。
+- 每个 `masked_id` 分组生成一条 unit-level recover score record，并在写出前调用 `validate_recover_score_record`。
+- 聚合输出 `source_sample_ids`、`recovered_questions`、`num_samples`、`recoverability_score`、`confidence_mean`、`recovery_consistency`、`misleading_recovery`、`recoverability_label` 和 `evidence`。
+- 新增 `scripts/09_score_recovery.py` CLI。
+- 新增 `tests/test_recover_scoring.py`，覆盖 exact、partial、empty、mismatch、sample 排序、重复 sample、metadata 不一致、unsupported backend、CLI smoke 和 missing input。
+- 生成 `data/processed/recover_scores.jsonl`。
+
+新增或修改文件：
+
+- src/recover_attention/recover_scoring.py
+- scripts/09_score_recovery.py
+- tests/test_recover_scoring.py
+- data/processed/recover_scores.jsonl
+- PROGRESS.md
+- docs/progress/sprint_1_history.md
+
+输入文件：
+
+- data/processed/recover_outputs.jsonl
+
+输出文件：
+
+- data/processed/recover_scores.jsonl
+
+运行命令：
+
+```bash
+conda run -n recover_attention python -c "import os, sys; print(os.environ.get('CONDA_DEFAULT_ENV')); print(sys.executable); print(sys.version)"
+conda run -n recover_attention python scripts/sync_interface_fields.py --check
+conda run -n recover_attention python -m pytest tests/test_interface_consistency.py -q
+conda run -n recover_attention python -m pytest tests/test_recover_scoring.py -q
+conda run -n recover_attention python scripts/09_score_recovery.py --input data/processed/recover_outputs.jsonl --output data/processed/recover_scores.jsonl --backend stub_rule_v0
+conda run -n recover_attention python -m pytest -q
+```
+
+检查结果：
+
+- Python 路径：`D:\conda\Miniconda3\envs\recover_attention\python.exe`
+- Python 版本：`3.10.20`
+- `scripts/sync_interface_fields.py --check` 已通过，所有 interface required_fields block in sync。
+- `tests/test_interface_consistency.py -q` 已通过，结果为 `25 passed, 2 skipped`。
+- `tests/test_recover_scoring.py -q` 已通过，结果为 `15 passed`。
+- `scripts/09_score_recovery.py` 已通过，生成 `data/processed/recover_scores.jsonl`。
+- `python -m pytest -q` 已通过，结果为 `246 passed, 2 skipped`。
+
+recover score 数量统计：
+
+```text
+num_input_recoveries: 46
+num_output_scores: 46
+num_masked_ids: 46
+score_backend_counts: {'stub_rule_v0': 46}
+recovery_backend_counts: {'oracle_stub_v0': 46}
+unit_scope_counts: {'group': 10, 'single': 36}
+group_type_counts: {'number_set': 5, 'repeated_surface': 5, 'single': 36}
+num_misleading_recovery: 0
+forbidden_present: []
+```
+
+recoverability_label 分布：
+
+```text
+{'Recoverable': 46}
+```
+
+说明：
+
+- 当前 `Recoverable: 46` 来自 `oracle_stub_v0` recovery output 与 `stub_rule_v0` exact normalized match scorer，只能说明管线闭环可运行。
+- 该结果不能解释为真实 recoverability 性能。
+
+遗留问题：
+
+- 裸 `python` 当前指向 base conda：`D:\conda\Miniconda3\python.exe`；本轮使用 `conda run -n recover_attention python ...`。
+- `stub_rule_v0` 只做 exact normalized match，不做 semantic similarity。
+- 本轮未做真实模型 recovery judging。
+- 本轮未调用 OpenAI API 或 Hugging Face 模型。
+- 本轮未生成 hidden states / attention maps。
+- 本轮未做 trajectory stability、answer stability、attention anchor labeling、attention guidance 或 probe。
+- `data/processed/*` 是本地生成产物目录，当前被 `.gitignore` 忽略。
+
+下一步建议：
+
+- Sprint 1I-prep：Unit-to-Anchor Label Interface Design。
+
 ## Sprint 1H-prep-fix：Recover Score Governance Doc Cleanup
 
 已完成内容：
