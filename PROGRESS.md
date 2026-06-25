@@ -22,9 +22,9 @@ Token / Span Intervention
 当前阶段：
 
 ```text
-Sprint 1J-prep 已完成：Attention Anchor Label Interface Alignment。
-attention_anchor_label 接口已对齐为 unit-level，并纳入 interface governance（INTERFACE_DOCS / sync / 测试）。
-下一步建议是 Sprint 1J：Build Attention Anchor Labels。
+Sprint 1J 已完成：Build Attention Anchor Labels。
+attention_anchor_labels.jsonl 已可由 unit_evidence.jsonl 经 early_evidence_rule_stub_v0 生成（unit-level，partial evidence label）。
+下一步建议是 Sprint 1K-prep：Guidance Boundary and Intervention Manifest Review。
 ```
 
 当前不做：
@@ -64,6 +64,7 @@ attention_anchor_label 接口已对齐为 unit-level，并纳入 interface gover
 | Sprint 1I | 完成 | Build unit evidence |
 | Sprint 1I-doc-fix | 完成 | Unit evidence interface post-build cleanup |
 | Sprint 1J-prep | 完成 | Attention anchor label interface alignment |
+| Sprint 1J | 完成 | Build attention anchor labels |
 
 详细历史见：
 
@@ -86,13 +87,14 @@ conda run -n recover_attention python scripts/07_build_masked_questions.py --inp
 conda run -n recover_attention python scripts/08_run_recovery.py --input data/processed/masked_questions.jsonl --output data/processed/recover_outputs.jsonl --backend oracle_stub_v0 --num-samples 1
 conda run -n recover_attention python scripts/09_score_recovery.py --input data/processed/recover_outputs.jsonl --output data/processed/recover_scores.jsonl --backend stub_rule_v0
 conda run -n recover_attention python scripts/10_build_unit_evidence.py --semantic-labels data/processed/semantic_labels.jsonl --recover-scores data/processed/recover_scores.jsonl --output data/processed/unit_evidence.jsonl --backend aggregate_stub_v0
+conda run -n recover_attention python scripts/11_build_attention_anchor_labels.py --input data/processed/unit_evidence.jsonl --output data/processed/attention_anchor_labels.jsonl --backend early_evidence_rule_stub_v0
 conda run -n recover_attention python -m pytest -q
 ```
 
 最近一次检查结果：
 
 ```text
-pytest: 298 passed, 2 skipped
+pytest: 324 passed, 2 skipped
 smoke test: passed
 candidate extraction: passed
 ablation unit construction: passed
@@ -110,6 +112,7 @@ unit evidence interface alignment: passed
 unit evidence build passed
 unit evidence interface post-build cleanup: passed
 attention anchor label interface alignment: passed
+attention anchor label build passed
 sync_interface_fields --check: all in sync
 ```
 
@@ -128,6 +131,7 @@ sync_interface_fields --check: all in sync
 - src/recover_attention/recover_generation.py
 - src/recover_attention/recover_scoring.py
 - src/recover_attention/unit_evidence.py
+- src/recover_attention/attention_anchor_labels.py
 - scripts/00_smoke_test.py
 - scripts/01_prepare_data.py
 - scripts/02_extract_candidate_spans.py
@@ -139,6 +143,7 @@ sync_interface_fields --check: all in sync
 - scripts/08_run_recovery.py
 - scripts/09_score_recovery.py
 - scripts/10_build_unit_evidence.py
+- scripts/11_build_attention_anchor_labels.py
 - tests/test_data_io.py
 - tests/test_schemas.py
 - tests/test_prepare_data.py
@@ -151,6 +156,7 @@ sync_interface_fields --check: all in sync
 - tests/test_recover_generation.py
 - tests/test_recover_scoring.py
 - tests/test_unit_evidence.py
+- tests/test_attention_anchor_labels.py
 - data/processed/candidate_spans.jsonl
 - data/processed/ablation_units.jsonl
 - data/processed/ablated_questions.jsonl
@@ -160,6 +166,7 @@ sync_interface_fields --check: all in sync
 - data/processed/recover_outputs.jsonl
 - data/processed/recover_scores.jsonl
 - data/processed/unit_evidence.jsonl
+- data/processed/attention_anchor_labels.jsonl
 - docs/skill/semantic_labels_interface.md
 - docs/skill/recover_outputs_interface.md
 - docs/skill/recover_scores_interface.md
@@ -171,12 +178,9 @@ sync_interface_fields --check: all in sync
 
 下一阶段可能新增或修改：
 
-- src/recover_attention/attention_anchor_labels.py
-- scripts/11_build_attention_anchor_labels.py
-- tests/test_attention_anchor_labels.py
-- data/processed/attention_anchor_labels.jsonl
+- guidance boundary / intervention manifest 相关接口与文档（Sprint 1K-prep）
 
-具体以后续 Sprint 1J task card 为准。
+具体以后续 Sprint 1K-prep task card 为准。
 
 ## 5. 当前遗留问题
 
@@ -191,14 +195,13 @@ sync_interface_fields --check: all in sync
 - trajectory stability、answer stability、raw attention pattern 仍未接入。
 - attention steering effect 尚未接入。
 - `unit_evidence` 不是 final attention anchor label。
-- 尚未实现 attention_anchor_labels builder。
 - `unit_evidence_interface.md` 的旧阶段表述（“only defines interface / does not implement aggregation / builder belongs to a later sprint”）已修正为与已实现 builder 对齐；未改 schema / 字段 / 生成块。
-- `attention_anchor_labels` 目前只有接口和 validator，尚未实现 builder。
-- 当前 attention anchor label interface 是 unit-level（绑定 id + unit_id，span 信息在 span_ids / spans）。
-- span/token-level expansion 尚未实现。
-- guidance_action / guidance_strength 尚未接入（已在 FORBIDDEN_FIELDS 中显式拒绝）。
-- trajectory stability、answer stability、raw attention pattern 仍未接入。
-- 本轮未做真实模型 recovery judging、semantic similarity、attention anchor labeling 或 attention guidance。
+- `attention_anchor_labels.jsonl` 已由 `early_evidence_rule_stub_v0` 生成，只用于管线验证，不代表真实 attention importance。
+- 当前 `label_status` 是 `partial_evidence_label`；`attention_importance_score` = 0.6 * semantic_score + 0.4 * recoverability_risk_score，是 early evidence stub score。
+- 当前 attention anchor label interface 是 unit-level（绑定 id + unit_id，span 信息在 span_ids / spans）；span/token-level expansion 尚未实现。
+- guidance_action / guidance_strength 尚未接入（已在 FORBIDDEN_FIELDS 中显式拒绝）；尚未实现 attention guidance。
+- trajectory stability、answer stability、raw attention pattern、attention steering effect 尚未接入。
+- 本轮未调用真实模型，未做 trajectory / answer stability / raw attention / probe。
 - recover_score governance 文档残留已修复：label_schema.md §0 不再把 recover_score 误列为“不受 interface doc 管理”；新增回归测试 `test_label_schema_out_of_scope_examples_do_not_include_managed_interface_types` 防止再漂移。
 - 不要从 recover score interface 自动扩展到 attention guidance。
 
@@ -207,12 +210,12 @@ sync_interface_fields --check: all in sync
 下一步建议：
 
 ```text
-Sprint 1J：Build Attention Anchor Labels
+Sprint 1K-prep：Guidance Boundary and Intervention Manifest Review
 ```
 
 注意：
 
 ```text
-不要自动开始 Sprint 1J。
-必须先有 Sprint 1J task card 或用户明确指令。
+不要自动开始 Sprint 1K-prep。
+必须先有 Sprint 1K-prep task card 或用户明确指令。
 ```

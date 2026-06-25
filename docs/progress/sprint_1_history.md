@@ -1132,3 +1132,73 @@ D:\conda\Miniconda3\envs\recover_attention\python.exe -m pytest -q
 下一步建议：
 
 - Sprint 1J：Build Attention Anchor Labels。
+
+## Sprint 1J：Build Attention Anchor Labels
+
+已完成内容：
+
+- 实现 `unit_evidence.jsonl → attention_anchor_labels.jsonl` 数据转换阶段（unit-level，每条 unit_evidence 生成一条 attention_anchor_label）。
+- 实现 deterministic backend `early_evidence_rule_stub_v0`（只用于管线验证，非真实 attention importance）：
+  - `recoverability_risk_score`：Misleading Recovery=1.0 / Non-recoverable=0.75 / Partially Recoverable=0.50 / Recoverable=0.25。
+  - `attention_importance_score = 0.6 * semantic_score + 0.4 * recoverability_risk_score`，clamp 到 [0,1]。
+  - label rule：Misleading Recovery / misleading_recovery=True → Risky Anchor；>=0.75 Strong；>=0.55 Medium；>=0.35 Weak；否则 Distractor。
+  - `label_status = partial_evidence_label`；`attention_anchor_label_id = f"{unit_evidence_id}__anchor_{label_backend}"`。
+- 从 unit_evidence 复制 unit metadata 与 early evidence，本阶段创建 label 字段与 evidence trace（含 limitations，明确 partial evidence、无 trajectory/answer/raw attention/guidance）。
+- 每条输出写入前调用 `validate_attention_anchor_label_record`；未改 schema / interface / label_schema。
+
+新增或修改文件：
+
+- src/recover_attention/attention_anchor_labels.py（新增）
+- scripts/11_build_attention_anchor_labels.py（新增）
+- tests/test_attention_anchor_labels.py（新增）
+- data/processed/attention_anchor_labels.jsonl（生成）
+- PROGRESS.md
+- docs/progress/sprint_1_history.md
+
+输入文件：
+
+- data/processed/unit_evidence.jsonl
+
+输出文件：
+
+- data/processed/attention_anchor_labels.jsonl
+
+运行命令：
+
+```bash
+D:\conda\Miniconda3\envs\recover_attention\python.exe scripts/sync_interface_fields.py --check
+D:\conda\Miniconda3\envs\recover_attention\python.exe -m pytest tests/test_interface_consistency.py -q
+D:\conda\Miniconda3\envs\recover_attention\python.exe scripts/11_build_attention_anchor_labels.py --input data/processed/unit_evidence.jsonl --output data/processed/attention_anchor_labels.jsonl --backend early_evidence_rule_stub_v0
+D:\conda\Miniconda3\envs\recover_attention\python.exe -m pytest tests/test_attention_anchor_labels.py -q
+D:\conda\Miniconda3\envs\recover_attention\python.exe -m pytest -q
+```
+
+检查结果：
+
+- sync_interface_fields --check：全部 in sync。
+- tests/test_interface_consistency.py：33 passed, 2 skipped。
+- tests/test_attention_anchor_labels.py：26 passed。
+- 全量 pytest：324 passed, 2 skipped。
+
+attention anchor label 数量统计：
+
+- num_input_unit_evidence = 46，num_output_attention_anchor_labels = 46。
+- attention_anchor_label 分布：{Medium Anchor: 46}。
+- unit_scope：{single: 36, group: 10}；group_type：{single: 36, number_set: 5, repeated_surface: 5}。
+- num_risky_anchor = 0。
+
+score min / max / mean：
+
+- score_min = 0.55，score_max = 0.61，score_mean ≈ 0.5578。
+
+遗留问题：
+
+- 裸 `python` 当前指向 base conda；本轮经由 `D:\conda\Miniconda3\envs\recover_attention\python.exe` 运行（本机 `conda` 不在 PATH）。
+- `attention_anchor_labels.jsonl` 来自 `early_evidence_rule_stub_v0`，基于 partial early evidence，只用于管线验证，不代表真实 attention importance。
+- guidance_action / guidance_strength 未生成（已 forbidden）；尚未实现 attention guidance。
+- trajectory stability、answer stability、raw attention pattern、attention steering effect 尚未接入。
+- 非阻塞文档残留：`attention_anchor_labels_interface.md` / `label_schema.md` 的 `semantic_evidence` 示例 `summary_label="Information Loss"` 与真实 unit_evidence 的 `summary_label` 词表（consistent_/mixed_/no_semantic_necessity_evidence）不一致；rule 不依赖该取值，validator 不校验该键，故不阻塞，可在后续 doc-fix 顺手修正。
+
+下一步建议：
+
+- Sprint 1K-prep：Guidance Boundary and Intervention Manifest Review。
