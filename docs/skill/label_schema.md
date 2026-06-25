@@ -1049,6 +1049,14 @@ data/processed/unit_evidence.jsonl
 
 # 14. Intervention Manifest Record
 
+当前稳定接口以：
+
+```text
+docs/skill/intervention_manifest_interface.md
+```
+
+为准。旧版 span-level intervention manifest schema 已废弃。
+
 文件：
 
 ```text
@@ -1058,53 +1066,21 @@ data/processed/intervention_manifest.jsonl
 用途：
 
 ```text
-记录对某个 span 做 mask / remove / replace 等 intervention 后的运行信息。
+由 attention_anchor_labels.jsonl 派生 unit-level planned intervention manifest。
 ```
 
-示例：
-
-```json
-{
-  "id": "gsm8k_0001",
-  "span_id": "span_001",
-  "intervention_type": "mask",
-  "original_question": "Tom has 3 apples and buys 2 more. How many apples does he have now?",
-  "intervened_question": "Tom has [MASK] apples and buys 2 more. How many apples does he have now?",
-  "intervened_cot_path": "data/processed/interventions/gsm8k_0001_span_001_mask_cot.json",
-  "hidden_states_path": "cache/hidden_states/interventions/gsm8k_0001_span_001_mask.pt",
-  "attentions_path": "cache/attentions/interventions/gsm8k_0001_span_001_mask.pt",
-  "backend": "stub"
-}
-```
-
-字段：
+要点（完整字段表不在本文件维护，以 interface 与 schemas.py 的
+REQUIRED_FIELDS["intervention_manifest"] 为准）：
 
 ```text
-id: str, non-empty
-span_id: str, non-empty
-intervention_type: str, non-empty
-original_question: str, non-empty
-intervened_question: str, non-empty
-intervened_cot_path: str
-hidden_states_path: str
-attentions_path: str
-backend: str, non-empty
-```
-
-常见 `intervention_type`：
-
-```text
-mask
-remove
-replace
-```
-
-约束：
-
-```text
-1. manifest 只记录 intervention 运行信息。
-2. 不直接计算 trajectory_stability_score。
-3. 不直接计算 answer_stability_score。
+1. 当前接口是 unit-level，绑定 attention_anchor_label_id + unit_evidence_id + id + unit_id；
+   顶层不再使用 span_id / span_text / span_type。
+2. group unit 的多个 span 仍保留在 span_ids / spans 中。
+3. 该 record 是 planned-only，不是 execution result。
+4. hidden_states_path / attentions_path 不属于本 record（已在 FORBIDDEN_FIELDS 中拒绝）。
+5. guidance_action / guidance_strength 不属于本 record。
+6. baseline / guided / intervened answer、trajectory / answer stability、raw attention
+   均不属于本 record，留给后续 execution / evaluation 阶段。
 ```
 
 ---

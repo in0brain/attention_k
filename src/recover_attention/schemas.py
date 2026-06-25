@@ -74,6 +74,10 @@ ALLOWED_UNIT_EVIDENCE_BACKENDS = {"aggregate_stub_v0"}
 ALLOWED_UNIT_EVIDENCE_STATUSES = {"partial_stub_evidence"}
 ALLOWED_ATTENTION_LABEL_BACKENDS = {"early_evidence_rule_stub_v0"}
 ALLOWED_ATTENTION_LABEL_STATUSES = {"partial_evidence_label"}
+ALLOWED_INTERVENTION_TYPES = {"mask", "remove", "replace"}
+ALLOWED_INTERVENTION_TARGET_SCOPES = {"unit"}
+ALLOWED_INTERVENTION_BACKENDS = {"manifest_stub_v0"}
+ALLOWED_INTERVENTION_STATUSES = {"planned_only"}
 ALLOWED_EVIDENCE_SIGNAL_TYPES = {
     "semantic_necessity",
     "semantic_recoverability",
@@ -247,6 +251,28 @@ REQUIRED_FIELDS = {
         "label_status",
         "evidence",
     ],
+    "intervention_manifest": [
+        "intervention_id",
+        "attention_anchor_label_id",
+        "unit_evidence_id",
+        "id",
+        "unit_id",
+        "unit_scope",
+        "group_type",
+        "span_ids",
+        "spans",
+        "original_question",
+        "attention_importance_score",
+        "attention_anchor_label",
+        "label_backend",
+        "label_status",
+        "intervention_type",
+        "target_scope",
+        "intervention_backend",
+        "intervention_status",
+        "planned_operation",
+        "evidence",
+    ],
 }
 
 # Top-level fields that must NOT appear (stale or future-stage fields).
@@ -313,6 +339,26 @@ FORBIDDEN_FIELDS = {
         "raw_attention_pattern",
         "probe_label",
     ],
+    "intervention_manifest": [
+        "span_id",
+        "span_text",
+        "span_type",
+        "guidance_action",
+        "guidance_strength",
+        "baseline_answer",
+        "guided_answer",
+        "intervened_answer",
+        "answer_changed",
+        "trajectory_stability_score",
+        "answer_stability_score",
+        "raw_attention_score",
+        "hidden_states",
+        "attention_maps",
+        "hidden_states_path",
+        "attentions_path",
+        "probe_label",
+        "probe_confidence",
+    ],
 }
 
 # Binds each record type to the interface doc whose `required_fields` marker
@@ -330,6 +376,7 @@ INTERFACE_DOCS = {
     "recover_score": "recover_scores_interface.md",
     "unit_evidence": "unit_evidence_interface.md",
     "attention_anchor_label": "attention_anchor_labels_interface.md",
+    "intervention_manifest": "intervention_manifest_interface.md",
 }
 
 
@@ -1108,6 +1155,71 @@ def validate_attention_anchor_label_record(record: dict) -> None:
                     f"{name} field '{field}' has invalid value {signal_type!r}; "
                     f"allowed values: {allowed_values}"
                 )
+
+
+def validate_intervention_manifest_record(record: dict) -> None:
+    name = "intervention manifest record"
+    _require_dict(record, name)
+    _reject_fields(record, FORBIDDEN_FIELDS["intervention_manifest"], name)
+    _require_fields(record, REQUIRED_FIELDS["intervention_manifest"], name)
+    _require_non_empty_str(record, "intervention_id", name)
+    _require_non_empty_str(record, "attention_anchor_label_id", name)
+    _require_non_empty_str(record, "unit_evidence_id", name)
+    _require_non_empty_str(record, "id", name)
+    _require_non_empty_str(record, "unit_id", name)
+    _require_enum(record, "unit_scope", ALLOWED_ABLATION_UNIT_SCOPES, name)
+    _require_enum(record, "group_type", ALLOWED_ABLATION_UNIT_GROUP_TYPES, name)
+    _require_non_empty_str(record, "original_question", name)
+    _require_number(record, "attention_importance_score", name, min_value=0, max_value=1)
+    _require_enum(record, "attention_anchor_label", ALLOWED_ATTENTION_ANCHOR_LABELS, name)
+    _require_enum(record, "label_backend", ALLOWED_ATTENTION_LABEL_BACKENDS, name)
+    _require_enum(record, "label_status", ALLOWED_ATTENTION_LABEL_STATUSES, name)
+    _require_enum(record, "intervention_type", ALLOWED_INTERVENTION_TYPES, name)
+    _require_enum(record, "target_scope", ALLOWED_INTERVENTION_TARGET_SCOPES, name)
+    _require_enum(record, "intervention_backend", ALLOWED_INTERVENTION_BACKENDS, name)
+    _require_enum(record, "intervention_status", ALLOWED_INTERVENTION_STATUSES, name)
+    _require_dict(record["planned_operation"], f"{name} field 'planned_operation'")
+    _require_dict_or_list(record, "evidence", name)
+
+    expected_intervention_id = (
+        f"{record['attention_anchor_label_id']}__intervention_"
+        f"{record['intervention_type']}_{record['intervention_backend']}"
+    )
+    if record["intervention_id"] != expected_intervention_id:
+        raise ValueError(
+            f"{name} field 'intervention_id' must equal "
+            "f'{attention_anchor_label_id}__intervention_{intervention_type}_{intervention_backend}'"
+        )
+
+    span_ids = _require_non_empty_str_list(record, "span_ids", name)
+    spans = record["spans"]
+    if not isinstance(spans, list) or not spans:
+        raise ValueError(f"{name} field 'spans' must be a non-empty list")
+    if len(spans) != len(span_ids):
+        raise ValueError(f"{name} field 'spans' must have the same length as 'span_ids'")
+
+    if record["unit_scope"] == "single" and len(span_ids) != 1:
+        raise ValueError(f"{name} with unit_scope 'single' must contain exactly one span")
+    if record["unit_scope"] == "group" and len(span_ids) < 2:
+        raise ValueError(f"{name} with unit_scope 'group' must contain at least two spans")
+    if record["group_type"] == "single" and record["unit_scope"] != "single":
+        raise ValueError(f"{name} with group_type 'single' must have unit_scope 'single'")
+    if record["group_type"] != "single" and record["unit_scope"] != "group":
+        raise ValueError(f"{name} with non-single group_type must have unit_scope 'group'")
+
+    for span_index, span in enumerate(spans):
+        span_name = f"{name} span[{span_index}]"
+        _require_dict(span, span_name)
+        _require_fields(span, ["span_id", "text", "type", "start", "end"], span_name)
+        _require_non_empty_str(span, "span_id", span_name)
+        _require_non_empty_str(span, "text", span_name)
+        _require_enum(span, "type", ALLOWED_SPAN_TYPES, span_name)
+        _require_int(span, "start", span_name, min_value=0)
+        _require_int(span, "end", span_name)
+        if span["end"] <= span["start"]:
+            raise ValueError(f"{span_name} field 'end' must be greater than 'start'")
+        if span["span_id"] != span_ids[span_index]:
+            raise ValueError(f"{name} span_ids order must match spans order")
 
 
 def _validate_nli_direction(direction_record: Any, direction: str, parent_name: str) -> None:

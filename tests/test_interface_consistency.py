@@ -46,6 +46,10 @@ LABEL_SCHEMA_SECTIONS = {
         "# 17. Attention Anchor Label Record",
         "attention_anchor_labels_interface.md",
     ),
+    "intervention_manifest": (
+        "# 14. Intervention Manifest Record",
+        "intervention_manifest_interface.md",
+    ),
 }
 
 

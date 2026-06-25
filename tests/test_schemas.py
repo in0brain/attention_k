@@ -16,6 +16,7 @@ from recover_attention.schemas import (
     validate_ablation_unit_record,
     validate_attention_anchor_label_record,
     validate_candidate_span_record,
+    validate_intervention_manifest_record,
     validate_masked_question_record,
     validate_nli_score_record,
     validate_question_record,
@@ -1255,3 +1256,209 @@ def test_attention_anchor_label_record_span_order_mismatch_raises_value_error() 
 
     with pytest.raises(ValueError, match="order must match"):
         validate_attention_anchor_label_record(record)
+
+
+def valid_intervention_manifest_record() -> dict:
+    anchor_id = (
+        "gsm8k_0001__unit_001__evidence_aggregate_stub_v0__anchor_early_evidence_rule_stub_v0"
+    )
+    return {
+        "intervention_id": f"{anchor_id}__intervention_mask_manifest_stub_v0",
+        "attention_anchor_label_id": anchor_id,
+        "unit_evidence_id": "gsm8k_0001__unit_001__evidence_aggregate_stub_v0",
+        "id": "gsm8k_0001",
+        "unit_id": "unit_001",
+        "unit_scope": "single",
+        "group_type": "single",
+        "span_ids": ["span_001"],
+        "spans": [{"span_id": "span_001", "text": "3", "type": "number", "start": 8, "end": 9}],
+        "original_question": "Tom has 3 apples and buys 2 more.",
+        "attention_importance_score": 0.55,
+        "attention_anchor_label": "Medium Anchor",
+        "label_backend": "early_evidence_rule_stub_v0",
+        "label_status": "partial_evidence_label",
+        "intervention_type": "mask",
+        "target_scope": "unit",
+        "intervention_backend": "manifest_stub_v0",
+        "intervention_status": "planned_only",
+        "planned_operation": {"description": "mask all spans in unit", "target_span_ids": ["span_001"]},
+        "evidence": {"notes": "fixture"},
+    }
+
+
+def valid_group_intervention_manifest_record() -> dict:
+    record = valid_intervention_manifest_record()
+    anchor_id = (
+        "gsm8k_0001__unit_009__evidence_aggregate_stub_v0__anchor_early_evidence_rule_stub_v0"
+    )
+    record["attention_anchor_label_id"] = anchor_id
+    record["unit_evidence_id"] = "gsm8k_0001__unit_009__evidence_aggregate_stub_v0"
+    record["intervention_id"] = f"{anchor_id}__intervention_mask_manifest_stub_v0"
+    record["unit_id"] = "unit_009"
+    record["unit_scope"] = "group"
+    record["group_type"] = "number_set"
+    record["span_ids"] = ["span_001", "span_004"]
+    record["spans"] = [
+        {"span_id": "span_001", "text": "3", "type": "number", "start": 8, "end": 9},
+        {"span_id": "span_004", "text": "2", "type": "number", "start": 26, "end": 27},
+    ]
+    return record
+
+
+def test_valid_intervention_manifest_record_passes() -> None:
+    assert validate_intervention_manifest_record(valid_intervention_manifest_record()) is None
+
+
+def test_valid_group_intervention_manifest_record_passes() -> None:
+    assert (
+        validate_intervention_manifest_record(valid_group_intervention_manifest_record()) is None
+    )
+
+
+def test_intervention_manifest_missing_required_field_raises_value_error() -> None:
+    record = valid_intervention_manifest_record()
+    del record["planned_operation"]
+
+    with pytest.raises(ValueError, match="missing required field"):
+        validate_intervention_manifest_record(record)
+
+
+def test_intervention_manifest_with_top_level_span_id_raises_value_error() -> None:
+    record = valid_intervention_manifest_record()
+    record["span_id"] = "span_001"
+
+    with pytest.raises(ValueError, match="forbidden field"):
+        validate_intervention_manifest_record(record)
+
+
+def test_intervention_manifest_with_guidance_action_raises_value_error() -> None:
+    record = valid_intervention_manifest_record()
+    record["guidance_action"] = "boost"
+
+    with pytest.raises(ValueError, match="forbidden field"):
+        validate_intervention_manifest_record(record)
+
+
+def test_intervention_manifest_with_guidance_strength_raises_value_error() -> None:
+    record = valid_intervention_manifest_record()
+    record["guidance_strength"] = 0.5
+
+    with pytest.raises(ValueError, match="forbidden field"):
+        validate_intervention_manifest_record(record)
+
+
+def test_intervention_manifest_with_hidden_states_path_raises_value_error() -> None:
+    record = valid_intervention_manifest_record()
+    record["hidden_states_path"] = "cache/hidden_states/x.pt"
+
+    with pytest.raises(ValueError, match="forbidden field"):
+        validate_intervention_manifest_record(record)
+
+
+def test_intervention_manifest_with_attentions_path_raises_value_error() -> None:
+    record = valid_intervention_manifest_record()
+    record["attentions_path"] = "cache/attentions/x.pt"
+
+    with pytest.raises(ValueError, match="forbidden field"):
+        validate_intervention_manifest_record(record)
+
+
+def test_intervention_manifest_with_invalid_intervention_id_raises_value_error() -> None:
+    record = valid_intervention_manifest_record()
+    record["intervention_id"] = "wrong_id"
+
+    with pytest.raises(ValueError, match="intervention_id"):
+        validate_intervention_manifest_record(record)
+
+
+def test_intervention_manifest_with_invalid_intervention_type_raises_value_error() -> None:
+    record = valid_intervention_manifest_record()
+    record["intervention_type"] = "rewrite"
+    record["intervention_id"] = (
+        f"{record['attention_anchor_label_id']}__intervention_rewrite_manifest_stub_v0"
+    )
+
+    with pytest.raises(ValueError, match="invalid value"):
+        validate_intervention_manifest_record(record)
+
+
+def test_intervention_manifest_with_invalid_target_scope_raises_value_error() -> None:
+    record = valid_intervention_manifest_record()
+    record["target_scope"] = "token"
+
+    with pytest.raises(ValueError, match="invalid value"):
+        validate_intervention_manifest_record(record)
+
+
+def test_intervention_manifest_with_invalid_backend_raises_value_error() -> None:
+    record = valid_intervention_manifest_record()
+    record["intervention_backend"] = "made_up"
+    record["intervention_id"] = (
+        f"{record['attention_anchor_label_id']}__intervention_mask_made_up"
+    )
+
+    with pytest.raises(ValueError, match="invalid value"):
+        validate_intervention_manifest_record(record)
+
+
+def test_intervention_manifest_with_invalid_status_raises_value_error() -> None:
+    record = valid_intervention_manifest_record()
+    record["intervention_status"] = "executed"
+
+    with pytest.raises(ValueError, match="invalid value"):
+        validate_intervention_manifest_record(record)
+
+
+def test_intervention_manifest_with_importance_score_above_one_raises_value_error() -> None:
+    record = valid_intervention_manifest_record()
+    record["attention_importance_score"] = 1.1
+
+    with pytest.raises(ValueError, match="<= 1"):
+        validate_intervention_manifest_record(record)
+
+
+def test_intervention_manifest_with_invalid_anchor_label_raises_value_error() -> None:
+    record = valid_intervention_manifest_record()
+    record["attention_anchor_label"] = "Important"
+
+    with pytest.raises(ValueError, match="invalid value"):
+        validate_intervention_manifest_record(record)
+
+
+def test_intervention_manifest_single_scope_with_two_spans_raises_value_error() -> None:
+    record = valid_intervention_manifest_record()
+    record["span_ids"] = ["span_001", "span_004"]
+    record["spans"] = [
+        {"span_id": "span_001", "text": "3", "type": "number", "start": 8, "end": 9},
+        {"span_id": "span_004", "text": "2", "type": "number", "start": 26, "end": 27},
+    ]
+
+    with pytest.raises(ValueError, match="single"):
+        validate_intervention_manifest_record(record)
+
+
+def test_intervention_manifest_group_scope_with_one_span_raises_value_error() -> None:
+    record = valid_group_intervention_manifest_record()
+    record["span_ids"] = ["span_001"]
+    record["spans"] = [
+        {"span_id": "span_001", "text": "3", "type": "number", "start": 8, "end": 9}
+    ]
+
+    with pytest.raises(ValueError, match="at least two spans"):
+        validate_intervention_manifest_record(record)
+
+
+def test_intervention_manifest_span_order_mismatch_raises_value_error() -> None:
+    record = valid_group_intervention_manifest_record()
+    record["span_ids"] = ["span_004", "span_001"]
+
+    with pytest.raises(ValueError, match="order must match"):
+        validate_intervention_manifest_record(record)
+
+
+def test_intervention_manifest_planned_operation_not_dict_raises_value_error() -> None:
+    record = valid_intervention_manifest_record()
+    record["planned_operation"] = ["not", "a", "dict"]
+
+    with pytest.raises(ValueError, match="planned_operation"):
+        validate_intervention_manifest_record(record)

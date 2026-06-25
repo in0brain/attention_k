@@ -1202,3 +1202,66 @@ score min / max / mean：
 下一步建议：
 
 - Sprint 1K-prep：Guidance Boundary and Intervention Manifest Review。
+
+## Sprint 1K-prep：Guidance Boundary and Intervention Manifest Interface Alignment
+
+已完成内容：
+
+- 设计并注册 unit-level **planned-only** 的 `intervention_manifest` 接口（上游 `attention_anchor_labels.jsonl`）。
+- `schemas.py`：
+  - 新增 enum：`ALLOWED_INTERVENTION_TYPES={mask,remove,replace}`、`ALLOWED_INTERVENTION_TARGET_SCOPES={unit}`、`ALLOWED_INTERVENTION_BACKENDS={manifest_stub_v0}`、`ALLOWED_INTERVENTION_STATUSES={planned_only}`。
+  - 新增 `REQUIRED_FIELDS["intervention_manifest"]`（20 字段，含 intervention_id / attention_anchor_label_id / unit_evidence_id / unit metadata / anchor 信息 / intervention_type / target_scope / intervention_backend / intervention_status / planned_operation / evidence）。
+  - 新增 `FORBIDDEN_FIELDS["intervention_manifest"]`，拒绝旧 span-level 顶层字段、guidance 字段、baseline/guided/intervened answer、trajectory/answer stability score、raw_attention_score、hidden states/attention maps 及 `hidden_states_path`/`attentions_path`、probe 字段。
+  - `INTERFACE_DOCS` 注册 intervention_manifest。
+  - 新增 `validate_intervention_manifest_record`（unit-level + single/group + span 顺序；ID = `f"{attention_anchor_label_id}__intervention_{intervention_type}_{intervention_backend}"`；enum/range/planned_operation dict 校验）。
+- 新增 `docs/skill/intervention_manifest_interface.md`（含 `<!-- required_fields:intervention_manifest -->` 生成块，由 sync 写入 20 字段；Purpose / Pipeline / Field Sources / ID Rule / Planned-only & Unit-level Boundary / Not Included / Validator / Example）。
+- `label_schema.md`：§14 降级为指向新 interface 的要点（旧 span-level 废弃、unit-level、planned-only、不含 hidden/attention path 与 guidance）。§0 无需改（原本未列 intervention_manifest）。
+- `SKILL.md`：Document Router 新增 §3.8.10。
+- 测试：`test_interface_consistency.py` 的 `LABEL_SCHEMA_SECTIONS` 新增 intervention_manifest（marker/forbidden 经 INTERFACE_DOCS 自动覆盖）；`test_schemas.py` 新增 unit-level + group fixture 与 18 项 validator 用例。
+
+新增或修改文件：
+
+- docs/skill/intervention_manifest_interface.md（新增）
+- src/recover_attention/schemas.py
+- docs/skill/label_schema.md
+- docs/skill/SKILL.md
+- tests/test_interface_consistency.py
+- tests/test_schemas.py
+- PROGRESS.md
+- docs/progress/sprint_1_history.md
+
+输入文件：
+
+- 无数据输入。本轮只做接口设计与对齐。
+
+输出文件：
+
+- 无 `data/processed` 产物。
+
+运行命令：
+
+```bash
+D:\conda\Miniconda3\envs\recover_attention\python.exe scripts/sync_interface_fields.py --write
+D:\conda\Miniconda3\envs\recover_attention\python.exe scripts/sync_interface_fields.py --check
+D:\conda\Miniconda3\envs\recover_attention\python.exe -m pytest tests/test_interface_consistency.py -q
+D:\conda\Miniconda3\envs\recover_attention\python.exe -m pytest tests/test_schemas.py -q
+D:\conda\Miniconda3\envs\recover_attention\python.exe -m pytest -q
+```
+
+检查结果：
+
+- sync_interface_fields --check：10 个 interface block 全部 in sync（`intervention_manifest` = 20 fields，由脚本生成）。
+- tests/test_interface_consistency.py：37 passed, 2 skipped。
+- tests/test_schemas.py：132 passed。
+- 全量 pytest：347 passed, 2 skipped。
+
+遗留问题：
+
+- 裸 `python` 当前指向 base conda；本轮经由 `D:\conda\Miniconda3\envs\recover_attention\python.exe` 运行（本机 `conda` 不在 PATH）。
+- `intervention_manifest` 目前只有接口与 validator，未实现 builder，未生成 `intervention_manifest.jsonl`。
+- 当前接口是 unit-level planned-only；hidden_states_path / attentions_path、guidance_action / guidance_strength 均未接入（已 forbidden）；未执行 attention guidance。
+- trajectory stability、answer stability、raw attention pattern 仍未接入。
+
+下一步建议：
+
+- Sprint 1K：Build Intervention Manifest。

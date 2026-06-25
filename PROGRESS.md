@@ -22,9 +22,9 @@ Token / Span Intervention
 当前阶段：
 
 ```text
-Sprint 1J 已完成：Build Attention Anchor Labels。
-attention_anchor_labels.jsonl 已可由 unit_evidence.jsonl 经 early_evidence_rule_stub_v0 生成（unit-level，partial evidence label）。
-下一步建议是 Sprint 1K-prep：Guidance Boundary and Intervention Manifest Review。
+Sprint 1K-prep 已完成：Guidance Boundary and Intervention Manifest Interface Alignment。
+intervention_manifest 接口已设计为 unit-level planned-only，并纳入 interface governance（INTERFACE_DOCS / sync / 测试）。
+下一步建议是 Sprint 1K：Build Intervention Manifest。
 ```
 
 当前不做：
@@ -65,6 +65,7 @@ attention_anchor_labels.jsonl 已可由 unit_evidence.jsonl 经 early_evidence_r
 | Sprint 1I-doc-fix | 完成 | Unit evidence interface post-build cleanup |
 | Sprint 1J-prep | 完成 | Attention anchor label interface alignment |
 | Sprint 1J | 完成 | Build attention anchor labels |
+| Sprint 1K-prep | 完成 | Guidance boundary & intervention manifest interface alignment |
 
 详细历史见：
 
@@ -94,7 +95,7 @@ conda run -n recover_attention python -m pytest -q
 最近一次检查结果：
 
 ```text
-pytest: 324 passed, 2 skipped
+pytest: 347 passed, 2 skipped
 smoke test: passed
 candidate extraction: passed
 ablation unit construction: passed
@@ -113,6 +114,7 @@ unit evidence build passed
 unit evidence interface post-build cleanup: passed
 attention anchor label interface alignment: passed
 attention anchor label build passed
+intervention manifest interface alignment: passed
 sync_interface_fields --check: all in sync
 ```
 
@@ -172,15 +174,19 @@ sync_interface_fields --check: all in sync
 - docs/skill/recover_scores_interface.md
 - docs/skill/unit_evidence_interface.md
 - docs/skill/attention_anchor_labels_interface.md
+- docs/skill/intervention_manifest_interface.md
 - docs/skill/*
 - README.md
 - AGENTS.md
 
 下一阶段可能新增或修改：
 
-- guidance boundary / intervention manifest 相关接口与文档（Sprint 1K-prep）
+- src/recover_attention/intervention_manifest.py
+- scripts/12_build_intervention_manifest.py
+- tests/test_intervention_manifest.py
+- data/processed/intervention_manifest.jsonl
 
-具体以后续 Sprint 1K-prep task card 为准。
+具体以后续 Sprint 1K task card 为准。
 
 ## 5. 当前遗留问题
 
@@ -201,6 +207,8 @@ sync_interface_fields --check: all in sync
 - 当前 attention anchor label interface 是 unit-level（绑定 id + unit_id，span 信息在 span_ids / spans）；span/token-level expansion 尚未实现。
 - guidance_action / guidance_strength 尚未接入（已在 FORBIDDEN_FIELDS 中显式拒绝）；尚未实现 attention guidance。
 - trajectory stability、answer stability、raw attention pattern、attention steering effect 尚未接入。
+- `intervention_manifest` 目前只有接口和 validator，尚未实现 builder；当前接口是 unit-level planned-only。
+- intervention_manifest 不含 hidden_states_path / attentions_path / guidance_action / guidance_strength / baseline·guided·intervened answer（已在 FORBIDDEN_FIELDS 中拒绝）。
 - 本轮未调用真实模型，未做 trajectory / answer stability / raw attention / probe。
 - recover_score governance 文档残留已修复：label_schema.md §0 不再把 recover_score 误列为“不受 interface doc 管理”；新增回归测试 `test_label_schema_out_of_scope_examples_do_not_include_managed_interface_types` 防止再漂移。
 - 不要从 recover score interface 自动扩展到 attention guidance。
@@ -210,12 +218,12 @@ sync_interface_fields --check: all in sync
 下一步建议：
 
 ```text
-Sprint 1K-prep：Guidance Boundary and Intervention Manifest Review
+Sprint 1K：Build Intervention Manifest
 ```
 
 注意：
 
 ```text
-不要自动开始 Sprint 1K-prep。
-必须先有 Sprint 1K-prep task card 或用户明确指令。
+不要自动开始 Sprint 1K。
+必须先有 Sprint 1K task card 或用户明确指令。
 ```

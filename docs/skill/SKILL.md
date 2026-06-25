@@ -301,6 +301,16 @@ Attention anchor label 的长期接口文档，说明 attention_anchor_labels.js
 
 ---
 
+### 3.8.10 docs/skill/intervention_manifest_interface.md
+
+Use for:
+
+```text
+Intervention manifest 的长期接口文档，说明 intervention_manifest.jsonl schema、unit-level boundary、planned-only boundary、validator 和后续 intervention execution / guidance evaluation 消费方式。
+```
+
+---
+
 ### 3.9 docs/reference/*
 
 Use for:
