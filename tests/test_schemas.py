@@ -184,6 +184,84 @@ def valid_semantic_label_record() -> dict:
 
 def valid_masked_question_record() -> dict:
     return {
+        "masked_id": "gsm8k_0001__unit_001__mask",
+        "id": "gsm8k_0001",
+        "unit_id": "unit_001",
+        "unit_scope": "single",
+        "group_type": "single",
+        "span_ids": ["span_001"],
+        "spans": [
+            {
+                "span_id": "span_001",
+                "text": "3",
+                "type": "number",
+                "start": 8,
+                "end": 9,
+            }
+        ],
+        "original_question": "Tom has 3 apples and buys 2 more. How many apples does he have now?",
+        "masked_question": "Tom has [MASK] apples and buys 2 more. How many apples does he have now?",
+        "mask_token": "[MASK]",
+        "mask_backend": "unit_mask_v0",
+        "mask_strategy": "replace_each_span",
+        "source_semantic_label_ids": [
+            "gsm8k_0001__unit_001__delete__nli_stub_v0__sem_rule_v0",
+            "gsm8k_0001__unit_001__generalize__nli_stub_v0__sem_rule_v0",
+        ],
+        "source_nli_ids": [
+            "gsm8k_0001__unit_001__delete__nli_stub_v0",
+            "gsm8k_0001__unit_001__generalize__nli_stub_v0",
+        ],
+        "source_ablation_ids": [
+            "gsm8k_0001__unit_001__delete",
+            "gsm8k_0001__unit_001__generalize",
+        ],
+        "semantic_sources": [
+            {
+                "semantic_label_id": "gsm8k_0001__unit_001__delete__nli_stub_v0__sem_rule_v0",
+                "nli_id": "gsm8k_0001__unit_001__delete__nli_stub_v0",
+                "ablation_id": "gsm8k_0001__unit_001__delete",
+                "ablation_type": "delete",
+                "semantic_necessity_label": "Information Loss",
+                "semantic_necessity_score": 0.75,
+                "is_semantically_necessary": True,
+                "decision_reason": "forward entails ablated but backward does not entail original",
+            },
+            {
+                "semantic_label_id": (
+                    "gsm8k_0001__unit_001__generalize__nli_stub_v0__sem_rule_v0"
+                ),
+                "nli_id": "gsm8k_0001__unit_001__generalize__nli_stub_v0",
+                "ablation_id": "gsm8k_0001__unit_001__generalize",
+                "ablation_type": "generalize",
+                "semantic_necessity_label": "Information Loss",
+                "semantic_necessity_score": 0.65,
+                "is_semantically_necessary": True,
+                "decision_reason": "forward entails ablated but backward does not entail original",
+            },
+        ],
+    }
+
+
+def valid_group_masked_question_record() -> dict:
+    record = valid_masked_question_record()
+    record["masked_id"] = "gsm8k_0001__unit_003__mask"
+    record["unit_id"] = "unit_003"
+    record["unit_scope"] = "group"
+    record["group_type"] = "number_set"
+    record["span_ids"] = ["span_001", "span_002"]
+    record["spans"] = [
+        {"span_id": "span_001", "text": "3", "type": "number", "start": 8, "end": 9},
+        {"span_id": "span_002", "text": "2", "type": "number", "start": 26, "end": 27},
+    ]
+    record["masked_question"] = (
+        "Tom has [MASK] apples and buys [MASK] more. How many apples does he have now?"
+    )
+    return record
+
+
+def old_span_level_masked_question_record() -> dict:
+    return {
         "id": "gsm8k_0001",
         "span_id": "span_001",
         "span_text": "3",
@@ -463,6 +541,114 @@ def test_semantic_label_non_equivalent_marked_not_necessary_raises_value_error()
 
 def test_valid_masked_question_record_passes() -> None:
     assert validate_masked_question_record(valid_masked_question_record()) is None
+
+
+def test_valid_group_masked_question_record_passes() -> None:
+    assert validate_masked_question_record(valid_group_masked_question_record()) is None
+
+
+def test_group_masked_question_with_single_mask_raises_value_error() -> None:
+    record = valid_group_masked_question_record()
+    record["masked_question"] = (
+        "Tom has [MASK] apples and buys 2 more. How many apples does he have now?"
+    )
+    with pytest.raises(ValueError, match="replace_each_span"):
+        validate_masked_question_record(record)
+
+
+def test_masked_question_with_invalid_mask_backend_raises_value_error() -> None:
+    record = valid_masked_question_record()
+    record["mask_backend"] = "rule_v0"
+    with pytest.raises(ValueError, match="mask_backend"):
+        validate_masked_question_record(record)
+
+
+def test_masked_question_with_invalid_mask_strategy_raises_value_error() -> None:
+    record = valid_masked_question_record()
+    record["mask_strategy"] = "replace_all"
+    with pytest.raises(ValueError, match="mask_strategy"):
+        validate_masked_question_record(record)
+
+
+def test_masked_question_added_mask_count_ignores_preexisting_mask_token() -> None:
+    record = valid_masked_question_record()
+    record["original_question"] = "Given [MASK] context, Tom has 3 apples and buys 2 more."
+    record["masked_question"] = "Given [MASK] context, Tom has [MASK] apples and buys 2 more."
+    record["spans"] = [
+        {"span_id": "span_001", "text": "3", "type": "number", "start": 30, "end": 31}
+    ]
+    assert validate_masked_question_record(record) is None
+
+
+def test_masked_question_missing_masked_id_raises_value_error() -> None:
+    record = valid_masked_question_record()
+    del record["masked_id"]
+
+    with pytest.raises(ValueError, match="missing required field"):
+        validate_masked_question_record(record)
+
+
+def test_old_span_level_masked_question_record_raises_value_error() -> None:
+    with pytest.raises(ValueError, match="forbidden field"):
+        validate_masked_question_record(old_span_level_masked_question_record())
+
+
+def test_masked_question_with_top_level_span_fields_raises_value_error() -> None:
+    record = valid_masked_question_record()
+    record["span_id"] = "span_001"
+    record["span_text"] = "3"
+    record["span_type"] = "number"
+
+    with pytest.raises(ValueError, match="forbidden field"):
+        validate_masked_question_record(record)
+
+
+def test_masked_question_without_mask_token_raises_value_error() -> None:
+    record = valid_masked_question_record()
+    record["masked_question"] = "Tom has apples and buys 2 more. How many apples does he have now?"
+
+    with pytest.raises(ValueError, match="mask_token"):
+        validate_masked_question_record(record)
+
+
+def test_masked_question_with_unchanged_question_raises_value_error() -> None:
+    record = valid_masked_question_record()
+    record["original_question"] = record["masked_question"]
+
+    with pytest.raises(ValueError, match="differ"):
+        validate_masked_question_record(record)
+
+
+def test_masked_question_with_span_order_mismatch_raises_value_error() -> None:
+    record = valid_masked_question_record()
+    record["span_ids"] = ["span_002"]
+
+    with pytest.raises(ValueError, match="span_ids order"):
+        validate_masked_question_record(record)
+
+
+def test_masked_question_with_semantic_source_order_mismatch_raises_value_error() -> None:
+    record = valid_masked_question_record()
+    record["source_semantic_label_ids"] = list(reversed(record["source_semantic_label_ids"]))
+
+    with pytest.raises(ValueError, match="semantic_label_id order"):
+        validate_masked_question_record(record)
+
+
+def test_masked_question_with_invalid_semantic_necessity_label_raises_value_error() -> None:
+    record = valid_masked_question_record()
+    record["semantic_sources"][0]["semantic_necessity_label"] = "Necessary"
+
+    with pytest.raises(ValueError, match="invalid value"):
+        validate_masked_question_record(record)
+
+
+def test_masked_question_with_non_bool_semantic_necessity_flag_raises_value_error() -> None:
+    record = valid_masked_question_record()
+    record["semantic_sources"][0]["is_semantically_necessary"] = "true"
+
+    with pytest.raises(ValueError, match="bool"):
+        validate_masked_question_record(record)
 
 
 def test_valid_recover_output_record_passes() -> None:

@@ -1,6 +1,9 @@
 # Label Schema
 
-本文件定义项目中的 jsonl schema、字段含义、标签枚举和标签规则。
+本文件提供项目 jsonl 数据格式的总览、枚举值索引、record 示例和标签规则。
+
+完整顶层字段不在本文件维护，以 `src/recover_attention/schemas.py` 的 `REQUIRED_FIELDS`
+和各 `docs/skill/*_interface.md` 为准（见第 0 节）。
 
 本文件只负责数据格式，不负责实验流程和 sprint 拆分。
 
@@ -35,6 +38,53 @@ src/recover_attention/schemas.py
 ```
 
 和当前 task card 为准。
+
+---
+
+# 0. 字段维护流程与生成边界（重要）
+
+顶层字段的**唯一来源**是：
+
+```text
+src/recover_attention/schemas.py 的 REQUIRED_FIELDS / FORBIDDEN_FIELDS
+```
+
+各 `docs/skill/*_interface.md` 中，`<!-- required_fields:<type> -->` 标记之后的代码块是
+**生成产物**，由脚本从 `REQUIRED_FIELDS` 写入：
+
+```text
+scripts/sync_interface_fields.py
+```
+
+## 修改字段的标准流程
+
+```text
+1. 编辑 schemas.py 的 REQUIRED_FIELDS（如涉及禁用字段或校验逻辑，同步 FORBIDDEN_FIELDS 与对应 validator）。
+2. 运行 python scripts/sync_interface_fields.py --write   回填各 interface 的 required_fields 块。
+3. 运行 python -m pytest tests/test_interface_consistency.py -q   确认四向一致。
+```
+
+## 生成边界（谁管什么）
+
+```text
+scripts/sync_interface_fields.py 只改：
+  各 interface 文档中 required_fields marker 之后的那个代码块。
+  绝不改动 marker 行、注释、示例、约束或其它内容。
+
+scripts/sync_interface_fields.py 不管：
+  - 本文件 label_schema.md（它是索引/总览，由测试校验“指向 interface 且不复制字段”，不由脚本生成）。
+  - REQUIRED_FIELDS 中没有 interface 文档的 record（question / candidate_span /
+    recover_output / recover_score / attention_anchor_label）。
+
+本文件 label_schema.md 的职责：
+  数据格式总览、枚举值索引、record 示例和概念约束。
+  不再罗列完整顶层字段表；完整字段以 interface 文档与 schemas.py 为准。
+
+tests/test_interface_consistency.py 的职责：
+  锁定 schemas.py / interface marker / label_schema 三者一致，CI 阶段拦截漂移。
+```
+
+不要手改 interface 文档中的生成块；手改会在下次 `--write` 被覆盖，并可能被 `--check` 判为漂移。
 
 ---
 
@@ -577,20 +627,7 @@ docs/skill/ablated_questions_interface.md
 }
 ```
 
-字段：
-
-```text
-ablation_id: str, non-empty
-id: str, non-empty
-unit_id: str, non-empty
-unit_scope: single / group
-group_type: str, non-empty
-span_ids: non-empty list[str]
-spans: non-empty list[dict]
-ablation_type: delete / generalize
-original_question: str, non-empty
-ablated_question: str, non-empty
-```
+字段：本文件不再罗列完整字段表。顶层字段以 `docs/skill/ablated_questions_interface.md` 和 `src/recover_attention/schemas.py` 的 `REQUIRED_FIELDS["ablated_question"]` 为准。
 
 `spans` 中每个元素必须包含：
 
@@ -699,28 +736,7 @@ data/processed/semantic_labels.jsonl
 }
 ```
 
-字段：
-
-```text
-nli_id: str, non-empty
-ablation_id: str, non-empty
-id: str, non-empty
-unit_id: str, non-empty
-unit_scope: single / group
-group_type: str, non-empty
-span_ids: non-empty list[str]
-spans: non-empty list[dict]
-ablation_type: delete / generalize
-original_question: str, non-empty
-ablated_question: str, non-empty
-nli_backend: str, currently stub_v0
-language: en / zh
-language_setting: auto / en / zh
-forward: dict
-backward: dict
-bidirectional_entailment_score: number, 0 <= score <= 1
-contradiction_score: number, 0 <= score <= 1
-```
+字段：本文件不再罗列完整字段表。顶层字段以 `docs/skill/nli_scores_interface.md` 和 `src/recover_attention/schemas.py` 的 `REQUIRED_FIELDS["nli_score"]` 为准。
 
 `forward` 和 `backward` 字段：
 
@@ -770,35 +786,9 @@ nli_scores.jsonl remains score-only and does not contain semantic_necessity_labe
 semantic_labels.jsonl is the first current pipeline artifact that contains semantic_necessity_label.
 ```
 
-Required fields:
-
-```text
-semantic_label_id
-nli_id
-ablation_id
-id
-unit_id
-unit_scope
-group_type
-span_ids
-spans
-ablation_type
-original_question
-ablated_question
-nli_backend
-language
-language_setting
-forward
-backward
-bidirectional_entailment_score
-contradiction_score
-semantic_label_backend
-semantic_necessity_label
-semantic_necessity_score
-is_semantically_necessary
-rule_parameters
-decision_reason
-```
+Required fields: see `docs/skill/semantic_labels_interface.md` and
+`REQUIRED_FIELDS["semantic_label"]` in `src/recover_attention/schemas.py`. This
+file no longer duplicates the full field list.
 
 Current backend:
 
@@ -828,6 +818,14 @@ Notes:
 
 # 10. Masked Question Record
 
+当前稳定接口以：
+
+```text
+docs/skill/masked_questions_interface.md
+```
+
+为准。旧版 span-level masked question schema 已废弃。
+
 文件：
 
 ```text
@@ -837,45 +835,88 @@ data/processed/masked_questions.jsonl
 用途：
 
 ```text
-记录把 candidate span 替换成 [MASK] 后的问题。
+保存 unit-level masked questions，用于后续 recoverability 阶段。
+当前 1F 的输入应来自 data/processed/semantic_labels.jsonl。
+masked_questions.jsonl 按 id + unit_id 聚合 semantic label records。
 ```
+
+字段：本文件不再罗列完整字段表。顶层字段以 `docs/skill/masked_questions_interface.md` 和 `src/recover_attention/schemas.py` 的 `REQUIRED_FIELDS["masked_question"]` 为准。
 
 示例：
 
 ```json
 {
+  "masked_id": "gsm8k_0001__unit_001__mask",
   "id": "gsm8k_0001",
-  "span_id": "span_001",
-  "span_text": "3",
-  "span_type": "number",
-  "original_question": "Tom has 3 apples and buys 2 more. How many apples does he have now?",
-  "masked_question": "Tom has [MASK] apples and buys 2 more. How many apples does he have now?"
+  "unit_id": "unit_001",
+  "unit_scope": "single",
+  "group_type": "single",
+  "span_ids": ["span_001"],
+  "spans": [
+    {
+      "span_id": "span_001",
+      "text": "3",
+      "type": "number",
+      "start": 8,
+      "end": 9
+    }
+  ],
+  "original_question": "Tom has 3 apples and buys 2 more.",
+  "masked_question": "Tom has [MASK] apples and buys 2 more.",
+  "mask_token": "[MASK]",
+  "mask_backend": "unit_mask_v0",
+  "mask_strategy": "replace_each_span",
+  "source_semantic_label_ids": [
+    "gsm8k_0001__unit_001__delete__nli_stub_v0__sem_rule_v0",
+    "gsm8k_0001__unit_001__generalize__nli_stub_v0__sem_rule_v0"
+  ],
+  "source_nli_ids": [
+    "gsm8k_0001__unit_001__delete__nli_stub_v0",
+    "gsm8k_0001__unit_001__generalize__nli_stub_v0"
+  ],
+  "source_ablation_ids": [
+    "gsm8k_0001__unit_001__delete",
+    "gsm8k_0001__unit_001__generalize"
+  ],
+  "semantic_sources": [
+    {
+      "semantic_label_id": "gsm8k_0001__unit_001__delete__nli_stub_v0__sem_rule_v0",
+      "nli_id": "gsm8k_0001__unit_001__delete__nli_stub_v0",
+      "ablation_id": "gsm8k_0001__unit_001__delete",
+      "ablation_type": "delete",
+      "semantic_necessity_label": "Information Loss",
+      "semantic_necessity_score": 0.75,
+      "is_semantically_necessary": true,
+      "decision_reason": "forward entails ablated but backward does not entail original"
+    },
+    {
+      "semantic_label_id": "gsm8k_0001__unit_001__generalize__nli_stub_v0__sem_rule_v0",
+      "nli_id": "gsm8k_0001__unit_001__generalize__nli_stub_v0",
+      "ablation_id": "gsm8k_0001__unit_001__generalize",
+      "ablation_type": "generalize",
+      "semantic_necessity_label": "Information Loss",
+      "semantic_necessity_score": 0.65,
+      "is_semantically_necessary": true,
+      "decision_reason": "forward entails ablated but backward does not entail original"
+    }
+  ]
 }
-```
-
-字段：
-
-```text
-id: str, non-empty
-span_id: str, non-empty
-span_text: str, non-empty
-span_type: str, one of allowed span types
-original_question: str, non-empty
-masked_question: str, non-empty
-```
-
-可选字段：
-
-```text
-mask_token: str, default "[MASK]"
 ```
 
 约束：
 
 ```text
-1. masked question 只负责构造输入。
-2. 不包含 recovery 输出。
-3. 不包含 recoverability label。
+1. mask 对象是 ablation unit，不是单个 candidate span。
+2. 同一个 id + unit_id 只生成一条 masked question。
+3. delete / generalize 两类 semantic label 应聚合到 semantic_sources。
+4. 顶层不再使用 span_id / span_text / span_type 表示 mask 对象。
+5. mask_backend 当前只允许 unit_mask_v0。
+6. mask_strategy 当前只允许 replace_each_span。
+7. replace_each_span 要求 unit 内每个 span 各新增一个 mask_token，即
+   masked_question.count(mask_token) - original_question.count(mask_token) == len(spans)。
+8. masked_questions.jsonl 不包含 recovery 输出。
+9. masked_questions.jsonl 不包含 recoverability label。
+10. masked_questions.jsonl 不包含 attention guidance / probe / hidden states 字段。
 ```
 
 ---

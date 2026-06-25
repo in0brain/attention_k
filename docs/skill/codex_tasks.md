@@ -62,7 +62,9 @@ docs/skill/method.md:
 方法概念、术语、信号关系和常见误解。
 
 docs/skill/label_schema.md:
-jsonl schema、字段含义、枚举值和 record 示例。
+jsonl 数据格式总览、枚举值索引和 record 示例；具体顶层字段以各
+docs/skill/*_interface.md 与 src/recover_attention/schemas.py 的 REQUIRED_FIELDS 为准，
+label_schema.md 不再复制完整字段表。
 
 docs/skill/prompts.md:
 可复用 prompt 模板。
@@ -337,6 +339,25 @@ extract_candidate_spans(
 不要把方法背景长篇解释放进 task card。
 
 方法概念应放在 `docs/skill/method.md`。
+
+### 10.1 不要复制完整 schema
+
+task card 不得复制完整 jsonl 字段表。
+
+```text
+1. 顶层字段以 src/recover_attention/schemas.py 的 REQUIRED_FIELDS / FORBIDDEN_FIELDS 为唯一来源。
+2. 字段语义、示例和校验规则以对应 docs/skill/<artifact>_interface.md 为准。
+3. task card 只引用 interface 文档名和 REQUIRED_FIELDS 键，不重抄完整字段列表。
+4. 如需提醒关键约束，只写要点（ID 规则、enum、聚合方式等），不复制整张表。
+```
+
+理由：
+
+```text
+完整 schema 一旦被手抄进 task card，就会成为新的漂移源。
+tests/test_interface_consistency.py 只能锁住 interface 文档与 schemas.py，
+无法校验 task card 中手抄的字段表。
+```
 
 ---
 

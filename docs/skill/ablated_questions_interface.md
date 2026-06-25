@@ -30,6 +30,9 @@ Each line in `data/processed/ablated_questions.jsonl` must be one JSON object.
 
 Each record must contain:
 
+<!-- required_fields:ablated_question -->
+<!-- generated from schemas.py REQUIRED_FIELDS by scripts/sync_interface_fields.py — do not edit by hand -->
+
 ```text
 ablation_id
 id

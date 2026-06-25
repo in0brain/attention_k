@@ -43,6 +43,9 @@ Each line in `data/processed/semantic_labels.jsonl` must be one JSON object.
 
 Each record must contain:
 
+<!-- required_fields:semantic_label -->
+<!-- generated from schemas.py REQUIRED_FIELDS by scripts/sync_interface_fields.py — do not edit by hand -->
+
 ```text
 semantic_label_id
 nli_id
@@ -275,8 +278,24 @@ src/recover_attention/schemas.py
 
 # 12. Downstream Use
 
-The next stage can consume `semantic_labels.jsonl` for masked question
-construction and recoverability work.
+The next stage can consume `semantic_labels.jsonl` to construct
+`masked_questions.jsonl`.
+
+Sprint 1F should aggregate semantic label records by:
+
+```text
+id + unit_id
+```
+
+The `delete` and `generalize` semantic sources for the same unit should be
+collected into one masked question record. They must not produce duplicate
+masked questions.
+
+The masked question schema is defined in:
+
+```text
+docs/skill/masked_questions_interface.md
+```
 
 This file does not define or contain:
 

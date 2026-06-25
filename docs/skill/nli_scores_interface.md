@@ -70,6 +70,9 @@ semantic_labels.jsonl:
 
 必须包含：
 
+<!-- required_fields:nli_score -->
+<!-- generated from schemas.py REQUIRED_FIELDS by scripts/sync_interface_fields.py — do not edit by hand -->
+
 ```text
 nli_id
 ablation_id

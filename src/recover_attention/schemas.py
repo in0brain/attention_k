@@ -66,12 +66,149 @@ ALLOWED_ABLATION_UNIT_GROUP_TYPES = {
     "object_set",
     "cyber_security_term_set",
 }
+ALLOWED_MASK_BACKENDS = {"unit_mask_v0"}
+ALLOWED_MASK_STRATEGIES = {"replace_each_span"}
+
+# Single source of truth for top-level record fields.
+# Interface docs and label_schema.md are checked against these by
+# tests/test_interface_consistency.py. Update here first.
+REQUIRED_FIELDS = {
+    "question": ["id", "dataset", "question", "gold_answer"],
+    "candidate_span": ["id", "question", "candidates"],
+    "ablation_unit": ["id", "question", "units"],
+    "ablated_question": [
+        "ablation_id",
+        "id",
+        "unit_id",
+        "unit_scope",
+        "group_type",
+        "span_ids",
+        "spans",
+        "ablation_type",
+        "original_question",
+        "ablated_question",
+    ],
+    "nli_score": [
+        "nli_id",
+        "ablation_id",
+        "id",
+        "unit_id",
+        "unit_scope",
+        "group_type",
+        "span_ids",
+        "spans",
+        "ablation_type",
+        "original_question",
+        "ablated_question",
+        "nli_backend",
+        "language",
+        "language_setting",
+        "forward",
+        "backward",
+        "bidirectional_entailment_score",
+        "contradiction_score",
+    ],
+    "semantic_label": [
+        "semantic_label_id",
+        "nli_id",
+        "ablation_id",
+        "id",
+        "unit_id",
+        "unit_scope",
+        "group_type",
+        "span_ids",
+        "spans",
+        "ablation_type",
+        "original_question",
+        "ablated_question",
+        "nli_backend",
+        "language",
+        "language_setting",
+        "forward",
+        "backward",
+        "bidirectional_entailment_score",
+        "contradiction_score",
+        "semantic_label_backend",
+        "semantic_necessity_label",
+        "semantic_necessity_score",
+        "is_semantically_necessary",
+        "rule_parameters",
+        "decision_reason",
+    ],
+    "masked_question": [
+        "masked_id",
+        "id",
+        "unit_id",
+        "unit_scope",
+        "group_type",
+        "span_ids",
+        "spans",
+        "original_question",
+        "masked_question",
+        "mask_token",
+        "mask_backend",
+        "mask_strategy",
+        "source_semantic_label_ids",
+        "source_nli_ids",
+        "source_ablation_ids",
+        "semantic_sources",
+    ],
+    "recover_output": [
+        "id",
+        "span_id",
+        "sample_id",
+        "masked_question",
+        "recovered_question",
+        "recoverable",
+        "confidence",
+        "reason",
+    ],
+    "recover_score": [
+        "id",
+        "span_id",
+        "recoverability_label",
+        "confidence_mean",
+        "recovery_consistency",
+        "misleading_recovery",
+    ],
+    "attention_anchor_label": [
+        "id",
+        "span_id",
+        "span_text",
+        "span_type",
+        "attention_importance_score",
+        "attention_anchor_label",
+        "guidance_action",
+        "guidance_strength",
+        "evidence",
+    ],
+}
+
+# Top-level fields that must NOT appear (stale or future-stage fields).
+FORBIDDEN_FIELDS = {
+    "ablated_question": ["span_id", "span_text", "span_type"],
+    "nli_score": ["original_to_ablated", "ablated_to_original", "semantic_necessity_label"],
+    "masked_question": ["span_id", "span_text", "span_type"],
+}
+
+# Binds each record type to the interface doc whose `required_fields` marker
+# block is generated from REQUIRED_FIELDS. Shared by
+# scripts/sync_interface_fields.py (generator) and
+# tests/test_interface_consistency.py (gate). Record types not listed here have
+# no interface doc and are not managed by the generator.
+INTERFACE_DOCS = {
+    "ablation_unit": "ablation_units_interface.md",
+    "ablated_question": "ablated_questions_interface.md",
+    "nli_score": "nli_scores_interface.md",
+    "semantic_label": "semantic_labels_interface.md",
+    "masked_question": "masked_questions_interface.md",
+}
 
 
 def validate_question_record(record: dict) -> None:
     name = "question record"
     _require_dict(record, name)
-    _require_fields(record, ["id", "dataset", "question", "gold_answer"], name)
+    _require_fields(record, REQUIRED_FIELDS["question"], name)
     _require_non_empty_str(record, "id", name)
     _require_non_empty_str(record, "dataset", name)
     _require_non_empty_str(record, "question", name)
@@ -81,7 +218,7 @@ def validate_question_record(record: dict) -> None:
 def validate_candidate_span_record(record: dict) -> None:
     name = "candidate span record"
     _require_dict(record, name)
-    _require_fields(record, ["id", "question", "candidates"], name)
+    _require_fields(record, REQUIRED_FIELDS["candidate_span"], name)
     _require_non_empty_str(record, "id", name)
     _require_non_empty_str(record, "question", name)
 
@@ -105,7 +242,7 @@ def validate_candidate_span_record(record: dict) -> None:
 def validate_ablation_unit_record(record: dict) -> None:
     name = "ablation unit record"
     _require_dict(record, name)
-    _require_fields(record, ["id", "question", "units"], name)
+    _require_fields(record, REQUIRED_FIELDS["ablation_unit"], name)
     _require_non_empty_str(record, "id", name)
     _require_non_empty_str(record, "question", name)
 
@@ -166,23 +303,8 @@ def validate_ablation_unit_record(record: dict) -> None:
 def validate_ablated_question_record(record: dict) -> None:
     name = "ablated question record"
     _require_dict(record, name)
-    _reject_fields(record, ["span_id", "span_text", "span_type"], name)
-    _require_fields(
-        record,
-        [
-            "ablation_id",
-            "id",
-            "unit_id",
-            "unit_scope",
-            "group_type",
-            "span_ids",
-            "spans",
-            "ablation_type",
-            "original_question",
-            "ablated_question",
-        ],
-        name,
-    )
+    _reject_fields(record, FORBIDDEN_FIELDS["ablated_question"], name)
+    _require_fields(record, REQUIRED_FIELDS["ablated_question"], name)
     _require_non_empty_str(record, "ablation_id", name)
     _require_non_empty_str(record, "id", name)
     _require_non_empty_str(record, "unit_id", name)
@@ -234,35 +356,8 @@ def validate_ablated_question_record(record: dict) -> None:
 def validate_nli_score_record(record: dict) -> None:
     name = "nli score record"
     _require_dict(record, name)
-    _reject_fields(
-        record,
-        ["original_to_ablated", "ablated_to_original", "semantic_necessity_label"],
-        name,
-    )
-    _require_fields(
-        record,
-        [
-            "nli_id",
-            "ablation_id",
-            "id",
-            "unit_id",
-            "unit_scope",
-            "group_type",
-            "span_ids",
-            "spans",
-            "ablation_type",
-            "original_question",
-            "ablated_question",
-            "nli_backend",
-            "language",
-            "language_setting",
-            "forward",
-            "backward",
-            "bidirectional_entailment_score",
-            "contradiction_score",
-        ],
-        name,
-    )
+    _reject_fields(record, FORBIDDEN_FIELDS["nli_score"], name)
+    _require_fields(record, REQUIRED_FIELDS["nli_score"], name)
     _require_non_empty_str(record, "nli_id", name)
     _require_non_empty_str(record, "ablation_id", name)
     _require_non_empty_str(record, "id", name)
@@ -329,37 +424,7 @@ def validate_nli_score_record(record: dict) -> None:
 def validate_semantic_label_record(record: dict) -> None:
     name = "semantic label record"
     _require_dict(record, name)
-    _require_fields(
-        record,
-        [
-            "semantic_label_id",
-            "nli_id",
-            "ablation_id",
-            "id",
-            "unit_id",
-            "unit_scope",
-            "group_type",
-            "span_ids",
-            "spans",
-            "ablation_type",
-            "original_question",
-            "ablated_question",
-            "nli_backend",
-            "language",
-            "language_setting",
-            "forward",
-            "backward",
-            "bidirectional_entailment_score",
-            "contradiction_score",
-            "semantic_label_backend",
-            "semantic_necessity_label",
-            "semantic_necessity_score",
-            "is_semantically_necessary",
-            "rule_parameters",
-            "decision_reason",
-        ],
-        name,
-    )
+    _require_fields(record, REQUIRED_FIELDS["semantic_label"], name)
     _require_non_empty_str(record, "semantic_label_id", name)
     _require_enum(record, "semantic_label_backend", ALLOWED_SEMANTIC_LABEL_BACKENDS, name)
     expected_semantic_label_id = (
@@ -446,43 +511,143 @@ def validate_semantic_label_record(record: dict) -> None:
 def validate_masked_question_record(record: dict) -> None:
     name = "masked question record"
     _require_dict(record, name)
-    _require_fields(
-        record,
-        [
-            "id",
-            "span_id",
-            "span_text",
-            "span_type",
-            "original_question",
-            "masked_question",
-        ],
-        name,
-    )
+    _reject_fields(record, FORBIDDEN_FIELDS["masked_question"], name)
+    _require_fields(record, REQUIRED_FIELDS["masked_question"], name)
+    _require_non_empty_str(record, "masked_id", name)
     _require_non_empty_str(record, "id", name)
-    _require_non_empty_str(record, "span_id", name)
-    _require_non_empty_str(record, "span_text", name)
-    _require_enum(record, "span_type", ALLOWED_SPAN_TYPES, name)
+    _require_non_empty_str(record, "unit_id", name)
+    _require_enum(record, "unit_scope", ALLOWED_ABLATION_UNIT_SCOPES, name)
+    _require_non_empty_str(record, "group_type", name)
     _require_non_empty_str(record, "original_question", name)
     _require_non_empty_str(record, "masked_question", name)
+    if record["masked_question"] == record["original_question"]:
+        raise ValueError(f"{name} field 'masked_question' must differ from 'original_question'")
+    _require_non_empty_str(record, "mask_token", name)
+    _require_enum(record, "mask_backend", ALLOWED_MASK_BACKENDS, name)
+    _require_enum(record, "mask_strategy", ALLOWED_MASK_STRATEGIES, name)
+
+    span_ids = _require_non_empty_str_list(record, "span_ids", name)
+    spans = record["spans"]
+    if not isinstance(spans, list) or not spans:
+        raise ValueError(f"{name} field 'spans' must be a non-empty list")
+    if len(spans) != len(span_ids):
+        raise ValueError(f"{name} field 'spans' must have the same length as 'span_ids'")
+
+    if record["unit_scope"] == "single" and len(span_ids) != 1:
+        raise ValueError(f"{name} with unit_scope 'single' must contain exactly one span")
+    if record["unit_scope"] == "group" and len(span_ids) < 2:
+        raise ValueError(f"{name} with unit_scope 'group' must contain at least two spans")
+
+    if record["mask_strategy"] == "replace_each_span":
+        mask_token = record["mask_token"]
+        added_mask_count = record["masked_question"].count(mask_token) - record[
+            "original_question"
+        ].count(mask_token)
+        if added_mask_count != len(span_ids):
+            raise ValueError(
+                f"{name} with mask_strategy 'replace_each_span' must add exactly "
+                f"{len(span_ids)} mask_token(s), but added {added_mask_count}"
+            )
+
+    for span_index, span in enumerate(spans):
+        span_name = f"{name} span[{span_index}]"
+        _require_dict(span, span_name)
+        _require_fields(span, ["span_id", "text", "type", "start", "end"], span_name)
+        _require_non_empty_str(span, "span_id", span_name)
+        _require_non_empty_str(span, "text", span_name)
+        _require_enum(span, "type", ALLOWED_SPAN_TYPES, span_name)
+        _require_int(span, "start", span_name, min_value=0)
+        _require_int(span, "end", span_name)
+        if span["end"] <= span["start"]:
+            raise ValueError(f"{span_name} field 'end' must be greater than 'start'")
+        if span["span_id"] != span_ids[span_index]:
+            raise ValueError(f"{name} span_ids order must match spans order")
+
+    source_semantic_label_ids = _require_non_empty_str_list(
+        record,
+        "source_semantic_label_ids",
+        name,
+    )
+    source_nli_ids = _require_non_empty_str_list(record, "source_nli_ids", name)
+    source_ablation_ids = _require_non_empty_str_list(record, "source_ablation_ids", name)
+
+    semantic_sources = record["semantic_sources"]
+    if not isinstance(semantic_sources, list) or not semantic_sources:
+        raise ValueError(f"{name} field 'semantic_sources' must be a non-empty list")
+    if len(semantic_sources) != len(source_semantic_label_ids):
+        raise ValueError(
+            f"{name} field 'semantic_sources' must have the same length as "
+            "'source_semantic_label_ids'"
+        )
+    if len(semantic_sources) != len(source_nli_ids):
+        raise ValueError(
+            f"{name} field 'semantic_sources' must have the same length as 'source_nli_ids'"
+        )
+    if len(semantic_sources) != len(source_ablation_ids):
+        raise ValueError(
+            f"{name} field 'semantic_sources' must have the same length as "
+            "'source_ablation_ids'"
+        )
+
+    for source_index, semantic_source in enumerate(semantic_sources):
+        source_name = f"{name} semantic_sources[{source_index}]"
+        _require_dict(semantic_source, source_name)
+        _require_fields(
+            semantic_source,
+            [
+                "semantic_label_id",
+                "nli_id",
+                "ablation_id",
+                "ablation_type",
+                "semantic_necessity_label",
+                "semantic_necessity_score",
+                "is_semantically_necessary",
+                "decision_reason",
+            ],
+            source_name,
+        )
+        _require_non_empty_str(semantic_source, "semantic_label_id", source_name)
+        _require_non_empty_str(semantic_source, "nli_id", source_name)
+        _require_non_empty_str(semantic_source, "ablation_id", source_name)
+        _require_enum(
+            semantic_source,
+            "ablation_type",
+            ALLOWED_ABLATED_QUESTION_ABLATION_TYPES,
+            source_name,
+        )
+        _require_enum(
+            semantic_source,
+            "semantic_necessity_label",
+            ALLOWED_SEMANTIC_NECESSITY_LABELS,
+            source_name,
+        )
+        _require_number(
+            semantic_source,
+            "semantic_necessity_score",
+            source_name,
+            min_value=0,
+            max_value=1,
+        )
+        _require_bool(semantic_source, "is_semantically_necessary", source_name)
+        _require_non_empty_str(semantic_source, "decision_reason", source_name)
+
+        if semantic_source["semantic_label_id"] != source_semantic_label_ids[source_index]:
+            raise ValueError(
+                f"{name} semantic_sources semantic_label_id order must match "
+                "source_semantic_label_ids"
+            )
+        if semantic_source["nli_id"] != source_nli_ids[source_index]:
+            raise ValueError(f"{name} semantic_sources nli_id order must match source_nli_ids")
+        if semantic_source["ablation_id"] != source_ablation_ids[source_index]:
+            raise ValueError(
+                f"{name} semantic_sources ablation_id order must match source_ablation_ids"
+            )
 
 
 def validate_recover_output_record(record: dict) -> None:
     name = "recover output record"
     _require_dict(record, name)
-    _require_fields(
-        record,
-        [
-            "id",
-            "span_id",
-            "sample_id",
-            "masked_question",
-            "recovered_question",
-            "recoverable",
-            "confidence",
-            "reason",
-        ],
-        name,
-    )
+    _require_fields(record, REQUIRED_FIELDS["recover_output"], name)
     _require_non_empty_str(record, "id", name)
     _require_non_empty_str(record, "span_id", name)
     _require_int(record, "sample_id", name, min_value=0)
@@ -496,18 +661,7 @@ def validate_recover_output_record(record: dict) -> None:
 def validate_recover_score_record(record: dict) -> None:
     name = "recover score record"
     _require_dict(record, name)
-    _require_fields(
-        record,
-        [
-            "id",
-            "span_id",
-            "recoverability_label",
-            "confidence_mean",
-            "recovery_consistency",
-            "misleading_recovery",
-        ],
-        name,
-    )
+    _require_fields(record, REQUIRED_FIELDS["recover_score"], name)
     _require_non_empty_str(record, "id", name)
     _require_non_empty_str(record, "span_id", name)
     _require_enum(record, "recoverability_label", ALLOWED_RECOVERABILITY_LABELS, name)
@@ -519,21 +673,7 @@ def validate_recover_score_record(record: dict) -> None:
 def validate_attention_anchor_label_record(record: dict) -> None:
     name = "attention anchor label record"
     _require_dict(record, name)
-    _require_fields(
-        record,
-        [
-            "id",
-            "span_id",
-            "span_text",
-            "span_type",
-            "attention_importance_score",
-            "attention_anchor_label",
-            "guidance_action",
-            "guidance_strength",
-            "evidence",
-        ],
-        name,
-    )
+    _require_fields(record, REQUIRED_FIELDS["attention_anchor_label"], name)
     _require_non_empty_str(record, "id", name)
     _require_non_empty_str(record, "span_id", name)
     _require_non_empty_str(record, "span_text", name)
@@ -601,6 +741,15 @@ def _require_non_empty_str(record: dict, field: str, name: str) -> None:
     _require_str(record, field, name)
     if not record[field].strip():
         raise ValueError(f"{name} field '{field}' must be a non-empty str")
+
+
+def _require_non_empty_str_list(record: dict, field: str, name: str) -> list[str]:
+    values = record[field]
+    if not isinstance(values, list) or not values:
+        raise ValueError(f"{name} field '{field}' must be a non-empty list")
+    if not all(isinstance(value, str) and value.strip() for value in values):
+        raise ValueError(f"{name} field '{field}' must contain non-empty str values")
+    return values
 
 
 def _require_enum(record: dict, field: str, allowed: set[str], name: str) -> None:

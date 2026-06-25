@@ -251,6 +251,16 @@ Semantic label interface for semantic_labels.jsonl, including rule_v0, threshold
 
 ---
 
+### 3.8.5 docs/skill/masked_questions_interface.md
+
+Use for:
+
+```text
+Masked question 的长期接口文档，说明 masked_questions.jsonl 的 unit-level schema、semantic label 聚合来源、mask 字段和后续 recoverability 消费方式。
+```
+
+---
+
 ### 3.9 docs/reference/*
 
 Use for:

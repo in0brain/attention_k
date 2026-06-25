@@ -73,6 +73,9 @@ ablated_questions.jsonl:
 
 必须包含：
 
+<!-- required_fields:ablation_unit -->
+<!-- generated from schemas.py REQUIRED_FIELDS by scripts/sync_interface_fields.py — do not edit by hand -->
+
 ```text
 id
 question
