@@ -58,6 +58,7 @@ recover_scores 接口已迁移到 unit-level / masked_id-driven schema。
 | Sprint 1G-prep | 完成 | Self-contained recover output interface alignment |
 | Sprint 1G | 完成 | Question recovery oracle stub |
 | Sprint 1H-prep | 完成 | Recover score interface alignment |
+| Sprint 1H-prep-fix | 完成 | Recover score governance 文档残留修补 |
 
 详细历史见：
 
@@ -84,7 +85,7 @@ conda run -n recover_attention python -m pytest -q
 最近一次检查结果：
 
 ```text
-pytest: 230 passed, 2 skipped
+pytest: 231 passed, 2 skipped
 smoke test: passed
 candidate extraction: passed
 ablation unit construction: passed
@@ -96,6 +97,8 @@ recover output interface alignment: passed
 recover output self-contained interface refinement: passed
 question recovery stub: passed
 recover score interface alignment: passed
+recover score governance doc cleanup: passed
+sync_interface_fields --check: all in sync
 ```
 
 ## 4. 当前关键文件状态
@@ -161,6 +164,7 @@ recover score interface alignment: passed
 - `data/processed/*` 是本地生成产物目录，当前被 `.gitignore` 忽略；PROGRESS 中列出的 processed jsonl 不代表会提交到 GitHub。
 - `recover_outputs.jsonl` 已由 `oracle_stub_v0` 生成；该 backend 只用于管线验证，不代表真实恢复能力。
 - `recover_scores.jsonl` 目前只完成 unit-level / masked_id-driven 接口修正，尚未实现 scoring 生成。
+- recover_score governance 文档残留已修复：label_schema.md §0 不再把 recover_score 误列为“不受 interface doc 管理”；新增回归测试 `test_label_schema_out_of_scope_examples_do_not_include_managed_interface_types` 防止再漂移。
 - 不要从 recover score interface 自动扩展到 attention guidance。
 
 ## 6. 下一步

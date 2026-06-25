@@ -728,3 +728,50 @@ attention label and guidance fields are rejected.
 下一步建议：
 
 - Sprint 1H：Recoverability Scoring。
+
+## Sprint 1H-prep-fix：Recover Score Governance Doc Cleanup
+
+已完成内容：
+
+- 修正 `docs/skill/label_schema.md` 第 0 节生成边界说明：从“不受 interface doc 管理”的例子中移除 `recover_score`（它已有 interface 文档并登记于 `schemas.INTERFACE_DOCS`），保留 `question / candidate_span / attention_anchor_label`。
+- 保持第 0 节三条原则不变：REQUIRED_FIELDS / FORBIDDEN_FIELDS 是顶层字段唯一来源；interface 的 required_fields block 由 `scripts/sync_interface_fields.py` 生成；label_schema.md 是索引/总览，不复制完整字段表。
+- 未改动第 12 节 Recover Score Record 的 unit-level / masked_id-driven 方向。
+- 在 `tests/test_interface_consistency.py` 新增轻量回归测试 `test_label_schema_out_of_scope_examples_do_not_include_managed_interface_types`：断言 §0 “没有 interface 文档的 record（…）”枚举中，不出现任何已登记在 `schemas.INTERFACE_DOCS` 的 record type。
+
+新增或修改文件：
+
+- docs/skill/label_schema.md
+- tests/test_interface_consistency.py
+- PROGRESS.md
+- docs/progress/sprint_1_history.md
+
+输入文件：
+
+- 无数据输入。本轮只做文档治理修补。
+
+输出文件：
+
+- 无 `data/processed` 产物。
+
+运行命令：
+
+```bash
+D:\conda\Miniconda3\envs\recover_attention\python.exe scripts/sync_interface_fields.py --check
+D:\conda\Miniconda3\envs\recover_attention\python.exe -m pytest tests/test_interface_consistency.py -q
+D:\conda\Miniconda3\envs\recover_attention\python.exe -m pytest -q
+```
+
+检查结果：
+
+- sync_interface_fields --check：6 个 interface block 全部 in sync（recover_score = 24 fields，未被手改）。
+- tests/test_interface_consistency.py：25 passed, 2 skipped。
+- 全量 pytest：231 passed, 2 skipped。
+
+遗留问题：
+
+- 裸 `python` 当前指向 base conda；本轮经由 `D:\conda\Miniconda3\envs\recover_attention\python.exe` 运行（等价于 `conda run -n recover_attention python ...`；本机 `conda` 不在 PATH）。
+- 本轮未实现 recoverability scoring，未生成 `data/processed/recover_scores.jsonl`，未调用模型。
+
+下一步建议：
+
+- Sprint 1H：Recoverability Scoring。

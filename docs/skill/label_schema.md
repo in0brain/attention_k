@@ -74,7 +74,7 @@ scripts/sync_interface_fields.py 只改：
 scripts/sync_interface_fields.py 不管：
   - 本文件 label_schema.md（它是索引/总览，由测试校验“指向 interface 且不复制字段”，不由脚本生成）。
   - REQUIRED_FIELDS 中没有 interface 文档的 record（question / candidate_span /
-    recover_score / attention_anchor_label）。
+    attention_anchor_label）。
 
 本文件 label_schema.md 的职责：
   数据格式总览、枚举值索引、record 示例和概念约束。

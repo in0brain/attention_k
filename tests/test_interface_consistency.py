@@ -153,3 +153,23 @@ def test_label_schema_does_not_duplicate_fields(record_type: str) -> None:
             f"label_schema.md section '{heading}' still duplicates the full field "
             f"list; keep field definitions only in the interface doc"
         )
+
+
+def test_label_schema_out_of_scope_examples_do_not_include_managed_interface_types() -> None:
+    # The §0 governance note lists record types that have NO interface doc as
+    # examples of what the generator does not manage. A record type that is
+    # registered in schemas.INTERFACE_DOCS must never appear in that list, or the
+    # governance note has drifted (e.g. recover_score after its interface landed).
+    text = LABEL_SCHEMA_PATH.read_text(encoding="utf-8")
+    marker = "没有 interface 文档的 record"
+    start = text.find(marker)
+    assert start != -1, "out-of-scope governance note not found in label_schema.md §0"
+    close = text.find("）", start)
+    assert close != -1, "out-of-scope enumeration is not closed with '）'"
+    enumeration = text[start:close]
+
+    managed = sorted(record_type for record_type in INTERFACE_DOCS if record_type in enumeration)
+    assert not managed, (
+        "label_schema.md §0 lists record type(s) as out-of-scope that are actually "
+        f"managed via schemas.INTERFACE_DOCS: {managed}"
+    )
