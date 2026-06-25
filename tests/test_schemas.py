@@ -455,20 +455,52 @@ def valid_group_unit_evidence_record() -> dict:
 
 
 def valid_attention_anchor_label_record() -> dict:
+    unit_evidence_id = "gsm8k_0001__unit_001__evidence_aggregate_stub_v0"
     return {
+        "attention_anchor_label_id": f"{unit_evidence_id}__anchor_early_evidence_rule_stub_v0",
+        "unit_evidence_id": unit_evidence_id,
         "id": "gsm8k_0001",
-        "span_id": "span_001",
-        "span_text": "3",
-        "span_type": "number",
-        "attention_importance_score": 0.87,
-        "attention_anchor_label": "Strong Anchor",
-        "guidance_action": "boost",
-        "guidance_strength": 0.75,
-        "evidence": {
-            "semantic_necessity_label": "Information Loss",
-            "recoverability_label": "Non-recoverable",
-        },
+        "unit_id": "unit_001",
+        "unit_scope": "single",
+        "group_type": "single",
+        "span_ids": ["span_001"],
+        "spans": [
+            {"span_id": "span_001", "text": "3", "type": "number", "start": 8, "end": 9}
+        ],
+        "original_question": "Tom has 3 apples and buys 2 more.",
+        "semantic_evidence": {"summary_label": "Information Loss", "summary_score": 0.75},
+        "recoverability_evidence": {"recoverability_label": "Recoverable", "recoverability_score": 1.0},
+        "available_signal_types": ["semantic_necessity", "semantic_recoverability"],
+        "missing_signal_types": [
+            "trajectory_stability",
+            "answer_stability",
+            "raw_attention_pattern",
+            "attention_steering_effect",
+        ],
+        "attention_importance_score": 0.5,
+        "attention_anchor_label": "Weak Anchor",
+        "label_backend": "early_evidence_rule_stub_v0",
+        "label_status": "partial_evidence_label",
+        "evidence": {"notes": "Example only; builder implementation belongs to a later sprint."},
     }
+
+
+def valid_group_attention_anchor_label_record() -> dict:
+    record = valid_attention_anchor_label_record()
+    record["unit_id"] = "unit_003"
+    unit_evidence_id = "gsm8k_0001__unit_003__evidence_aggregate_stub_v0"
+    record["unit_evidence_id"] = unit_evidence_id
+    record["attention_anchor_label_id"] = (
+        f"{unit_evidence_id}__anchor_early_evidence_rule_stub_v0"
+    )
+    record["unit_scope"] = "group"
+    record["group_type"] = "number_set"
+    record["span_ids"] = ["span_001", "span_002"]
+    record["spans"] = [
+        {"span_id": "span_001", "text": "3", "type": "number", "start": 8, "end": 9},
+        {"span_id": "span_002", "text": "2", "type": "number", "start": 26, "end": 27},
+    ]
+    return record
 
 
 def test_valid_question_record_passes() -> None:
@@ -1099,27 +1131,82 @@ def test_valid_attention_anchor_label_record_passes() -> None:
     assert validate_attention_anchor_label_record(valid_attention_anchor_label_record()) is None
 
 
-def test_attention_anchor_label_record_with_invalid_label_raises_value_error() -> None:
+def test_valid_group_attention_anchor_label_record_passes() -> None:
+    assert (
+        validate_attention_anchor_label_record(valid_group_attention_anchor_label_record())
+        is None
+    )
+
+
+def test_attention_anchor_label_record_missing_required_field_raises_value_error() -> None:
+    record = valid_attention_anchor_label_record()
+    del record["evidence"]
+
+    with pytest.raises(ValueError, match="missing required field"):
+        validate_attention_anchor_label_record(record)
+
+
+def test_attention_anchor_label_record_with_top_level_span_id_raises_value_error() -> None:
+    record = valid_attention_anchor_label_record()
+    record["span_id"] = "span_001"
+
+    with pytest.raises(ValueError, match="forbidden field"):
+        validate_attention_anchor_label_record(record)
+
+
+def test_attention_anchor_label_record_with_top_level_span_text_raises_value_error() -> None:
+    record = valid_attention_anchor_label_record()
+    record["span_text"] = "3"
+
+    with pytest.raises(ValueError, match="forbidden field"):
+        validate_attention_anchor_label_record(record)
+
+
+def test_attention_anchor_label_record_with_guidance_action_raises_value_error() -> None:
+    record = valid_attention_anchor_label_record()
+    record["guidance_action"] = "boost"
+
+    with pytest.raises(ValueError, match="forbidden field"):
+        validate_attention_anchor_label_record(record)
+
+
+def test_attention_anchor_label_record_with_guidance_strength_raises_value_error() -> None:
+    record = valid_attention_anchor_label_record()
+    record["guidance_strength"] = 0.75
+
+    with pytest.raises(ValueError, match="forbidden field"):
+        validate_attention_anchor_label_record(record)
+
+
+def test_attention_anchor_label_record_with_invalid_label_id_raises_value_error() -> None:
+    record = valid_attention_anchor_label_record()
+    record["attention_anchor_label_id"] = "wrong_id"
+
+    with pytest.raises(ValueError, match="attention_anchor_label_id"):
+        validate_attention_anchor_label_record(record)
+
+
+def test_attention_anchor_label_record_with_invalid_label_backend_raises_value_error() -> None:
+    record = valid_attention_anchor_label_record()
+    record["label_backend"] = "made_up_backend"
+
+    with pytest.raises(ValueError, match="invalid value"):
+        validate_attention_anchor_label_record(record)
+
+
+def test_attention_anchor_label_record_with_invalid_label_status_raises_value_error() -> None:
+    record = valid_attention_anchor_label_record()
+    record["label_status"] = "final_label"
+
+    with pytest.raises(ValueError, match="invalid value"):
+        validate_attention_anchor_label_record(record)
+
+
+def test_attention_anchor_label_record_with_invalid_anchor_label_raises_value_error() -> None:
     record = valid_attention_anchor_label_record()
     record["attention_anchor_label"] = "Important"
 
     with pytest.raises(ValueError, match="invalid value"):
-        validate_attention_anchor_label_record(record)
-
-
-def test_attention_anchor_label_record_with_invalid_guidance_action_raises_value_error() -> None:
-    record = valid_attention_anchor_label_record()
-    record["guidance_action"] = "amplify"
-
-    with pytest.raises(ValueError, match="invalid value"):
-        validate_attention_anchor_label_record(record)
-
-
-def test_attention_anchor_label_record_with_negative_importance_score_raises_value_error() -> None:
-    record = valid_attention_anchor_label_record()
-    record["attention_importance_score"] = -0.1
-
-    with pytest.raises(ValueError, match=">= 0"):
         validate_attention_anchor_label_record(record)
 
 
@@ -1131,33 +1218,40 @@ def test_attention_anchor_label_record_with_importance_score_above_one_raises_va
         validate_attention_anchor_label_record(record)
 
 
-def test_attention_anchor_label_record_with_negative_guidance_strength_raises_value_error() -> None:
+def test_attention_anchor_label_record_with_invalid_signal_type_raises_value_error() -> None:
     record = valid_attention_anchor_label_record()
-    record["guidance_strength"] = -0.1
+    record["available_signal_types"] = ["made_up_signal"]
 
-    with pytest.raises(ValueError, match=">= 0"):
+    with pytest.raises(ValueError, match="invalid value"):
         validate_attention_anchor_label_record(record)
 
 
-def test_attention_anchor_label_record_with_guidance_strength_above_one_raises_value_error() -> None:
+def test_attention_anchor_label_record_single_scope_with_two_spans_raises_value_error() -> None:
     record = valid_attention_anchor_label_record()
-    record["guidance_strength"] = 1.1
+    record["span_ids"] = ["span_001", "span_002"]
+    record["spans"] = [
+        {"span_id": "span_001", "text": "3", "type": "number", "start": 8, "end": 9},
+        {"span_id": "span_002", "text": "2", "type": "number", "start": 26, "end": 27},
+    ]
 
-    with pytest.raises(ValueError, match="<= 1"):
+    with pytest.raises(ValueError, match="single"):
         validate_attention_anchor_label_record(record)
 
 
-def test_attention_anchor_label_record_missing_required_field_raises_value_error() -> None:
-    record = valid_attention_anchor_label_record()
-    del record["evidence"]
+def test_attention_anchor_label_record_group_scope_with_one_span_raises_value_error() -> None:
+    record = valid_group_attention_anchor_label_record()
+    record["span_ids"] = ["span_001"]
+    record["spans"] = [
+        {"span_id": "span_001", "text": "3", "type": "number", "start": 8, "end": 9}
+    ]
 
-    with pytest.raises(ValueError, match="missing required field"):
+    with pytest.raises(ValueError, match="at least two spans"):
         validate_attention_anchor_label_record(record)
 
 
-def test_attention_anchor_label_record_with_invalid_evidence_raises_value_error() -> None:
-    record = valid_attention_anchor_label_record()
-    record["evidence"] = "not structured"
+def test_attention_anchor_label_record_span_order_mismatch_raises_value_error() -> None:
+    record = valid_group_attention_anchor_label_record()
+    record["span_ids"] = ["span_002", "span_001"]
 
-    with pytest.raises(ValueError, match="dict or list"):
+    with pytest.raises(ValueError, match="order must match"):
         validate_attention_anchor_label_record(record)

@@ -66,7 +66,9 @@ unit_evidence.jsonl:
   Aggregates early evidence at unit level before anchor labeling.
 ```
 
-This sprint only defines the interface. It does not implement aggregation.
+The build stage aggregates semantic_labels.jsonl and recover_scores.jsonl into
+unit_evidence.jsonl. It is implemented in src/recover_attention/unit_evidence.py
+and run via scripts/10_build_unit_evidence.py.
 
 ---
 
@@ -136,8 +138,9 @@ evidence_status
 evidence
 ```
 
-This sprint only designs the interface. It does not implement the aggregation
-stage.
+These fields are produced by the build stage
+(src/recover_attention/unit_evidence.py, run via
+scripts/10_build_unit_evidence.py), which follows this interface.
 
 ---
 
@@ -279,7 +282,7 @@ available / missing signal types use the approved signal enum.
   "evidence_backend": "aggregate_stub_v0",
   "evidence_status": "partial_stub_evidence",
   "evidence": {
-    "notes": "Example only; builder implementation belongs to a later sprint.",
+    "notes": "Example only; concrete records are produced by scripts/10_build_unit_evidence.py.",
     "source_files": [
       "data/processed/semantic_labels.jsonl",
       "data/processed/recover_scores.jsonl"

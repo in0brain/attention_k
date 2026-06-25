@@ -1021,3 +1021,114 @@ D:\conda\Miniconda3\envs\recover_attention\python.exe -m pytest -q
 下一步建议：
 
 - Sprint 1H：Recoverability Scoring。
+
+## Sprint 1I-doc-fix：Unit Evidence Interface Post-build Cleanup
+
+已完成内容：
+
+- 修正 `docs/skill/unit_evidence_interface.md` 中 Sprint 1I-prep-a 阶段的过时表述（builder 已在 Sprint 1I 实现）：
+  - §2 Pipeline Position 的 “This sprint only defines the interface. It does not implement aggregation.” 改为说明 build 阶段已聚合 `semantic_labels.jsonl` + `recover_scores.jsonl` 生成 `unit_evidence.jsonl`，由 `src/recover_attention/unit_evidence.py` 实现、`scripts/10_build_unit_evidence.py` 运行。
+  - §4 Field Sources 的 “This sprint only designs the interface. It does not implement the aggregation stage.” 改为说明这些字段由 build 阶段产出且遵循本接口。
+  - §9 Example 的 notes “Example only; builder implementation belongs to a later sprint.” 改为 “Example only; concrete records are produced by scripts/10_build_unit_evidence.py.”
+- 未改动 schema、`REQUIRED_FIELDS["unit_evidence"]`、required_fields 生成块、字段结构。
+- 保留边界表述不变：`unit_evidence` 不是 final attention anchor label；不含 guidance / trajectory stability / answer stability / raw attention。
+
+修改文件：
+
+- docs/skill/unit_evidence_interface.md
+- PROGRESS.md
+- docs/progress/sprint_1_history.md
+
+输入文件：
+
+- 无数据输入。本轮只做文档修补。
+
+输出文件：
+
+- 无 `data/processed` 产物。
+
+运行命令：
+
+```bash
+D:\conda\Miniconda3\envs\recover_attention\python.exe scripts/sync_interface_fields.py --check
+D:\conda\Miniconda3\envs\recover_attention\python.exe -m pytest tests/test_interface_consistency.py -q
+D:\conda\Miniconda3\envs\recover_attention\python.exe -m pytest -q
+```
+
+检查结果：
+
+- sync_interface_fields --check：全部 in sync（`unit_evidence` = 15 fields，未被手改）。
+- tests/test_interface_consistency.py：29 passed, 2 skipped。
+- 全量 pytest：287 passed, 2 skipped。
+
+遗留问题：
+
+- 裸 `python` 当前指向 base conda；本轮经由 `D:\conda\Miniconda3\envs\recover_attention\python.exe` 运行（本机 `conda` 不在 PATH）。
+- 本轮未实现 attention anchor labeling，未生成 `attention_anchor_labels.jsonl`，未调用模型。
+
+下一步建议：
+
+- Sprint 1J-prep：Attention Anchor Label Interface Alignment。
+
+## Sprint 1J-prep：Attention Anchor Label Interface Alignment
+
+已完成内容：
+
+- 将 `attention_anchor_label` 从旧 span-level schema 对齐为 unit-level（绑定 `id + unit_id`，span 信息保留在 `span_ids` / `spans`）。
+- `schemas.py`：
+  - 新增 enum `ALLOWED_ATTENTION_LABEL_BACKENDS = {"early_evidence_rule_stub_v0"}`、`ALLOWED_ATTENTION_LABEL_STATUSES = {"partial_evidence_label"}`（保留 `ALLOWED_ATTENTION_ANCHOR_LABELS` 不变）。
+  - `REQUIRED_FIELDS["attention_anchor_label"]` 改为 18 字段 unit-level（含 `attention_anchor_label_id` / `unit_evidence_id` / unit metadata / semantic_evidence / recoverability_evidence / signal types / attention_importance_score / attention_anchor_label / label_backend / label_status / evidence）。
+  - 新增 `FORBIDDEN_FIELDS["attention_anchor_label"]`，拒绝旧 span-level 顶层字段、sample-level recovery 字段、`guidance_action` / `guidance_strength`、hidden states / attention maps / trajectory / answer stability / raw attention / probe 字段。
+  - `INTERFACE_DOCS` 新增 `"attention_anchor_label": "attention_anchor_labels_interface.md"`。
+  - 重写 `validate_attention_anchor_label_record` 为 unit-level（复用 unit_evidence 的 span/unit/signal 校验；校验 `attention_anchor_label_id == f"{unit_evidence_id}__anchor_{label_backend}"`；enum/range/signal type 校验）。
+- 新增 `docs/skill/attention_anchor_labels_interface.md`（含 `<!-- required_fields:attention_anchor_label -->` 生成块，由 `sync_interface_fields.py --write` 写入 18 字段；Purpose / Pipeline / Field Sources / ID Rule / Unit-level & Label Boundary / Not Included / Validator / Example）。
+- `label_schema.md`：§17 降级为指向新 interface 的要点说明（声明旧 span-level 废弃、unit-level、不含 guidance）；§0 out-of-scope 移除 `attention_anchor_label`。
+- `SKILL.md`：Document Router 新增 §3.8.9 attention_anchor_labels_interface.md。
+- 测试：`test_interface_consistency.py` 的 `LABEL_SCHEMA_SECTIONS` 新增 attention_anchor_label（marker/forbidden 测试经 INTERFACE_DOCS 自动覆盖）；`test_schemas.py` 改写 fixture 为 unit-level 并新增 group fixture + 15 项 unit-level validator 用例。
+
+新增或修改文件：
+
+- docs/skill/attention_anchor_labels_interface.md（新增）
+- src/recover_attention/schemas.py
+- docs/skill/label_schema.md
+- docs/skill/SKILL.md
+- tests/test_interface_consistency.py
+- tests/test_schemas.py
+- PROGRESS.md
+- docs/progress/sprint_1_history.md
+
+输入文件：
+
+- 无数据输入。本轮只做接口设计与对齐。
+
+输出文件：
+
+- 无 `data/processed` 产物。
+
+运行命令：
+
+```bash
+D:\conda\Miniconda3\envs\recover_attention\python.exe scripts/sync_interface_fields.py --write
+D:\conda\Miniconda3\envs\recover_attention\python.exe scripts/sync_interface_fields.py --check
+D:\conda\Miniconda3\envs\recover_attention\python.exe -m pytest tests/test_interface_consistency.py -q
+D:\conda\Miniconda3\envs\recover_attention\python.exe -m pytest tests/test_schemas.py -q
+D:\conda\Miniconda3\envs\recover_attention\python.exe -m pytest -q
+```
+
+检查结果：
+
+- sync_interface_fields --check：9 个 interface block 全部 in sync（`attention_anchor_label` = 18 fields，由脚本生成）。
+- tests/test_interface_consistency.py：33 passed, 2 skipped。
+- tests/test_schemas.py：113 passed。
+- 全量 pytest：298 passed, 2 skipped。
+
+遗留问题：
+
+- 裸 `python` 当前指向 base conda；本轮经由 `D:\conda\Miniconda3\envs\recover_attention\python.exe` 运行（本机 `conda` 不在 PATH）。
+- `attention_anchor_labels` 目前只有接口与 validator，未实现 builder，未生成 `attention_anchor_labels.jsonl`。
+- 当前接口是 unit-level；span/token-level expansion 留待后续。
+- guidance_action / guidance_strength 未接入（已 forbidden）；trajectory / answer stability / raw attention 仍未接入。
+
+下一步建议：
+
+- Sprint 1J：Build Attention Anchor Labels。

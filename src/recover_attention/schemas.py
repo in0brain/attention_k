@@ -72,6 +72,8 @@ ALLOWED_RECOVERY_BACKENDS = {"oracle_stub_v0"}
 ALLOWED_RECOVER_SCORE_BACKENDS = {"stub_rule_v0"}
 ALLOWED_UNIT_EVIDENCE_BACKENDS = {"aggregate_stub_v0"}
 ALLOWED_UNIT_EVIDENCE_STATUSES = {"partial_stub_evidence"}
+ALLOWED_ATTENTION_LABEL_BACKENDS = {"early_evidence_rule_stub_v0"}
+ALLOWED_ATTENTION_LABEL_STATUSES = {"partial_evidence_label"}
 ALLOWED_EVIDENCE_SIGNAL_TYPES = {
     "semantic_necessity",
     "semantic_recoverability",
@@ -226,14 +228,23 @@ REQUIRED_FIELDS = {
         "evidence",
     ],
     "attention_anchor_label": [
+        "attention_anchor_label_id",
+        "unit_evidence_id",
         "id",
-        "span_id",
-        "span_text",
-        "span_type",
+        "unit_id",
+        "unit_scope",
+        "group_type",
+        "span_ids",
+        "spans",
+        "original_question",
+        "semantic_evidence",
+        "recoverability_evidence",
+        "available_signal_types",
+        "missing_signal_types",
         "attention_importance_score",
         "attention_anchor_label",
-        "guidance_action",
-        "guidance_strength",
+        "label_backend",
+        "label_status",
         "evidence",
     ],
 }
@@ -284,6 +295,24 @@ FORBIDDEN_FIELDS = {
         "trajectory_analysis",
         "probe_label",
     ],
+    "attention_anchor_label": [
+        "span_id",
+        "span_text",
+        "span_type",
+        "sample_id",
+        "recovered_question",
+        "recoverable",
+        "confidence",
+        "reason",
+        "guidance_action",
+        "guidance_strength",
+        "hidden_states",
+        "attention_maps",
+        "trajectory_analysis",
+        "answer_stability",
+        "raw_attention_pattern",
+        "probe_label",
+    ],
 }
 
 # Binds each record type to the interface doc whose `required_fields` marker
@@ -300,6 +329,7 @@ INTERFACE_DOCS = {
     "recover_output": "recover_outputs_interface.md",
     "recover_score": "recover_scores_interface.md",
     "unit_evidence": "unit_evidence_interface.md",
+    "attention_anchor_label": "attention_anchor_labels_interface.md",
 }
 
 
@@ -999,16 +1029,85 @@ def validate_unit_evidence_record(record: dict) -> None:
 def validate_attention_anchor_label_record(record: dict) -> None:
     name = "attention anchor label record"
     _require_dict(record, name)
+    _reject_fields(record, FORBIDDEN_FIELDS["attention_anchor_label"], name)
     _require_fields(record, REQUIRED_FIELDS["attention_anchor_label"], name)
+    _require_non_empty_str(record, "attention_anchor_label_id", name)
+    _require_non_empty_str(record, "unit_evidence_id", name)
     _require_non_empty_str(record, "id", name)
-    _require_non_empty_str(record, "span_id", name)
-    _require_non_empty_str(record, "span_text", name)
-    _require_enum(record, "span_type", ALLOWED_SPAN_TYPES, name)
+    _require_non_empty_str(record, "unit_id", name)
+    _require_enum(record, "unit_scope", ALLOWED_ABLATION_UNIT_SCOPES, name)
+    _require_enum(record, "group_type", ALLOWED_ABLATION_UNIT_GROUP_TYPES, name)
+    _require_non_empty_str(record, "original_question", name)
     _require_number(record, "attention_importance_score", name, min_value=0, max_value=1)
     _require_enum(record, "attention_anchor_label", ALLOWED_ATTENTION_ANCHOR_LABELS, name)
-    _require_enum(record, "guidance_action", ALLOWED_GUIDANCE_ACTIONS, name)
-    _require_number(record, "guidance_strength", name, min_value=0, max_value=1)
+    _require_enum(record, "label_backend", ALLOWED_ATTENTION_LABEL_BACKENDS, name)
+    _require_enum(record, "label_status", ALLOWED_ATTENTION_LABEL_STATUSES, name)
     _require_dict_or_list(record, "evidence", name)
+
+    expected_label_id = f"{record['unit_evidence_id']}__anchor_{record['label_backend']}"
+    if record["attention_anchor_label_id"] != expected_label_id:
+        raise ValueError(
+            f"{name} field 'attention_anchor_label_id' must equal "
+            "f'{unit_evidence_id}__anchor_{label_backend}'"
+        )
+
+    span_ids = _require_non_empty_str_list(record, "span_ids", name)
+    spans = record["spans"]
+    if not isinstance(spans, list) or not spans:
+        raise ValueError(f"{name} field 'spans' must be a non-empty list")
+    if len(spans) != len(span_ids):
+        raise ValueError(f"{name} field 'spans' must have the same length as 'span_ids'")
+
+    if record["unit_scope"] == "single" and len(span_ids) != 1:
+        raise ValueError(f"{name} with unit_scope 'single' must contain exactly one span")
+    if record["unit_scope"] == "group" and len(span_ids) < 2:
+        raise ValueError(f"{name} with unit_scope 'group' must contain at least two spans")
+    if record["group_type"] == "single" and record["unit_scope"] != "single":
+        raise ValueError(f"{name} with group_type 'single' must have unit_scope 'single'")
+    if record["group_type"] != "single" and record["unit_scope"] != "group":
+        raise ValueError(f"{name} with non-single group_type must have unit_scope 'group'")
+
+    for span_index, span in enumerate(spans):
+        span_name = f"{name} span[{span_index}]"
+        _require_dict(span, span_name)
+        _require_fields(span, ["span_id", "text", "type", "start", "end"], span_name)
+        _require_non_empty_str(span, "span_id", span_name)
+        _require_non_empty_str(span, "text", span_name)
+        _require_enum(span, "type", ALLOWED_SPAN_TYPES, span_name)
+        _require_int(span, "start", span_name, min_value=0)
+        _require_int(span, "end", span_name)
+        if span["end"] <= span["start"]:
+            raise ValueError(f"{span_name} field 'end' must be greater than 'start'")
+        if span["span_id"] != span_ids[span_index]:
+            raise ValueError(f"{name} span_ids order must match spans order")
+
+    _require_dict(record["semantic_evidence"], f"{name} field 'semantic_evidence'")
+    _require_dict(
+        record["recoverability_evidence"],
+        f"{name} field 'recoverability_evidence'",
+    )
+
+    available_signal_types = _require_non_empty_str_list(record, "available_signal_types", name)
+    missing_signal_types = record["missing_signal_types"]
+    if not isinstance(missing_signal_types, list):
+        raise ValueError(f"{name} field 'missing_signal_types' must be a list")
+    if not all(
+        isinstance(signal_type, str) and signal_type.strip()
+        for signal_type in missing_signal_types
+    ):
+        raise ValueError(f"{name} field 'missing_signal_types' must contain non-empty str values")
+
+    for field, signal_types in [
+        ("available_signal_types", available_signal_types),
+        ("missing_signal_types", missing_signal_types),
+    ]:
+        for signal_type in signal_types:
+            if signal_type not in ALLOWED_EVIDENCE_SIGNAL_TYPES:
+                allowed_values = ", ".join(sorted(ALLOWED_EVIDENCE_SIGNAL_TYPES))
+                raise ValueError(
+                    f"{name} field '{field}' has invalid value {signal_type!r}; "
+                    f"allowed values: {allowed_values}"
+                )
 
 
 def _validate_nli_direction(direction_record: Any, direction: str, parent_name: str) -> None:

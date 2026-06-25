@@ -291,6 +291,16 @@ Unit evidence 的长期接口文档，说明 unit_evidence.jsonl schema、semant
 
 ---
 
+### 3.8.9 docs/skill/attention_anchor_labels_interface.md
+
+Use for:
+
+```text
+Attention anchor label 的长期接口文档，说明 attention_anchor_labels.jsonl schema、unit-level boundary、label boundary、validator 和后续 guidance 消费方式。
+```
+
+---
+
 ### 3.9 docs/reference/*
 
 Use for:

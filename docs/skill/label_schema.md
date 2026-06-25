@@ -73,8 +73,7 @@ scripts/sync_interface_fields.py 只改：
 
 scripts/sync_interface_fields.py 不管：
   - 本文件 label_schema.md（它是索引/总览，由测试校验“指向 interface 且不复制字段”，不由脚本生成）。
-  - REQUIRED_FIELDS 中没有 interface 文档的 record（question / candidate_span /
-    attention_anchor_label）。
+  - REQUIRED_FIELDS 中没有 interface 文档的 record（question / candidate_span）。
 
 本文件 label_schema.md 的职责：
   数据格式总览、枚举值索引、record 示例和概念约束。
@@ -1224,6 +1223,14 @@ evidence: dict or list
 
 # 17. Attention Anchor Label Record
 
+当前稳定接口以：
+
+```text
+docs/skill/attention_anchor_labels_interface.md
+```
+
+为准。旧版 span-level attention anchor label schema 已废弃。
+
 文件：
 
 ```text
@@ -1233,63 +1240,19 @@ data/processed/attention_anchor_labels.jsonl
 用途：
 
 ```text
-组合 NLI、recoverability、trajectory stability、answer stability 和 raw attention pattern，
-得到 attention steering 的输入标签。
+由 unit_evidence.jsonl 派生 unit-level attention anchor label。
 ```
 
-示例：
-
-```json
-{
-  "id": "gsm8k_0001",
-  "span_id": "span_001",
-  "span_text": "3",
-  "span_type": "number",
-  "attention_importance_score": 0.87,
-  "attention_anchor_label": "Strong Anchor",
-  "guidance_action": "boost",
-  "guidance_strength": 0.75,
-  "evidence": {
-    "semantic_necessity_label": "Information Loss",
-    "recoverability_label": "Non-recoverable",
-    "trajectory_stability_score": 0.41,
-    "answer_stability_score": 0.18,
-    "raw_attention_to_span": 0.12
-  }
-}
-```
-
-字段：
+要点（完整字段表不在本文件维护，以 interface 与 schemas.py 的
+REQUIRED_FIELDS["attention_anchor_label"] 为准）：
 
 ```text
-id: str, non-empty
-span_id: str, non-empty
-span_text: str, non-empty
-span_type: str, one of allowed span types
-attention_importance_score: int or float, 0 <= score <= 1
-attention_anchor_label: str, one of allowed attention anchor labels
-guidance_action: str, one of allowed guidance actions
-guidance_strength: int or float, 0 <= strength <= 1
-evidence: dict or list
-```
-
-建议 evidence 包含：
-
-```text
-semantic_necessity_label
-recoverability_label
-trajectory_stability_score
-answer_stability_score
-raw_attention_to_span
-```
-
-约束：
-
-```text
-1. attention anchor label 是 attention steering 的输入。
-2. 它不是最终 hallucination detection 结果。
-3. 不要用单一信号直接决定 Strong Anchor。
-4. guidance_action 只表示后续建议动作，不等于已经执行 guidance。
+1. 当前接口是 unit-level，绑定 id + unit_id；顶层不再使用 span_id / span_text / span_type。
+2. group unit 的多个 span 仍保留在 span_ids / spans 中。
+3. attention_anchor_label 仍使用 ALLOWED_ATTENTION_ANCHOR_LABELS 枚举。
+4. attention_anchor_label 是标签决策，不是 intervention。
+5. guidance_action / guidance_strength 不属于本 record，留给后续 attention guidance 阶段。
+6. 当前 evidence 可能仍不完整，label_status 必须显式标明该限制。
 ```
 
 ---

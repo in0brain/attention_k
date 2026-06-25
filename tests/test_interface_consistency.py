@@ -42,6 +42,10 @@ LABEL_SCHEMA_SECTIONS = {
     "recover_output": ("# 11. Recover Output Record", "recover_outputs_interface.md"),
     "recover_score": ("# 12. Recover Score Record", "recover_scores_interface.md"),
     "unit_evidence": ("# 13. Unit Evidence Record", "unit_evidence_interface.md"),
+    "attention_anchor_label": (
+        "# 17. Attention Anchor Label Record",
+        "attention_anchor_labels_interface.md",
+    ),
 }
 
 
