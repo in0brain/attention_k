@@ -281,6 +281,16 @@ Recover score 的长期接口文档，说明 recover_scores.jsonl 的 unit-level
 
 ---
 
+### 3.8.8 docs/skill/unit_evidence_interface.md
+
+Use for:
+
+```text
+Unit evidence 的长期接口文档，说明 unit_evidence.jsonl schema、semantic/recoverability evidence 来源、signal boundary、validator 和后续 attention anchor label 消费方式。
+```
+
+---
+
 ### 3.9 docs/reference/*
 
 Use for:

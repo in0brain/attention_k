@@ -1008,7 +1008,47 @@ recover_scores.jsonl 保留后续 attention label building 所需的 unit 元数
 
 ---
 
-# 13. Intervention Manifest Record
+# 13. Unit Evidence Record
+
+当前稳定接口以：
+
+```text
+docs/skill/unit_evidence_interface.md
+```
+
+为准。
+
+文件：
+
+```text
+data/processed/unit_evidence.jsonl
+```
+
+用途：
+
+```text
+汇总 unit-level early evidence，用于后续 attention anchor label building。
+当前设计只聚合 semantic necessity evidence 与 recoverability evidence。
+```
+
+字段：本文件不罗列完整字段表。顶层字段以 `docs/skill/unit_evidence_interface.md`
+和 `src/recover_attention/schemas.py` 的 `REQUIRED_FIELDS["unit_evidence"]` 为准。
+
+约束：
+
+```text
+1. unit_evidence 是 evidence aggregation，不是 final attention anchor label。
+2. unit_evidence 保持 unit-level，不退回顶层 span_id schema。
+3. recoverability 是 evidence，不是最终 attention importance。
+4. Non-recoverable 不自动等同于 Strong Anchor。
+5. Recoverable 不自动等同于不重要。
+6. unit_evidence 不包含 guidance_action 或 guidance_strength。
+7. trajectory stability、answer stability、raw attention pattern 和 guidance effect 属于后续信号。
+```
+
+---
+
+# 14. Intervention Manifest Record
 
 文件：
 
@@ -1070,7 +1110,7 @@ replace
 
 ---
 
-# 14. Trajectory Stability Score Record
+# 15. Trajectory Stability Score Record
 
 文件：
 
@@ -1127,7 +1167,7 @@ evidence: dict or list
 
 ---
 
-# 15. Answer Stability Score Record
+# 16. Answer Stability Score Record
 
 文件：
 
@@ -1182,7 +1222,7 @@ evidence: dict or list
 
 ---
 
-# 16. Attention Anchor Label Record
+# 17. Attention Anchor Label Record
 
 文件：
 
@@ -1254,7 +1294,7 @@ raw_attention_to_span
 
 ---
 
-# 17. Oracle Guidance Result Record
+# 18. Oracle Guidance Result Record
 
 文件：
 
@@ -1309,7 +1349,7 @@ evidence: dict or list
 
 ---
 
-# 18. Probe-Guided Guidance Result Record
+# 19. Probe-Guided Guidance Result Record
 
 文件：
 
@@ -1364,7 +1404,7 @@ evidence: dict or list
 
 ---
 
-# 19. Schema 与代码同步要求
+# 20. Schema 与代码同步要求
 
 当前代码 schema 应逐步与本文件同步。
 
@@ -1394,7 +1434,7 @@ validate_probe_guidance_result_record
 
 ---
 
-# 20. 常见错误
+# 21. 常见错误
 
 禁止把以下关系写死：
 

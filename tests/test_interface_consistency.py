@@ -41,6 +41,7 @@ LABEL_SCHEMA_SECTIONS = {
     "masked_question": ("# 10. Masked Question Record", "masked_questions_interface.md"),
     "recover_output": ("# 11. Recover Output Record", "recover_outputs_interface.md"),
     "recover_score": ("# 12. Recover Score Record", "recover_scores_interface.md"),
+    "unit_evidence": ("# 13. Unit Evidence Record", "unit_evidence_interface.md"),
 }
 
 

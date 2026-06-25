@@ -22,6 +22,7 @@ from recover_attention.schemas import (
     validate_recover_output_record,
     validate_recover_score_record,
     validate_semantic_label_record,
+    validate_unit_evidence_record,
 )
 
 
@@ -366,6 +367,90 @@ def valid_group_recover_score_record() -> dict:
     record["masked_question"] = (
         "Tom has [MASK] apples and buys [MASK] more. How many apples does he have now?"
     )
+    return record
+
+
+def valid_unit_evidence_record() -> dict:
+    return {
+        "unit_evidence_id": "gsm8k_0001__unit_001__evidence_aggregate_stub_v0",
+        "id": "gsm8k_0001",
+        "unit_id": "unit_001",
+        "unit_scope": "single",
+        "group_type": "single",
+        "span_ids": ["span_001"],
+        "spans": [
+            {
+                "span_id": "span_001",
+                "text": "3",
+                "type": "number",
+                "start": 8,
+                "end": 9,
+            }
+        ],
+        "original_question": "Tom has 3 apples and buys 2 more. How many apples does he have now?",
+        "semantic_evidence": {
+            "source_semantic_label_ids": [
+                "gsm8k_0001__unit_001__delete__nli_stub_v0__sem_rule_v0"
+            ],
+            "source_nli_ids": ["gsm8k_0001__unit_001__delete__nli_stub_v0"],
+            "semantic_necessity_labels": ["Information Loss"],
+            "semantic_necessity_scores": [0.75],
+            "is_semantically_necessary_votes": [True],
+            "summary_label": "Information Loss",
+            "summary_score": 0.75,
+        },
+        "recoverability_evidence": {
+            "recover_score_id": "gsm8k_0001__unit_001__mask__score_stub_rule_v0",
+            "masked_id": "gsm8k_0001__unit_001__mask",
+            "recovery_backend": "oracle_stub_v0",
+            "score_backend": "stub_rule_v0",
+            "recoverability_label": "Recoverable",
+            "recoverability_score": 1.0,
+            "confidence_mean": 1.0,
+            "recovery_consistency": 1.0,
+            "misleading_recovery": False,
+        },
+        "available_signal_types": [
+            "semantic_necessity",
+            "semantic_recoverability",
+        ],
+        "missing_signal_types": [
+            "trajectory_stability",
+            "answer_stability",
+            "raw_attention_pattern",
+            "attention_steering_effect",
+        ],
+        "evidence_backend": "aggregate_stub_v0",
+        "evidence_status": "partial_stub_evidence",
+        "evidence": {
+            "notes": "synthetic unit evidence fixture",
+            "source_files": [
+                "data/processed/semantic_labels.jsonl",
+                "data/processed/recover_scores.jsonl",
+            ],
+            "limitations": [
+                "recoverability comes from oracle_stub_v0 + stub_rule_v0"
+            ],
+        },
+    }
+
+
+def valid_group_unit_evidence_record() -> dict:
+    record = valid_unit_evidence_record()
+    record["unit_evidence_id"] = "gsm8k_0001__unit_008__evidence_aggregate_stub_v0"
+    record["unit_id"] = "unit_008"
+    record["unit_scope"] = "group"
+    record["group_type"] = "number_set"
+    record["span_ids"] = ["span_001", "span_002"]
+    record["spans"] = [
+        {"span_id": "span_001", "text": "3", "type": "number", "start": 8, "end": 9},
+        {"span_id": "span_002", "text": "2", "type": "number", "start": 26, "end": 27},
+    ]
+    record["recoverability_evidence"] = {
+        **record["recoverability_evidence"],
+        "recover_score_id": "gsm8k_0001__unit_008__mask__score_stub_rule_v0",
+        "masked_id": "gsm8k_0001__unit_008__mask",
+    }
     return record
 
 
@@ -906,6 +991,108 @@ def test_recover_score_with_invalid_recoverability_label_raises_value_error() ->
 
     with pytest.raises(ValueError, match="invalid value"):
         validate_recover_score_record(record)
+
+
+def test_valid_unit_evidence_record_passes() -> None:
+    assert validate_unit_evidence_record(valid_unit_evidence_record()) is None
+
+
+def test_valid_group_unit_evidence_record_passes() -> None:
+    assert validate_unit_evidence_record(valid_group_unit_evidence_record()) is None
+
+
+def test_unit_evidence_missing_required_field_raises_value_error() -> None:
+    record = valid_unit_evidence_record()
+    del record["semantic_evidence"]
+
+    with pytest.raises(ValueError, match="missing required field"):
+        validate_unit_evidence_record(record)
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("attention_anchor_label", "Strong Anchor"),
+        ("guidance_action", "boost"),
+        ("span_id", "span_001"),
+        ("span_text", "3"),
+        ("span_type", "number"),
+        ("recovered_question", "Tom has 3 apples and buys 2 more."),
+        ("hidden_states", "cache/hidden_states/example.pt"),
+        ("attention_maps", "cache/attentions/example.pt"),
+    ],
+)
+def test_unit_evidence_with_forbidden_top_level_field_raises_value_error(
+    field: str,
+    value: object,
+) -> None:
+    record = valid_unit_evidence_record()
+    record[field] = value
+
+    with pytest.raises(ValueError, match="forbidden field"):
+        validate_unit_evidence_record(record)
+
+
+def test_unit_evidence_with_wrong_unit_evidence_id_raises_value_error() -> None:
+    record = valid_unit_evidence_record()
+    record["unit_evidence_id"] = "wrong"
+
+    with pytest.raises(ValueError, match="unit_evidence_id"):
+        validate_unit_evidence_record(record)
+
+
+def test_unit_evidence_with_invalid_evidence_backend_raises_value_error() -> None:
+    record = valid_unit_evidence_record()
+    record["evidence_backend"] = "manual"
+
+    with pytest.raises(ValueError, match="invalid value"):
+        validate_unit_evidence_record(record)
+
+
+def test_unit_evidence_with_invalid_evidence_status_raises_value_error() -> None:
+    record = valid_unit_evidence_record()
+    record["evidence_status"] = "full_evidence"
+
+    with pytest.raises(ValueError, match="invalid value"):
+        validate_unit_evidence_record(record)
+
+
+def test_unit_evidence_with_invalid_signal_type_raises_value_error() -> None:
+    record = valid_unit_evidence_record()
+    record["available_signal_types"] = ["semantic_necessity", "semantic_similarity"]
+
+    with pytest.raises(ValueError, match="available_signal_types"):
+        validate_unit_evidence_record(record)
+
+
+def test_unit_evidence_single_unit_with_multiple_spans_raises_value_error() -> None:
+    record = valid_group_unit_evidence_record()
+    record["unit_evidence_id"] = "gsm8k_0001__unit_001__evidence_aggregate_stub_v0"
+    record["unit_id"] = "unit_001"
+    record["unit_scope"] = "single"
+    record["group_type"] = "single"
+
+    with pytest.raises(ValueError, match="exactly one span"):
+        validate_unit_evidence_record(record)
+
+
+def test_unit_evidence_group_unit_with_one_span_raises_value_error() -> None:
+    record = valid_unit_evidence_record()
+    record["unit_evidence_id"] = "gsm8k_0001__unit_008__evidence_aggregate_stub_v0"
+    record["unit_id"] = "unit_008"
+    record["unit_scope"] = "group"
+    record["group_type"] = "number_set"
+
+    with pytest.raises(ValueError, match="at least two spans"):
+        validate_unit_evidence_record(record)
+
+
+def test_unit_evidence_with_span_order_mismatch_raises_value_error() -> None:
+    record = valid_group_unit_evidence_record()
+    record["span_ids"] = ["span_002", "span_001"]
+
+    with pytest.raises(ValueError, match="span_ids order"):
+        validate_unit_evidence_record(record)
 
 
 def test_valid_attention_anchor_label_record_passes() -> None:

@@ -729,6 +729,161 @@ attention label and guidance fields are rejected.
 
 - Sprint 1H：Recoverability Scoring。
 
+## Sprint 1I：Build Unit Evidence
+
+已完成内容：
+
+- 新增 `src/recover_attention/unit_evidence.py`，实现 `semantic_labels.jsonl + recover_scores.jsonl -> unit_evidence.jsonl` 的 unit-level evidence aggregation。
+- 使用 `(id, unit_id)` 作为 join key，semantic labels 按 unit 分组，recover scores 按 unit 建唯一索引。
+- 每条 semantic label 输入调用 `validate_semantic_label_record`，每条 recover score 输入调用 `validate_recover_score_record`，每条输出调用 `validate_unit_evidence_record`。
+- 实现 fail-fast join：缺失 recover score、额外 recover score、重复 recover score、semantic group 内 metadata 不一致、semantic 与 recover score metadata 不一致都会报错。
+- 聚合 `semantic_evidence`，包含 source ids、ablation types、semantic necessity labels/scores/votes、summary score、summary label、backend 和 language settings。
+- 聚合 `recoverability_evidence`，包含 recover score id、masked id、backend、recoverability label/score、sample ids、source recovered questions 和 score evidence。
+- 新增 `scripts/10_build_unit_evidence.py` CLI。
+- 新增 `tests/test_unit_evidence.py`，覆盖正常构造、semantic evidence 聚合、recoverability evidence 聚合、join 错误、禁用字段和 CLI smoke test。
+- 生成 `data/processed/unit_evidence.jsonl`。
+
+新增或修改文件：
+
+- src/recover_attention/unit_evidence.py
+- scripts/10_build_unit_evidence.py
+- tests/test_unit_evidence.py
+- data/processed/unit_evidence.jsonl
+- PROGRESS.md
+- docs/progress/sprint_1_history.md
+
+输入文件：
+
+- data/processed/semantic_labels.jsonl
+- data/processed/recover_scores.jsonl
+
+输出文件：
+
+- data/processed/unit_evidence.jsonl
+
+运行命令：
+
+```bash
+conda run -n recover_attention python scripts/sync_interface_fields.py --check
+conda run -n recover_attention python -m pytest tests/test_interface_consistency.py -q
+conda run -n recover_attention python scripts/10_build_unit_evidence.py --semantic-labels data/processed/semantic_labels.jsonl --recover-scores data/processed/recover_scores.jsonl --output data/processed/unit_evidence.jsonl --backend aggregate_stub_v0
+conda run -n recover_attention python -m pytest tests/test_unit_evidence.py -q
+conda run -n recover_attention python -m pytest -q
+```
+
+检查结果：
+
+- `scripts/sync_interface_fields.py --check` 已通过，所有 interface required_fields block in sync。
+- `tests/test_interface_consistency.py -q` 已通过，结果为 `29 passed, 2 skipped`。
+- `scripts/10_build_unit_evidence.py` 已通过，生成 `data/processed/unit_evidence.jsonl`。
+- `tests/test_unit_evidence.py -q` 已通过，结果为 `19 passed`。
+- `python -m pytest -q` 已通过，结果为 `287 passed, 2 skipped`。
+
+unit_evidence 数量统计：
+
+```text
+num_semantic_labels: 92
+num_recover_scores: 46
+num_output_unit_evidence: 46
+unique_units: 46
+evidence_status_counts: {'partial_stub_evidence': 46}
+unit_scope_counts: {'group': 10, 'single': 36}
+group_type_counts: {'number_set': 5, 'repeated_surface': 5, 'single': 36}
+available_signal_types: ['semantic_necessity', 'semantic_recoverability']
+missing_signal_types: ['trajectory_stability', 'answer_stability', 'raw_attention_pattern', 'attention_steering_effect']
+forbidden_present: []
+```
+
+semantic summary label 分布：
+
+```text
+{'consistent_semantic_necessity_evidence': 46}
+```
+
+recoverability label 分布：
+
+```text
+{'Recoverable': 46}
+```
+
+遗留问题：
+
+- `unit_evidence` 目前只汇总 semantic necessity 与 semantic recoverability early evidence。
+- recoverability 来自 `oracle_stub_v0` + `stub_rule_v0`，只用于管线验证。
+- trajectory stability、answer stability、raw attention pattern 和 attention steering effect 尚未接入。
+- `unit_evidence` 不是 final attention anchor label。
+- 尚未实现 attention_anchor_labels builder。
+- 本轮未生成 `attention_anchor_labels.jsonl`。
+- 本轮未调用真实模型、未缓存 hidden states / attention maps、未做 trajectory / answer stability / guidance 或 probe。
+
+下一步建议：
+
+- Sprint 1J-prep：Attention Anchor Label Interface Alignment。
+
+## Sprint 1I-prep-a：Unit Evidence Interface Design
+
+已完成内容：
+
+- 新增 `unit_evidence` record type，用作 unit-level evidence aggregation 中间层。
+- 新增 `docs/skill/unit_evidence_interface.md`，说明 `unit_evidence.jsonl` 的用途、pipeline 位置、字段来源、ID 规则、signal boundary、禁止内容、validator 和示例。
+- 在 `src/recover_attention/schemas.py` 中新增 `REQUIRED_FIELDS["unit_evidence"]`、`FORBIDDEN_FIELDS["unit_evidence"]`、`INTERFACE_DOCS["unit_evidence"]`、`ALLOWED_UNIT_EVIDENCE_BACKENDS`、`ALLOWED_UNIT_EVIDENCE_STATUSES`、`ALLOWED_EVIDENCE_SIGNAL_TYPES` 和 `validate_unit_evidence_record`。
+- 更新 `docs/skill/label_schema.md`，新增 Unit Evidence Record 小节并指向 `unit_evidence_interface.md`，不复制完整字段表。
+- 更新 `docs/skill/SKILL.md` 文档路由，加入 `unit_evidence_interface.md`。
+- 更新 `tests/test_interface_consistency.py`，使 unit evidence interface 纳入 marker / label_schema 一致性检查。
+- 更新 `tests/test_schemas.py`，覆盖 valid record、缺字段、禁用字段、ID 规则、backend/status/signal enum、single/group span 约束和 span 顺序。
+
+新增或修改文件：
+
+- docs/skill/unit_evidence_interface.md
+- docs/skill/label_schema.md
+- docs/skill/SKILL.md
+- src/recover_attention/schemas.py
+- tests/test_interface_consistency.py
+- tests/test_schemas.py
+- PROGRESS.md
+- docs/progress/sprint_1_history.md
+
+输入文件：
+
+- 无数据输入。本轮只做接口设计。
+
+输出文件：
+
+- 无 `data/processed` 产物。
+- 未生成 `data/processed/unit_evidence.jsonl`。
+
+运行命令：
+
+```bash
+conda run -n recover_attention python scripts/sync_interface_fields.py --write
+conda run -n recover_attention python scripts/sync_interface_fields.py --check
+conda run -n recover_attention python -m pytest tests/test_interface_consistency.py -q
+conda run -n recover_attention python -m pytest tests/test_schemas.py -q
+conda run -n recover_attention python -m pytest -q
+```
+
+检查结果：
+
+- `scripts/sync_interface_fields.py --write` 已生成 `unit_evidence_interface.md` 的 `required_fields:unit_evidence` block，共 15 个字段。
+- `scripts/sync_interface_fields.py --check` 已通过，所有 interface required_fields block in sync。
+- `tests/test_interface_consistency.py -q` 已通过，结果为 `29 passed, 2 skipped`。
+- `tests/test_schemas.py -q` 已通过，结果为 `106 passed`。
+- `python -m pytest -q` 已通过，结果为 `268 passed, 2 skipped`。
+
+遗留问题：
+
+- `unit_evidence` 目前只有接口和 validator，尚未实现 builder。
+- 本轮未新增 `scripts/10_build_unit_evidence.py`。
+- 本轮未生成 `data/processed/unit_evidence.jsonl`。
+- `unit_evidence` 当前只设计为汇总 semantic/recoverability early evidence。
+- trajectory stability、answer stability、raw attention pattern 和 attention steering effect 仍未接入。
+- `unit_evidence` 不是 final attention anchor label，不包含 `guidance_action` 或 `guidance_strength`。
+- 本轮未调用真实模型、未缓存 hidden states / attention maps、未做 trajectory / answer stability / guidance 或 probe。
+
+下一步建议：
+
+- Sprint 1I：Build Unit Evidence。
+
 ## Sprint 1H：Recoverability Scoring
 
 已完成内容：

@@ -22,9 +22,9 @@ Token / Span Intervention
 当前阶段：
 
 ```text
-Sprint 1H 已完成：Recoverability Scoring。
-recover_scores.jsonl 已可由 recover_outputs.jsonl 聚合生成。
-下一步建议是 Sprint 1I-prep：Unit-to-Anchor Label Interface Design。
+Sprint 1I 已完成：Build Unit Evidence。
+unit_evidence.jsonl 已可由 semantic_labels.jsonl + recover_scores.jsonl 聚合生成。
+下一步建议是 Sprint 1J-prep：Attention Anchor Label Interface Alignment。
 ```
 
 当前不做：
@@ -60,6 +60,8 @@ recover_scores.jsonl 已可由 recover_outputs.jsonl 聚合生成。
 | Sprint 1H-prep | 完成 | Recover score interface alignment |
 | Sprint 1H-prep-fix | 完成 | Recover score governance 文档残留修补 |
 | Sprint 1H | 完成 | Recoverability scoring stub |
+| Sprint 1I-prep-a | 完成 | Unit evidence interface design |
+| Sprint 1I | 完成 | Build unit evidence |
 
 详细历史见：
 
@@ -81,13 +83,14 @@ conda run -n recover_attention python scripts/06_build_semantic_labels.py --inpu
 conda run -n recover_attention python scripts/07_build_masked_questions.py --input data/processed/semantic_labels.jsonl --output data/processed/masked_questions.jsonl --mask-token "[MASK]" --backend unit_mask_v0
 conda run -n recover_attention python scripts/08_run_recovery.py --input data/processed/masked_questions.jsonl --output data/processed/recover_outputs.jsonl --backend oracle_stub_v0 --num-samples 1
 conda run -n recover_attention python scripts/09_score_recovery.py --input data/processed/recover_outputs.jsonl --output data/processed/recover_scores.jsonl --backend stub_rule_v0
+conda run -n recover_attention python scripts/10_build_unit_evidence.py --semantic-labels data/processed/semantic_labels.jsonl --recover-scores data/processed/recover_scores.jsonl --output data/processed/unit_evidence.jsonl --backend aggregate_stub_v0
 conda run -n recover_attention python -m pytest -q
 ```
 
 最近一次检查结果：
 
 ```text
-pytest: 246 passed, 2 skipped
+pytest: 287 passed, 2 skipped
 smoke test: passed
 candidate extraction: passed
 ablation unit construction: passed
@@ -101,6 +104,8 @@ question recovery stub: passed
 recover score interface alignment: passed
 recover score governance doc cleanup: passed
 recoverability scoring stub: passed
+unit evidence interface alignment: passed
+unit evidence build passed
 sync_interface_fields --check: all in sync
 ```
 
@@ -118,6 +123,7 @@ sync_interface_fields --check: all in sync
 - src/recover_attention/masked_questions.py
 - src/recover_attention/recover_generation.py
 - src/recover_attention/recover_scoring.py
+- src/recover_attention/unit_evidence.py
 - scripts/00_smoke_test.py
 - scripts/01_prepare_data.py
 - scripts/02_extract_candidate_spans.py
@@ -128,6 +134,7 @@ sync_interface_fields --check: all in sync
 - scripts/07_build_masked_questions.py
 - scripts/08_run_recovery.py
 - scripts/09_score_recovery.py
+- scripts/10_build_unit_evidence.py
 - tests/test_data_io.py
 - tests/test_schemas.py
 - tests/test_prepare_data.py
@@ -139,6 +146,7 @@ sync_interface_fields --check: all in sync
 - tests/test_masked_questions.py
 - tests/test_recover_generation.py
 - tests/test_recover_scoring.py
+- tests/test_unit_evidence.py
 - data/processed/candidate_spans.jsonl
 - data/processed/ablation_units.jsonl
 - data/processed/ablated_questions.jsonl
@@ -147,29 +155,36 @@ sync_interface_fields --check: all in sync
 - data/processed/masked_questions.jsonl
 - data/processed/recover_outputs.jsonl
 - data/processed/recover_scores.jsonl
+- data/processed/unit_evidence.jsonl
 - docs/skill/semantic_labels_interface.md
 - docs/skill/recover_outputs_interface.md
 - docs/skill/recover_scores_interface.md
+- docs/skill/unit_evidence_interface.md
 - docs/skill/*
 - README.md
 - AGENTS.md
 
 下一阶段可能新增或修改：
 
-- attention anchor label interface / design files
-- attention anchor label schema or builder files
+- attention anchor label interface / schema alignment files
+- attention anchor label builder files
 
-具体以后续 Sprint 1I-prep task card 为准。
+具体以后续 Sprint 1J-prep task card 为准。
 
 ## 5. 当前遗留问题
 
 - 裸 `python` 当前指向 base conda：`D:\conda\Miniconda3\python.exe`；当前验收使用 `conda run -n recover_attention python ...`。
-- git 工作区中仍存在此前 sprint 的文档迁移和 schema/test 改动，需要在提交前统一检查。
 - 如果 `__pycache__` / `.pyc` 出现在 git status 中，需要确认是否被 git 跟踪；若已被跟踪，应单独处理。
 - `data/processed/*` 是本地生成产物目录，当前被 `.gitignore` 忽略；PROGRESS 中列出的 processed jsonl 不代表会提交到 GitHub。
 - `recover_outputs.jsonl` 已由 `oracle_stub_v0` 生成；该 backend 只用于管线验证，不代表真实恢复能力。
 - `recover_scores.jsonl` 已由 `oracle_stub_v0` recovery output + `stub_rule_v0` exact-match scorer 生成，只用于管线验证。
 - `stub_rule_v0` 只做 `strip` 和连续空白折叠后的 exact normalized match，不做真实语义相似度或模型 judge。
+- `unit_evidence` 目前只汇总 semantic necessity 与 semantic recoverability early evidence。
+- recoverability 来自 `oracle_stub_v0` + `stub_rule_v0`，只用于管线验证。
+- trajectory stability、answer stability、raw attention pattern 仍未接入。
+- attention steering effect 尚未接入。
+- `unit_evidence` 不是 final attention anchor label。
+- 尚未实现 attention_anchor_labels builder。
 - 本轮未做真实模型 recovery judging、semantic similarity、attention anchor labeling 或 attention guidance。
 - recover_score governance 文档残留已修复：label_schema.md §0 不再把 recover_score 误列为“不受 interface doc 管理”；新增回归测试 `test_label_schema_out_of_scope_examples_do_not_include_managed_interface_types` 防止再漂移。
 - 不要从 recover score interface 自动扩展到 attention guidance。
@@ -179,12 +194,12 @@ sync_interface_fields --check: all in sync
 下一步建议：
 
 ```text
-Sprint 1I-prep：Unit-to-Anchor Label Interface Design
+Sprint 1J-prep：Attention Anchor Label Interface Alignment
 ```
 
 注意：
 
 ```text
-不要自动开始 Sprint 1I。
-必须先有 Sprint 1I-prep task card 或用户明确指令。
+不要自动开始 Sprint 1J-prep。
+必须先有 Sprint 1J-prep task card 或用户明确指令。
 ```
