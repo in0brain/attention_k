@@ -276,6 +276,8 @@ def valid_recover_output_record() -> dict:
         "masked_id": "gsm8k_0001__unit_001__mask",
         "id": "gsm8k_0001",
         "unit_id": "unit_001",
+        "unit_scope": "single",
+        "group_type": "single",
         "span_ids": ["span_001"],
         "spans": [
             {
@@ -286,9 +288,13 @@ def valid_recover_output_record() -> dict:
                 "end": 9,
             }
         ],
+        "original_question": "Tom has 3 apples and buys 2 more. How many apples does he have now?",
         "masked_question": "Tom has [MASK] apples and buys 2 more. How many apples does he have now?",
+        "mask_token": "[MASK]",
+        "mask_backend": "unit_mask_v0",
+        "mask_strategy": "replace_each_span",
         "recovered_question": "Tom has 3 apples and buys 2 more. How many apples does he have now?",
-        "recovery_backend": "stub_v0",
+        "recovery_backend": "oracle_stub_v0",
         "sample_id": 0,
     }
 
@@ -702,6 +708,14 @@ def test_recover_output_with_wrong_masked_id_raises_value_error() -> None:
     record["masked_id"] = "wrong"
 
     with pytest.raises(ValueError, match="masked_id"):
+        validate_recover_output_record(record)
+
+
+def test_recover_output_with_invalid_recovery_backend_raises_value_error() -> None:
+    record = valid_recover_output_record()
+    record["recovery_backend"] = "stub_v0"
+
+    with pytest.raises(ValueError, match="invalid value"):
         validate_recover_output_record(record)
 
 

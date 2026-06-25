@@ -23,7 +23,7 @@ Token / Span Intervention
 
 ```text
 Sprint 1F 已完成。
-Sprint 1G 前置接口修正已完成：recover_outputs 已对齐到 unit-level / masked_id-driven schema。
+Sprint 1G 前置接口修正已完成：recover_outputs 已对齐到 self-contained unit-level / masked_id-driven schema。
 下一步建议是 Sprint 1G：Question Recovery（unit-level recover outputs implementation）。
 ```
 
@@ -55,7 +55,7 @@ Sprint 1G 前置接口修正已完成：recover_outputs 已对齐到 unit-level 
 | Sprint 1D | 完成 | NLI semantic consistency scoring stub |
 | Sprint 1E | 完成 | Semantic necessity label rule |
 | Sprint 1F | 完成 | Unit-level masked question construction |
-| Sprint 1G-prep | 完成 | Recover output interface alignment |
+| Sprint 1G-prep | 完成 | Self-contained recover output interface alignment |
 
 详细历史见：
 
@@ -81,7 +81,7 @@ conda run -n recover_attention python -m pytest -q
 最近一次检查结果：
 
 ```text
-pytest: 189 passed, 2 skipped
+pytest: 190 passed, 2 skipped
 smoke test: passed
 candidate extraction: passed
 ablation unit construction: passed
@@ -90,6 +90,7 @@ nli scoring stub: passed
 semantic label rule: passed
 masked question construction: passed
 recover output interface alignment: passed
+recover output self-contained interface refinement: passed
 ```
 
 ## 4. 当前关键文件状态
@@ -148,7 +149,7 @@ recover output interface alignment: passed
 - git 工作区中仍存在此前 sprint 的文档迁移和 schema/test 改动，需要在提交前统一检查。
 - 如果 `__pycache__` / `.pyc` 出现在 git status 中，需要确认是否被 git 跟踪；若已被跟踪，应单独处理。
 - `data/processed/*` 是本地生成产物目录，当前被 `.gitignore` 忽略；PROGRESS 中列出的 processed jsonl 不代表会提交到 GitHub。
-- `recover_outputs.jsonl` 目前只完成 unit-level / masked_id-driven 接口修正，尚未实现 recovery 生成。
+- `recover_outputs.jsonl` 目前只完成 self-contained unit-level / masked_id-driven 接口修正，尚未实现 recovery 生成。
 - `recover_scores.jsonl` 仍是旧 span-level schema；进入 recoverability scoring 前需要单独做 unit-level 接口修正。
 - 不要从 masked questions 自动扩展到 recovery / recoverability / attention guidance。
 

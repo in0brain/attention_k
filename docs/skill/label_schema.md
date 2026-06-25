@@ -944,6 +944,8 @@ data/processed/recover_outputs.jsonl
 当前 1G 的输入应来自 data/processed/masked_questions.jsonl。
 recover_outputs.jsonl 按 masked_id 绑定 masked question，并可用 sample_id
 记录同一个 masked question 的多次复原结果。
+recover_outputs.jsonl 保留后续 recoverability scoring 所需的 masked question
+元数据，避免评分阶段必须再 join 回 masked_questions.jsonl。
 ```
 
 字段：本文件不再罗列完整字段表。顶层字段以 `docs/skill/recover_outputs_interface.md`
@@ -953,10 +955,14 @@ recover_outputs.jsonl 按 masked_id 绑定 masked question，并可用 sample_id
 
 ```text
 1. recover output 是 unit-level / masked_id-driven，不再使用顶层 span_id。
-2. recovery 的任务是复原问题，不是解题。
-3. recovered_question 可以为空字符串，表示没有可用复原。
-4. recover output 不包含 recoverability label、confidence 或 attention anchor label。
-5. recoverability 判断属于后续 scoring 阶段。
+2. recover output 必须复制 unit_scope、group_type、original_question、mask_token、
+   mask_backend 和 mask_strategy。
+3. recovery 的任务是复原问题，不是解题。
+4. recovery_backend 当前只允许 oracle_stub_v0；该 backend 只用于管线验证，
+   不能用于真实性能结论。
+5. recovered_question 可以为空字符串，表示没有可用复原。
+6. recover output 不包含 recoverability label、confidence 或 attention anchor label。
+7. recoverability 判断属于后续 scoring 阶段。
 ```
 
 ---

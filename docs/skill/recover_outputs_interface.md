@@ -13,8 +13,9 @@ questions. It consumes:
 data/processed/masked_questions.jsonl
 ```
 
-This interface is `masked_id`-driven and unit-level. It replaces the old
-span-level recover output schema.
+This interface is `masked_id`-driven, unit-level, and self-contained enough for
+the next scoring stage to read it without joining back to
+`masked_questions.jsonl`. It replaces the old span-level recover output schema.
 
 ---
 
@@ -51,9 +52,15 @@ Each record must contain:
 masked_id
 id
 unit_id
+unit_scope
+group_type
 span_ids
 spans
+original_question
 masked_question
+mask_token
+mask_backend
+mask_strategy
 recovered_question
 recovery_backend
 sample_id
@@ -69,9 +76,15 @@ Copied from `masked_questions.jsonl`:
 masked_id
 id
 unit_id
+unit_scope
+group_type
 span_ids
 spans
+original_question
 masked_question
+mask_token
+mask_backend
+mask_strategy
 ```
 
 Created by the recovery stage:
@@ -84,6 +97,16 @@ sample_id
 
 `recovered_question` may be an empty string when the backend produces no usable
 recovery.
+
+`recovery_backend` must be:
+
+```text
+oracle_stub_v0
+```
+
+This backend is a pipeline-verification stub. It may use source metadata such as
+`original_question` and `spans`, so its outputs must not be interpreted as real
+recovery performance.
 
 ---
 
@@ -133,5 +156,6 @@ validate_recover_output_record(record: dict) -> None
 ```
 
 The validator checks required fields, rejects stale span-level and scoring
-fields, verifies `masked_id`, validates unit span metadata, and enforces
-`sample_id >= 0`.
+fields, verifies `masked_id`, validates unit span metadata, enforces mask and
+recovery backend enums, checks that the masked question adds exactly one
+`mask_token` per span, and enforces `sample_id >= 0`.

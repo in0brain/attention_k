@@ -454,8 +454,7 @@ source_count_distribution: {2: 46}
 
 - 将 `recover_outputs.jsonl` 接口从旧 span-level schema 对齐为 unit-level / masked_id-driven schema。
 - 新增 `docs/skill/recover_outputs_interface.md`。
-- 将 `REQUIRED_FIELDS["recover_output"]` 更新为：
-  `masked_id / id / unit_id / span_ids / spans / masked_question / recovered_question / recovery_backend / sample_id`。
+- 将 `REQUIRED_FIELDS["recover_output"]` 更新为 unit-level / masked_id-driven 字段集合；后续补丁已进一步扩展为 self-contained 15 字段接口。
 - 更新 `validate_recover_output_record`，校验 `masked_id`、unit span metadata、`sample_id >= 0`，并拒绝旧字段 `span_id / span_text / span_type / recoverable / confidence / reason / recoverability_label`。
 - 更新 `docs/skill/SKILL.md` 路由和 `docs/skill/label_schema.md` 第 11 节，使 recover output 指向 interface 文档。
 - 更新接口一致性测试和 schema 测试。
@@ -518,3 +517,57 @@ conda run -n recover_attention python -m pytest -q
 下一步建议：
 
 - Sprint 1G：Question Recovery（unit-level recover outputs implementation）。
+
+## Sprint 1G 前置接口修正补丁：Self-contained Recover Output Interface
+
+已完成内容：
+
+- 将 `recover_outputs.jsonl` 从轻量 masked question 绑定调整为 self-contained unit-level record。
+- `REQUIRED_FIELDS["recover_output"]` 新增：
+  `unit_scope / group_type / original_question / mask_token / mask_backend / mask_strategy`。
+- 新增 `ALLOWED_RECOVERY_BACKENDS = {"oracle_stub_v0"}`，并将 `recovery_backend` 收紧为枚举。
+- `validate_recover_output_record` 现在校验 unit metadata、mask backend、mask strategy、recovery backend，并检查 `masked_question` 正好为每个 span 新增一个 `mask_token`。
+- 更新 `docs/skill/recover_outputs_interface.md` 和 `docs/skill/label_schema.md`，明确 recover output 保留后续 recoverability scoring 所需元数据，避免评分阶段必须 join 回 `masked_questions.jsonl`。
+- 更新 schema 测试，新增非法 `recovery_backend` 回归测试。
+
+新增或修改文件：
+
+- docs/skill/recover_outputs_interface.md
+- docs/skill/label_schema.md
+- src/recover_attention/schemas.py
+- tests/test_schemas.py
+- PROGRESS.md
+- docs/progress/sprint_1_history.md
+
+输入文件：
+
+- 无数据输入。本轮只做接口修正。
+
+输出文件：
+
+- 无 `data/processed/recover_outputs.jsonl` 产物。本轮不运行 recovery。
+
+运行命令：
+
+```bash
+conda run -n recover_attention python scripts/sync_interface_fields.py --write
+conda run -n recover_attention python scripts/sync_interface_fields.py --check
+conda run -n recover_attention python -m pytest tests/test_schemas.py tests/test_interface_consistency.py -q
+conda run -n recover_attention python -m pytest -q
+```
+
+检查结果：
+
+- interface required_fields 同步检查已通过，`recover_outputs_interface.md` 的 `recover_output` block 现在包含 15 个字段。
+- `python -m pytest tests/test_schemas.py tests/test_interface_consistency.py -q` 已通过，结果为 `83 passed, 2 skipped`。
+- `python -m pytest -q` 已通过，结果为 `190 passed, 2 skipped`。
+
+遗留问题：
+
+- 本轮未生成 `data/processed/recover_outputs.jsonl`。
+- 本轮未实现 recovery backend、recoverability scoring、trajectory、attention guidance 或 probe。
+- `recover_scores.jsonl` 仍是旧 span-level schema；应在 recoverability scoring 前单独做 unit-level 接口修正。
+
+下一步建议：
+
+- Sprint 1G：Question Recovery（基于 self-contained recover output interface 实现 `oracle_stub_v0`）。

@@ -68,6 +68,7 @@ ALLOWED_ABLATION_UNIT_GROUP_TYPES = {
 }
 ALLOWED_MASK_BACKENDS = {"unit_mask_v0"}
 ALLOWED_MASK_STRATEGIES = {"replace_each_span"}
+ALLOWED_RECOVERY_BACKENDS = {"oracle_stub_v0"}
 
 # Single source of truth for top-level record fields.
 # Interface docs and label_schema.md are checked against these by
@@ -157,9 +158,15 @@ REQUIRED_FIELDS = {
         "masked_id",
         "id",
         "unit_id",
+        "unit_scope",
+        "group_type",
         "span_ids",
         "spans",
+        "original_question",
         "masked_question",
+        "mask_token",
+        "mask_backend",
+        "mask_strategy",
         "recovered_question",
         "recovery_backend",
         "sample_id",
@@ -663,9 +670,15 @@ def validate_recover_output_record(record: dict) -> None:
     _require_non_empty_str(record, "masked_id", name)
     _require_non_empty_str(record, "id", name)
     _require_non_empty_str(record, "unit_id", name)
+    _require_enum(record, "unit_scope", ALLOWED_ABLATION_UNIT_SCOPES, name)
+    _require_non_empty_str(record, "group_type", name)
+    _require_non_empty_str(record, "original_question", name)
     _require_non_empty_str(record, "masked_question", name)
+    _require_non_empty_str(record, "mask_token", name)
+    _require_enum(record, "mask_backend", ALLOWED_MASK_BACKENDS, name)
+    _require_enum(record, "mask_strategy", ALLOWED_MASK_STRATEGIES, name)
     _require_str(record, "recovered_question", name)
-    _require_non_empty_str(record, "recovery_backend", name)
+    _require_enum(record, "recovery_backend", ALLOWED_RECOVERY_BACKENDS, name)
     _require_int(record, "sample_id", name, min_value=0)
 
     expected_masked_id = f"{record['id']}__{record['unit_id']}__mask"
@@ -694,6 +707,15 @@ def validate_recover_output_record(record: dict) -> None:
             raise ValueError(f"{span_name} field 'end' must be greater than 'start'")
         if span["span_id"] != span_ids[span_index]:
             raise ValueError(f"{name} span_ids order must match spans order")
+
+    if record["mask_strategy"] == "replace_each_span":
+        added_mask_count = record["masked_question"].count(record["mask_token"]) - record[
+            "original_question"
+        ].count(record["mask_token"])
+        if added_mask_count != len(spans):
+            raise ValueError(
+                f"{name} field 'masked_question' must add exactly one mask token per span"
+            )
 
 
 def validate_recover_score_record(record: dict) -> None:
