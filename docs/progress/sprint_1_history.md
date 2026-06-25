@@ -656,3 +656,75 @@ recovery_backend_counts: {'oracle_stub_v0': 46}
 下一步建议：
 
 - Sprint 1H-prep：Recover Score Interface Alignment。
+
+## Sprint 1H-prep：Recover Score Interface Alignment
+
+已完成内容：
+
+- 将 `recover_score` 从旧 span-level schema 迁移为 unit-level / masked_id-driven schema。
+- 新增 `docs/skill/recover_scores_interface.md`。
+- 将 `recover_score` 加入 `schemas.INTERFACE_DOCS`，纳入 `scripts/sync_interface_fields.py` 与 `tests/test_interface_consistency.py` 的接口治理。
+- 新增 `ALLOWED_RECOVER_SCORE_BACKENDS = {"stub_rule_v0"}`。
+- 更新 `REQUIRED_FIELDS["recover_score"]`，使 recover score 保留 recover_outputs 聚合所需的 unit metadata、sample evidence 和 score 字段。
+- 更新 `FORBIDDEN_FIELDS["recover_score"]`，显式拒绝旧 span-level 顶层字段、sample-level 字段和 attention/guidance 字段。
+- 更新 `validate_recover_score_record`，校验 `recover_score_id`、`masked_id`、unit span metadata、sample 聚合字段、score 范围、backend enum 和 evidence。
+- 更新 `docs/skill/label_schema.md` 第 12 节，使其只指向 `recover_scores_interface.md`，不再复制完整字段表。
+- 更新 `docs/skill/SKILL.md` 路由和 `scripts/sync_interface_fields.py` 注释。
+- 更新 `tests/test_schemas.py` 和 `tests/test_interface_consistency.py`。
+
+新增或修改文件：
+
+- src/recover_attention/schemas.py
+- docs/skill/recover_scores_interface.md
+- docs/skill/label_schema.md
+- docs/skill/SKILL.md
+- scripts/sync_interface_fields.py
+- tests/test_schemas.py
+- tests/test_interface_consistency.py
+- PROGRESS.md
+- docs/progress/sprint_1_history.md
+
+输入文件：
+
+- 无数据输入。本轮只做接口修正。
+
+输出文件：
+
+- 无 `data/processed/recover_scores.jsonl` 产物。本轮不运行 recoverability scoring。
+
+运行命令：
+
+```bash
+conda run -n recover_attention python scripts/sync_interface_fields.py --write
+conda run -n recover_attention python scripts/sync_interface_fields.py --check
+conda run -n recover_attention python -m pytest tests/test_interface_consistency.py tests/test_schemas.py -q
+conda run -n recover_attention python -m pytest -q
+```
+
+检查结果：
+
+- `scripts/sync_interface_fields.py --check` 已通过，`recover_scores_interface.md` 的 `recover_score` block 包含 24 个字段。
+- `python -m pytest tests/test_interface_consistency.py tests/test_schemas.py -q` 已通过，结果为 `112 passed, 2 skipped`。
+- `python -m pytest -q` 已通过，结果为 `230 passed, 2 skipped`。
+
+接口摘要：
+
+```text
+recover_score is now unit-level / masked_id-driven.
+recover_score consumes recover_outputs.jsonl grouped by masked_id.
+old top-level span_id / span_text / span_type are rejected.
+sample-level sample_id / recovered_question are rejected.
+attention label and guidance fields are rejected.
+```
+
+遗留问题：
+
+- 裸 `python` 当前指向 base conda：`D:\conda\Miniconda3\python.exe`；本轮使用 `conda run -n recover_attention python ...`。
+- 本轮未实现 `src/recover_attention/recover_scoring.py`。
+- 本轮未新增 scoring CLI。
+- 本轮未生成 `data/processed/recover_scores.jsonl`。
+- 本轮未调用真实模型、未生成 hidden states / attention maps、未做 trajectory / probe / attention guidance。
+
+下一步建议：
+
+- Sprint 1H：Recoverability Scoring。

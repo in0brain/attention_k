@@ -969,6 +969,14 @@ recover_outputs.jsonl 保留后续 recoverability scoring 所需的 masked quest
 
 # 12. Recover Score Record
 
+当前稳定接口以：
+
+```text
+docs/skill/recover_scores_interface.md
+```
+
+为准。旧版 span-level recover score schema 已废弃。
+
 文件：
 
 ```text
@@ -978,46 +986,24 @@ data/processed/recover_scores.jsonl
 用途：
 
 ```text
-聚合 recover_outputs，得到 span 级别 recoverability 评分。
+按 masked_id 聚合 recover_outputs，得到 unit-level recoverability score。
+当前输入应来自 data/processed/recover_outputs.jsonl。
+recover_scores.jsonl 保留后续 attention label building 所需的 unit 元数据和 scoring evidence。
 ```
 
-示例：
-
-```json
-{
-  "id": "gsm8k_0001",
-  "span_id": "span_001",
-  "recoverability_label": "Non-recoverable",
-  "confidence_mean": 0.41,
-  "recovery_consistency": 0.22,
-  "misleading_recovery": false
-}
-```
-
-字段：
-
-```text
-id: str, non-empty
-span_id: str, non-empty
-recoverability_label: str, one of allowed recoverability labels
-confidence_mean: int or float, 0 <= confidence_mean <= 1
-recovery_consistency: int or float, 0 <= recovery_consistency <= 1
-misleading_recovery: bool
-```
-
-可选字段：
-
-```text
-num_samples: int, >= 0
-evidence: dict or list
-```
+字段：本文件不再罗列完整字段表。顶层字段以 `docs/skill/recover_scores_interface.md`
+和 `src/recover_attention/schemas.py` 的 `REQUIRED_FIELDS["recover_score"]` 为准。
 
 约束：
 
 ```text
-1. recoverability 不是最终重要性标签。
-2. 不要把 Non-recoverable 直接等同于 Strong Anchor。
-3. 不要把 Recoverable 直接等同于不重要。
+1. recover score 是 unit-level / masked_id-driven，不再使用顶层 span_id。
+2. recover score 是对 recovery samples 的聚合结果，不再使用顶层 sample_id 或 recovered_question。
+3. recover score 必须保留 unit_id、unit_scope、group_type、span_ids 和 spans。
+4. recoverability 不是最终 attention importance label。
+5. 不要把 Non-recoverable 直接等同于 Strong Anchor。
+6. 不要把 Recoverable 直接等同于不重要。
+7. attention anchor label 和 guidance action 属于后续阶段。
 ```
 
 ---

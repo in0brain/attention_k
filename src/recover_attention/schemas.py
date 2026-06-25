@@ -69,6 +69,7 @@ ALLOWED_ABLATION_UNIT_GROUP_TYPES = {
 ALLOWED_MASK_BACKENDS = {"unit_mask_v0"}
 ALLOWED_MASK_STRATEGIES = {"replace_each_span"}
 ALLOWED_RECOVERY_BACKENDS = {"oracle_stub_v0"}
+ALLOWED_RECOVER_SCORE_BACKENDS = {"stub_rule_v0"}
 
 # Single source of truth for top-level record fields.
 # Interface docs and label_schema.md are checked against these by
@@ -172,12 +173,30 @@ REQUIRED_FIELDS = {
         "sample_id",
     ],
     "recover_score": [
+        "recover_score_id",
+        "masked_id",
         "id",
-        "span_id",
+        "unit_id",
+        "unit_scope",
+        "group_type",
+        "span_ids",
+        "spans",
+        "original_question",
+        "masked_question",
+        "mask_token",
+        "mask_backend",
+        "mask_strategy",
+        "recovery_backend",
+        "num_samples",
+        "source_sample_ids",
+        "recovered_questions",
         "recoverability_label",
+        "recoverability_score",
         "confidence_mean",
         "recovery_consistency",
         "misleading_recovery",
+        "score_backend",
+        "evidence",
     ],
     "attention_anchor_label": [
         "id",
@@ -206,6 +225,20 @@ FORBIDDEN_FIELDS = {
         "reason",
         "recoverability_label",
     ],
+    "recover_score": [
+        "span_id",
+        "span_text",
+        "span_type",
+        "sample_id",
+        "recovered_question",
+        "recoverable",
+        "confidence",
+        "reason",
+        "attention_importance_score",
+        "attention_anchor_label",
+        "guidance_action",
+        "guidance_strength",
+    ],
 }
 
 # Binds each record type to the interface doc whose `required_fields` marker
@@ -220,6 +253,7 @@ INTERFACE_DOCS = {
     "semantic_label": "semantic_labels_interface.md",
     "masked_question": "masked_questions_interface.md",
     "recover_output": "recover_outputs_interface.md",
+    "recover_score": "recover_scores_interface.md",
 }
 
 
@@ -721,13 +755,110 @@ def validate_recover_output_record(record: dict) -> None:
 def validate_recover_score_record(record: dict) -> None:
     name = "recover score record"
     _require_dict(record, name)
+    _reject_fields(record, FORBIDDEN_FIELDS["recover_score"], name)
     _require_fields(record, REQUIRED_FIELDS["recover_score"], name)
+    _require_non_empty_str(record, "recover_score_id", name)
+    _require_non_empty_str(record, "masked_id", name)
     _require_non_empty_str(record, "id", name)
-    _require_non_empty_str(record, "span_id", name)
+    _require_non_empty_str(record, "unit_id", name)
+    _require_enum(record, "unit_scope", ALLOWED_ABLATION_UNIT_SCOPES, name)
+    _require_enum(record, "group_type", ALLOWED_ABLATION_UNIT_GROUP_TYPES, name)
+    _require_non_empty_str(record, "original_question", name)
+    _require_non_empty_str(record, "masked_question", name)
+    _require_non_empty_str(record, "mask_token", name)
+    _require_enum(record, "mask_backend", ALLOWED_MASK_BACKENDS, name)
+    _require_enum(record, "mask_strategy", ALLOWED_MASK_STRATEGIES, name)
+    _require_enum(record, "recovery_backend", ALLOWED_RECOVERY_BACKENDS, name)
+    _require_int(record, "num_samples", name, min_value=1)
     _require_enum(record, "recoverability_label", ALLOWED_RECOVERABILITY_LABELS, name)
+    _require_number(record, "recoverability_score", name, min_value=0, max_value=1)
     _require_number(record, "confidence_mean", name, min_value=0, max_value=1)
     _require_number(record, "recovery_consistency", name, min_value=0, max_value=1)
     _require_bool(record, "misleading_recovery", name)
+    _require_enum(record, "score_backend", ALLOWED_RECOVER_SCORE_BACKENDS, name)
+    _require_dict_or_list(record, "evidence", name)
+
+    expected_masked_id = f"{record['id']}__{record['unit_id']}__mask"
+    if record["masked_id"] != expected_masked_id:
+        raise ValueError(
+            f"{name} field 'masked_id' must equal f'{{id}}__{{unit_id}}__mask'"
+        )
+
+    expected_recover_score_id = f"{record['masked_id']}__score_{record['score_backend']}"
+    if record["recover_score_id"] != expected_recover_score_id:
+        raise ValueError(
+            f"{name} field 'recover_score_id' must equal "
+            "f'{masked_id}__score_{score_backend}'"
+        )
+
+    span_ids = _require_non_empty_str_list(record, "span_ids", name)
+    spans = record["spans"]
+    if not isinstance(spans, list) or not spans:
+        raise ValueError(f"{name} field 'spans' must be a non-empty list")
+    if len(spans) != len(span_ids):
+        raise ValueError(f"{name} field 'spans' must have the same length as 'span_ids'")
+
+    if record["unit_scope"] == "single" and len(span_ids) != 1:
+        raise ValueError(f"{name} with unit_scope 'single' must contain exactly one span")
+    if record["unit_scope"] == "group" and len(span_ids) < 2:
+        raise ValueError(f"{name} with unit_scope 'group' must contain at least two spans")
+    if record["group_type"] == "single" and record["unit_scope"] != "single":
+        raise ValueError(f"{name} with group_type 'single' must have unit_scope 'single'")
+    if record["group_type"] != "single" and record["unit_scope"] != "group":
+        raise ValueError(f"{name} with non-single group_type must have unit_scope 'group'")
+
+    for span_index, span in enumerate(spans):
+        span_name = f"{name} span[{span_index}]"
+        _require_dict(span, span_name)
+        _require_fields(span, ["span_id", "text", "type", "start", "end"], span_name)
+        _require_non_empty_str(span, "span_id", span_name)
+        _require_non_empty_str(span, "text", span_name)
+        _require_enum(span, "type", ALLOWED_SPAN_TYPES, span_name)
+        _require_int(span, "start", span_name, min_value=0)
+        _require_int(span, "end", span_name)
+        if span["end"] <= span["start"]:
+            raise ValueError(f"{span_name} field 'end' must be greater than 'start'")
+        if span["span_id"] != span_ids[span_index]:
+            raise ValueError(f"{name} span_ids order must match spans order")
+
+    if record["mask_strategy"] == "replace_each_span":
+        added_mask_count = record["masked_question"].count(record["mask_token"]) - record[
+            "original_question"
+        ].count(record["mask_token"])
+        if added_mask_count != len(spans):
+            raise ValueError(
+                f"{name} field 'masked_question' must add exactly one mask token per span"
+            )
+
+    source_sample_ids = record["source_sample_ids"]
+    if not isinstance(source_sample_ids, list):
+        raise ValueError(f"{name} field 'source_sample_ids' must be a list")
+    if len(source_sample_ids) != record["num_samples"]:
+        raise ValueError(
+            f"{name} field 'source_sample_ids' must have length num_samples"
+        )
+    for sample_index, sample_id in enumerate(source_sample_ids):
+        if not isinstance(sample_id, int) or isinstance(sample_id, bool):
+            raise ValueError(
+                f"{name} source_sample_ids[{sample_index}] must be an int"
+            )
+        if sample_id < 0:
+            raise ValueError(
+                f"{name} source_sample_ids[{sample_index}] must be >= 0"
+            )
+
+    recovered_questions = record["recovered_questions"]
+    if not isinstance(recovered_questions, list):
+        raise ValueError(f"{name} field 'recovered_questions' must be a list")
+    if len(recovered_questions) != record["num_samples"]:
+        raise ValueError(
+            f"{name} field 'recovered_questions' must have length num_samples"
+        )
+    for question_index, recovered_question in enumerate(recovered_questions):
+        if not isinstance(recovered_question, str):
+            raise ValueError(
+                f"{name} recovered_questions[{question_index}] must be a str"
+            )
 
 
 def validate_attention_anchor_label_record(record: dict) -> None:

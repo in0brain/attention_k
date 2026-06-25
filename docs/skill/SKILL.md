@@ -271,6 +271,16 @@ Recover output 的长期接口文档，说明 recover_outputs.jsonl 的 unit-lev
 
 ---
 
+### 3.8.7 docs/skill/recover_scores_interface.md
+
+Use for:
+
+```text
+Recover score 的长期接口文档，说明 recover_scores.jsonl 的 unit-level / masked_id-driven schema、recover_outputs 聚合来源、score 字段、evidence 字段和后续 attention label 消费方式。
+```
+
+---
+
 ### 3.9 docs/reference/*
 
 Use for:

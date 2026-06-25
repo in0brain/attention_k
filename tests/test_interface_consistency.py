@@ -40,6 +40,7 @@ LABEL_SCHEMA_SECTIONS = {
     "semantic_label": ("# 9. Semantic Label Record", "semantic_labels_interface.md"),
     "masked_question": ("# 10. Masked Question Record", "masked_questions_interface.md"),
     "recover_output": ("# 11. Recover Output Record", "recover_outputs_interface.md"),
+    "recover_score": ("# 12. Recover Score Record", "recover_scores_interface.md"),
 }
 
 

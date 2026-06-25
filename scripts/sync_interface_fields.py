@@ -28,7 +28,7 @@ Out of scope (intentionally NOT managed here):
         must not duplicate field lists. That rule is enforced by
         tests/test_interface_consistency.py, not by this generator.
     - record types absent from schemas.INTERFACE_DOCS
-        (e.g. question / candidate_span / recover_score / attention_anchor_label)
+        (e.g. question / candidate_span / attention_anchor_label)
         have no interface doc and are skipped.
 =========================================================================
 

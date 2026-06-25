@@ -314,13 +314,59 @@ def old_span_level_recover_output_record() -> dict:
 
 def valid_recover_score_record() -> dict:
     return {
+        "recover_score_id": "gsm8k_0001__unit_001__mask__score_stub_rule_v0",
+        "masked_id": "gsm8k_0001__unit_001__mask",
         "id": "gsm8k_0001",
-        "span_id": "span_001",
-        "recoverability_label": "Non-recoverable",
-        "confidence_mean": 0.41,
-        "recovery_consistency": 0.22,
+        "unit_id": "unit_001",
+        "unit_scope": "single",
+        "group_type": "single",
+        "span_ids": ["span_001"],
+        "spans": [
+            {
+                "span_id": "span_001",
+                "text": "3",
+                "type": "number",
+                "start": 8,
+                "end": 9,
+            }
+        ],
+        "original_question": "Tom has 3 apples and buys 2 more. How many apples does he have now?",
+        "masked_question": "Tom has [MASK] apples and buys 2 more. How many apples does he have now?",
+        "mask_token": "[MASK]",
+        "mask_backend": "unit_mask_v0",
+        "mask_strategy": "replace_each_span",
+        "recovery_backend": "oracle_stub_v0",
+        "num_samples": 1,
+        "source_sample_ids": [0],
+        "recovered_questions": [
+            "Tom has 3 apples and buys 2 more. How many apples does he have now?"
+        ],
+        "recoverability_label": "Recoverable",
+        "recoverability_score": 1.0,
+        "confidence_mean": 1.0,
+        "recovery_consistency": 1.0,
         "misleading_recovery": False,
+        "score_backend": "stub_rule_v0",
+        "evidence": {"matched_original_question": True},
     }
+
+
+def valid_group_recover_score_record() -> dict:
+    record = valid_recover_score_record()
+    record["recover_score_id"] = "gsm8k_0001__unit_008__mask__score_stub_rule_v0"
+    record["masked_id"] = "gsm8k_0001__unit_008__mask"
+    record["unit_id"] = "unit_008"
+    record["unit_scope"] = "group"
+    record["group_type"] = "number_set"
+    record["span_ids"] = ["span_001", "span_002"]
+    record["spans"] = [
+        {"span_id": "span_001", "text": "3", "type": "number", "start": 8, "end": 9},
+        {"span_id": "span_002", "text": "2", "type": "number", "start": 26, "end": 27},
+    ]
+    record["masked_question"] = (
+        "Tom has [MASK] apples and buys [MASK] more. How many apples does he have now?"
+    )
+    return record
 
 
 def valid_attention_anchor_label_record() -> dict:
@@ -721,6 +767,137 @@ def test_recover_output_with_invalid_recovery_backend_raises_value_error() -> No
 
 def test_valid_recover_score_record_passes() -> None:
     assert validate_recover_score_record(valid_recover_score_record()) is None
+
+
+def test_valid_group_recover_score_record_passes() -> None:
+    assert validate_recover_score_record(valid_group_recover_score_record()) is None
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("span_id", "span_001"),
+        ("span_text", "3"),
+        ("span_type", "number"),
+        ("sample_id", 0),
+        ("recovered_question", "Tom has 3 apples and buys 2 more."),
+        ("recoverable", "yes"),
+        ("confidence", 0.8),
+        ("reason", "legacy field"),
+        ("attention_anchor_label", "Strong Anchor"),
+        ("guidance_action", "boost"),
+        ("guidance_strength", 0.7),
+    ],
+)
+def test_recover_score_with_forbidden_top_level_field_raises_value_error(
+    field: str,
+    value: object,
+) -> None:
+    record = valid_recover_score_record()
+    record[field] = value
+
+    with pytest.raises(ValueError, match="forbidden field"):
+        validate_recover_score_record(record)
+
+
+def test_recover_score_with_wrong_masked_id_raises_value_error() -> None:
+    record = valid_recover_score_record()
+    record["masked_id"] = "wrong"
+
+    with pytest.raises(ValueError, match="masked_id"):
+        validate_recover_score_record(record)
+
+
+def test_recover_score_with_wrong_recover_score_id_raises_value_error() -> None:
+    record = valid_recover_score_record()
+    record["recover_score_id"] = "wrong"
+
+    with pytest.raises(ValueError, match="recover_score_id"):
+        validate_recover_score_record(record)
+
+
+def test_recover_score_with_span_length_mismatch_raises_value_error() -> None:
+    record = valid_recover_score_record()
+    record["span_ids"] = ["span_001", "span_002"]
+
+    with pytest.raises(ValueError, match="same length"):
+        validate_recover_score_record(record)
+
+
+def test_recover_score_with_span_order_mismatch_raises_value_error() -> None:
+    record = valid_group_recover_score_record()
+    record["span_ids"] = ["span_002", "span_001"]
+
+    with pytest.raises(ValueError, match="span_ids order"):
+        validate_recover_score_record(record)
+
+
+def test_recover_score_single_unit_with_multiple_spans_raises_value_error() -> None:
+    record = valid_group_recover_score_record()
+    record["recover_score_id"] = "gsm8k_0001__unit_001__mask__score_stub_rule_v0"
+    record["masked_id"] = "gsm8k_0001__unit_001__mask"
+    record["unit_id"] = "unit_001"
+    record["unit_scope"] = "single"
+    record["group_type"] = "single"
+
+    with pytest.raises(ValueError, match="exactly one span"):
+        validate_recover_score_record(record)
+
+
+def test_recover_score_group_unit_with_one_span_raises_value_error() -> None:
+    record = valid_recover_score_record()
+    record["recover_score_id"] = "gsm8k_0001__unit_008__mask__score_stub_rule_v0"
+    record["masked_id"] = "gsm8k_0001__unit_008__mask"
+    record["unit_id"] = "unit_008"
+    record["unit_scope"] = "group"
+    record["group_type"] = "number_set"
+
+    with pytest.raises(ValueError, match="at least two spans"):
+        validate_recover_score_record(record)
+
+
+def test_recover_score_with_num_samples_zero_raises_value_error() -> None:
+    record = valid_recover_score_record()
+    record["num_samples"] = 0
+
+    with pytest.raises(ValueError, match=">= 1"):
+        validate_recover_score_record(record)
+
+
+def test_recover_score_with_source_sample_ids_length_mismatch_raises_value_error() -> None:
+    record = valid_recover_score_record()
+    record["source_sample_ids"] = [0, 1]
+
+    with pytest.raises(ValueError, match="source_sample_ids"):
+        validate_recover_score_record(record)
+
+
+def test_recover_score_with_recovered_questions_length_mismatch_raises_value_error() -> None:
+    record = valid_recover_score_record()
+    record["recovered_questions"] = []
+
+    with pytest.raises(ValueError, match="recovered_questions"):
+        validate_recover_score_record(record)
+
+
+@pytest.mark.parametrize(
+    "field",
+    ["recoverability_score", "confidence_mean", "recovery_consistency"],
+)
+def test_recover_score_with_score_above_one_raises_value_error(field: str) -> None:
+    record = valid_recover_score_record()
+    record[field] = 1.1
+
+    with pytest.raises(ValueError, match="<= 1"):
+        validate_recover_score_record(record)
+
+
+def test_recover_score_with_unsupported_score_backend_raises_value_error() -> None:
+    record = valid_recover_score_record()
+    record["score_backend"] = "manual"
+
+    with pytest.raises(ValueError, match="invalid value"):
+        validate_recover_score_record(record)
 
 
 def test_recover_score_with_invalid_recoverability_label_raises_value_error() -> None:

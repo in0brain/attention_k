@@ -22,9 +22,9 @@ Token / Span Intervention
 当前阶段：
 
 ```text
-Sprint 1G 已完成：Question Recovery Stub 已实现，recover_outputs 已生成。
-recover_outputs 使用 self-contained unit-level / masked_id-driven schema。
-下一步建议是 Sprint 1H-prep：Recover Score Interface Alignment。
+Sprint 1H-prep 已完成：recover_scores 已纳入 interface governance。
+recover_scores 接口已迁移到 unit-level / masked_id-driven schema。
+下一步建议是 Sprint 1H：Recoverability Scoring。
 ```
 
 当前不做：
@@ -57,6 +57,7 @@ recover_outputs 使用 self-contained unit-level / masked_id-driven schema。
 | Sprint 1F | 完成 | Unit-level masked question construction |
 | Sprint 1G-prep | 完成 | Self-contained recover output interface alignment |
 | Sprint 1G | 完成 | Question recovery oracle stub |
+| Sprint 1H-prep | 完成 | Recover score interface alignment |
 
 详细历史见：
 
@@ -83,7 +84,7 @@ conda run -n recover_attention python -m pytest -q
 最近一次检查结果：
 
 ```text
-pytest: 201 passed, 2 skipped
+pytest: 230 passed, 2 skipped
 smoke test: passed
 candidate extraction: passed
 ablation unit construction: passed
@@ -94,6 +95,7 @@ masked question construction: passed
 recover output interface alignment: passed
 recover output self-contained interface refinement: passed
 question recovery stub: passed
+recover score interface alignment: passed
 ```
 
 ## 4. 当前关键文件状态
@@ -137,16 +139,19 @@ question recovery stub: passed
 - data/processed/recover_outputs.jsonl
 - docs/skill/semantic_labels_interface.md
 - docs/skill/recover_outputs_interface.md
+- docs/skill/recover_scores_interface.md
 - docs/skill/*
 - README.md
 - AGENTS.md
 
 下一阶段将新增或修改：
 
-- recover score interface 文档与 schema
-- 后续 recoverability scoring 模块、脚本和测试
+- src/recover_attention/recover_scoring.py
+- recovery scoring CLI
+- recovery scoring tests
+- data/processed/recover_scores.jsonl
 
-具体以后续 Sprint 1H-prep task card 为准。
+具体以后续 Sprint 1H task card 为准。
 
 ## 5. 当前遗留问题
 
@@ -155,20 +160,20 @@ question recovery stub: passed
 - 如果 `__pycache__` / `.pyc` 出现在 git status 中，需要确认是否被 git 跟踪；若已被跟踪，应单独处理。
 - `data/processed/*` 是本地生成产物目录，当前被 `.gitignore` 忽略；PROGRESS 中列出的 processed jsonl 不代表会提交到 GitHub。
 - `recover_outputs.jsonl` 已由 `oracle_stub_v0` 生成；该 backend 只用于管线验证，不代表真实恢复能力。
-- `recover_scores.jsonl` 仍是旧 span-level schema；进入 recoverability scoring 前需要单独做 unit-level 接口修正。
-- 不要从 recovery outputs 自动扩展到 recoverability scoring / attention guidance。
+- `recover_scores.jsonl` 目前只完成 unit-level / masked_id-driven 接口修正，尚未实现 scoring 生成。
+- 不要从 recover score interface 自动扩展到 attention guidance。
 
 ## 6. 下一步
 
 下一步建议：
 
 ```text
-Sprint 1H-prep：Recover Score Interface Alignment
+Sprint 1H：Recoverability Scoring
 ```
 
 注意：
 
 ```text
-不要自动开始 Sprint 1H-prep。
-必须先有 Sprint 1H-prep task card 或用户明确指令。
+不要自动开始 Sprint 1H。
+必须先有 Sprint 1H task card 或用户明确指令。
 ```
