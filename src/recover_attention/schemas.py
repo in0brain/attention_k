@@ -154,14 +154,15 @@ REQUIRED_FIELDS = {
         "semantic_sources",
     ],
     "recover_output": [
+        "masked_id",
         "id",
-        "span_id",
-        "sample_id",
+        "unit_id",
+        "span_ids",
+        "spans",
         "masked_question",
         "recovered_question",
-        "recoverable",
-        "confidence",
-        "reason",
+        "recovery_backend",
+        "sample_id",
     ],
     "recover_score": [
         "id",
@@ -189,6 +190,15 @@ FORBIDDEN_FIELDS = {
     "ablated_question": ["span_id", "span_text", "span_type"],
     "nli_score": ["original_to_ablated", "ablated_to_original", "semantic_necessity_label"],
     "masked_question": ["span_id", "span_text", "span_type"],
+    "recover_output": [
+        "span_id",
+        "span_text",
+        "span_type",
+        "recoverable",
+        "confidence",
+        "reason",
+        "recoverability_label",
+    ],
 }
 
 # Binds each record type to the interface doc whose `required_fields` marker
@@ -202,6 +212,7 @@ INTERFACE_DOCS = {
     "nli_score": "nli_scores_interface.md",
     "semantic_label": "semantic_labels_interface.md",
     "masked_question": "masked_questions_interface.md",
+    "recover_output": "recover_outputs_interface.md",
 }
 
 
@@ -647,15 +658,42 @@ def validate_masked_question_record(record: dict) -> None:
 def validate_recover_output_record(record: dict) -> None:
     name = "recover output record"
     _require_dict(record, name)
+    _reject_fields(record, FORBIDDEN_FIELDS["recover_output"], name)
     _require_fields(record, REQUIRED_FIELDS["recover_output"], name)
+    _require_non_empty_str(record, "masked_id", name)
     _require_non_empty_str(record, "id", name)
-    _require_non_empty_str(record, "span_id", name)
-    _require_int(record, "sample_id", name, min_value=0)
+    _require_non_empty_str(record, "unit_id", name)
     _require_non_empty_str(record, "masked_question", name)
     _require_str(record, "recovered_question", name)
-    _require_enum(record, "recoverable", ALLOWED_RECOVERABLE_VALUES, name)
-    _require_number(record, "confidence", name, min_value=0, max_value=1)
-    _require_str(record, "reason", name)
+    _require_non_empty_str(record, "recovery_backend", name)
+    _require_int(record, "sample_id", name, min_value=0)
+
+    expected_masked_id = f"{record['id']}__{record['unit_id']}__mask"
+    if record["masked_id"] != expected_masked_id:
+        raise ValueError(
+            f"{name} field 'masked_id' must equal f'{{id}}__{{unit_id}}__mask'"
+        )
+
+    span_ids = _require_non_empty_str_list(record, "span_ids", name)
+    spans = record["spans"]
+    if not isinstance(spans, list) or not spans:
+        raise ValueError(f"{name} field 'spans' must be a non-empty list")
+    if len(spans) != len(span_ids):
+        raise ValueError(f"{name} field 'spans' must have the same length as 'span_ids'")
+
+    for span_index, span in enumerate(spans):
+        span_name = f"{name} span[{span_index}]"
+        _require_dict(span, span_name)
+        _require_fields(span, ["span_id", "text", "type", "start", "end"], span_name)
+        _require_non_empty_str(span, "span_id", span_name)
+        _require_non_empty_str(span, "text", span_name)
+        _require_enum(span, "type", ALLOWED_SPAN_TYPES, span_name)
+        _require_int(span, "start", span_name, min_value=0)
+        _require_int(span, "end", span_name)
+        if span["end"] <= span["start"]:
+            raise ValueError(f"{span_name} field 'end' must be greater than 'start'")
+        if span["span_id"] != span_ids[span_index]:
+            raise ValueError(f"{name} span_ids order must match spans order")
 
 
 def validate_recover_score_record(record: dict) -> None:

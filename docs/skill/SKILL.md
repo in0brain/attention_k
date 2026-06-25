@@ -261,6 +261,16 @@ Masked question 的长期接口文档，说明 masked_questions.jsonl 的 unit-l
 
 ---
 
+### 3.8.6 docs/skill/recover_outputs_interface.md
+
+Use for:
+
+```text
+Recover output 的长期接口文档，说明 recover_outputs.jsonl 的 unit-level / masked_id-driven schema、masked question 字段来源、recovery sample 字段和后续 recoverability scoring 消费方式。
+```
+
+---
+
 ### 3.9 docs/reference/*
 
 Use for:

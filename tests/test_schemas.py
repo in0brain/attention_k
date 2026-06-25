@@ -273,6 +273,28 @@ def old_span_level_masked_question_record() -> dict:
 
 def valid_recover_output_record() -> dict:
     return {
+        "masked_id": "gsm8k_0001__unit_001__mask",
+        "id": "gsm8k_0001",
+        "unit_id": "unit_001",
+        "span_ids": ["span_001"],
+        "spans": [
+            {
+                "span_id": "span_001",
+                "text": "3",
+                "type": "number",
+                "start": 8,
+                "end": 9,
+            }
+        ],
+        "masked_question": "Tom has [MASK] apples and buys 2 more. How many apples does he have now?",
+        "recovered_question": "Tom has 3 apples and buys 2 more. How many apples does he have now?",
+        "recovery_backend": "stub_v0",
+        "sample_id": 0,
+    }
+
+
+def old_span_level_recover_output_record() -> dict:
+    return {
         "id": "gsm8k_0001",
         "span_id": "span_001",
         "sample_id": 0,
@@ -655,11 +677,31 @@ def test_valid_recover_output_record_passes() -> None:
     assert validate_recover_output_record(valid_recover_output_record()) is None
 
 
-def test_recover_output_with_confidence_above_one_raises_value_error() -> None:
+def test_recover_output_with_empty_recovered_question_passes() -> None:
     record = valid_recover_output_record()
-    record["confidence"] = 1.1
+    record["recovered_question"] = ""
 
-    with pytest.raises(ValueError, match="<= 1"):
+    assert validate_recover_output_record(record) is None
+
+
+def test_old_span_level_recover_output_record_raises_value_error() -> None:
+    with pytest.raises(ValueError, match="forbidden field"):
+        validate_recover_output_record(old_span_level_recover_output_record())
+
+
+def test_recover_output_with_negative_sample_id_raises_value_error() -> None:
+    record = valid_recover_output_record()
+    record["sample_id"] = -1
+
+    with pytest.raises(ValueError, match=">= 0"):
+        validate_recover_output_record(record)
+
+
+def test_recover_output_with_wrong_masked_id_raises_value_error() -> None:
+    record = valid_recover_output_record()
+    record["masked_id"] = "wrong"
+
+    with pytest.raises(ValueError, match="masked_id"):
         validate_recover_output_record(record)
 
 

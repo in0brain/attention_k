@@ -366,3 +366,155 @@ language_counts: {'en': 92}
 下一步建议：
 
 - Sprint 1F：Masked Question Construction for Recoverability。
+
+## Sprint 1F：Masked Question Construction for Recoverability
+
+已完成内容：
+
+- 实现 unit-level masked question construction 最小可运行版本。
+- 新增 `src/recover_attention/masked_questions.py`，按 `(id, unit_id)` 聚合 semantic label records。
+- 实现 `replace_each_span` mask 构造：unit 内每个 span 各替换为一个 `mask_token`。
+- 聚合 delete / generalize semantic sources，并生成同序的 `source_semantic_label_ids`、`source_nli_ids`、`source_ablation_ids`。
+- 支持 `--only-necessary` 过滤、overlap unit 跳过统计、自定义 `--mask-token` 和 backend 校验。
+- 新增 `scripts/07_build_masked_questions.py` CLI。
+- 新增 masked question pytest，覆盖 single/group/repeated_surface、source 聚合、only-necessary、overlap skip、custom mask token、禁止旧字段和 CLI smoke test。
+- 1F 收尾修正：`scripts/sync_interface_fields.py` 支持显式 `--check`；batch 构造在过滤和 overlap skip 前先校验同 unit 结构一致性。
+- 生成 `data/processed/masked_questions.jsonl`。
+
+新增或修改文件：
+
+- src/recover_attention/masked_questions.py
+- scripts/07_build_masked_questions.py
+- scripts/sync_interface_fields.py
+- tests/test_masked_questions.py
+- data/processed/masked_questions.jsonl
+- PROGRESS.md
+- docs/progress/sprint_1_history.md
+
+输入文件：
+
+- data/processed/semantic_labels.jsonl
+
+输出文件：
+
+- data/processed/masked_questions.jsonl
+
+运行命令：
+
+```bash
+conda run -n recover_attention python -c "import sys; print(sys.executable); print(sys.version)"
+conda run -n recover_attention python scripts/00_smoke_test.py --config configs/v0_nli_small.yaml
+conda run -n recover_attention python scripts/sync_interface_fields.py --check
+conda run -n recover_attention python scripts/07_build_masked_questions.py --input data/processed/semantic_labels.jsonl --output data/processed/masked_questions.jsonl --mask-token "[MASK]" --backend unit_mask_v0
+conda run -n recover_attention python -m pytest tests/test_masked_questions.py -q
+conda run -n recover_attention python -m pytest -q
+```
+
+检查结果：
+
+- Python 路径：`D:\conda\Miniconda3\envs\recover_attention\python.exe`
+- Python 版本：`3.10.20`
+- smoke test 已通过，输出 `[OK] Sprint 0B smoke test passed.`
+- interface required_fields 同步检查已通过。
+- masked question construction 已通过，生成 `data/processed/masked_questions.jsonl`。
+- `python -m pytest tests/test_masked_questions.py -q` 已通过，结果为 `14 passed`。
+- `python -m pytest -q` 已通过，结果为 `182 passed, 2 skipped`。
+
+masked question 数量统计：
+
+```text
+num_input_labels: 92
+num_units: 46
+num_output_masks: 46
+num_filtered_not_necessary: 0
+num_skipped_overlap: 0
+mask_token: [MASK]
+mask_backend: unit_mask_v0
+mask_strategy: replace_each_span
+only_necessary: False
+unit_scope_counts: {'group': 10, 'single': 36}
+group_type_counts: {'number_set': 5, 'repeated_surface': 5, 'single': 36}
+source_count_distribution: {2: 46}
+```
+
+遗留问题：
+
+- 裸 `python` 当前指向 base conda：`D:\conda\Miniconda3\python.exe`；本轮使用 `conda run -n recover_attention python ...`。
+- `data/processed/*` 是本地生成产物目录，当前被 `.gitignore` 忽略；GitHub 默认不会显示 `masked_questions.jsonl`。
+- 本轮未生成 recover_outputs、recover_scores、labels、token_labels 或 attention_anchor_labels。
+- 本轮未实现 recovery、recoverability scoring、trajectory、attention guidance 或 probe。
+
+下一步建议：
+
+- Sprint 1G：Question Recovery（unit-level recover outputs）。
+
+## Sprint 1G 前置接口修正：Recover Output Interface Alignment
+
+已完成内容：
+
+- 将 `recover_outputs.jsonl` 接口从旧 span-level schema 对齐为 unit-level / masked_id-driven schema。
+- 新增 `docs/skill/recover_outputs_interface.md`。
+- 将 `REQUIRED_FIELDS["recover_output"]` 更新为：
+  `masked_id / id / unit_id / span_ids / spans / masked_question / recovered_question / recovery_backend / sample_id`。
+- 更新 `validate_recover_output_record`，校验 `masked_id`、unit span metadata、`sample_id >= 0`，并拒绝旧字段 `span_id / span_text / span_type / recoverable / confidence / reason / recoverability_label`。
+- 更新 `docs/skill/SKILL.md` 路由和 `docs/skill/label_schema.md` 第 11 节，使 recover output 指向 interface 文档。
+- 更新接口一致性测试和 schema 测试。
+
+新增或修改文件：
+
+- docs/skill/recover_outputs_interface.md
+- docs/skill/SKILL.md
+- docs/skill/label_schema.md
+- src/recover_attention/schemas.py
+- tests/test_schemas.py
+- tests/test_interface_consistency.py
+- scripts/sync_interface_fields.py
+- PROGRESS.md
+- docs/progress/sprint_1_history.md
+
+输入文件：
+
+- 无数据输入。本轮只做接口修正。
+
+输出文件：
+
+- 无 `data/processed/recover_outputs.jsonl` 产物。本轮不运行 recovery。
+
+运行命令：
+
+```bash
+conda run -n recover_attention python scripts/sync_interface_fields.py --write
+conda run -n recover_attention python scripts/sync_interface_fields.py --check
+conda run -n recover_attention python -m pytest tests/test_schemas.py tests/test_interface_consistency.py -q
+conda run -n recover_attention python scripts/00_smoke_test.py --config configs/v0_nli_small.yaml
+conda run -n recover_attention python -m pytest -q
+```
+
+检查结果：
+
+- interface required_fields 同步检查已通过，包含 `recover_outputs_interface.md`。
+- `python -m pytest tests/test_schemas.py tests/test_interface_consistency.py -q` 已通过，结果为 `82 passed, 2 skipped`。
+- smoke test 已通过，输出 `[OK] Sprint 0B smoke test passed.`
+- `python -m pytest -q` 已通过，结果为 `189 passed, 2 skipped`。
+
+发现并处理的不一致：
+
+- `src/recover_attention/schemas.py` 中 `recover_output` 仍使用旧 `span_id / recoverable / confidence / reason` 字段，已修正。
+- `docs/skill/label_schema.md` 第 11 节仍是旧 span-level recover output 字段表，已改为指向 `recover_outputs_interface.md`。
+- `docs/skill/SKILL.md` 未索引 recover output interface，已补充。
+- `tests/test_schemas.py` 仍使用旧 span-level recover output fixture，已改为 unit-level fixture。
+
+保留并报告的不一致：
+
+- 历史 task card（例如 `docs/codex_tasks/sprint_0C_schemas.md`）仍包含旧 span-level recover output 示例；本轮不回改历史任务卡。
+- `recover_scores.jsonl` 仍是旧 span-level schema；应在 recoverability scoring 前单独做 unit-level 接口修正。
+
+遗留问题：
+
+- 裸 `python` 当前指向 base conda：`D:\conda\Miniconda3\python.exe`；本轮使用 `conda run -n recover_attention python ...`。
+- 本轮未生成 `data/processed/recover_outputs.jsonl`。
+- 本轮未实现 recovery backend、recoverability scoring、trajectory、attention guidance 或 probe。
+
+下一步建议：
+
+- Sprint 1G：Question Recovery（unit-level recover outputs implementation）。

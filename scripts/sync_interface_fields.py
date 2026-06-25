@@ -28,7 +28,7 @@ Out of scope (intentionally NOT managed here):
         must not duplicate field lists. That rule is enforced by
         tests/test_interface_consistency.py, not by this generator.
     - record types absent from schemas.INTERFACE_DOCS
-        (e.g. question / candidate_span / recover_* / attention_anchor_label)
+        (e.g. question / candidate_span / recover_score / attention_anchor_label)
         have no interface doc and are skipped.
 =========================================================================
 
@@ -140,7 +140,13 @@ def main() -> None:
             "blocks in docs/skill/*_interface.md from schemas.REQUIRED_FIELDS."
         )
     )
-    parser.add_argument(
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument(
+        "--check",
+        action="store_true",
+        help="Verify generated blocks without writing. This is the default.",
+    )
+    mode.add_argument(
         "--write",
         action="store_true",
         help="Rewrite the generated blocks in place. Default is check-only.",

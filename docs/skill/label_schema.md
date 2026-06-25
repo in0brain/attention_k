@@ -74,7 +74,7 @@ scripts/sync_interface_fields.py 只改：
 scripts/sync_interface_fields.py 不管：
   - 本文件 label_schema.md（它是索引/总览，由测试校验“指向 interface 且不复制字段”，不由脚本生成）。
   - REQUIRED_FIELDS 中没有 interface 文档的 record（question / candidate_span /
-    recover_output / recover_score / attention_anchor_label）。
+    recover_score / attention_anchor_label）。
 
 本文件 label_schema.md 的职责：
   数据格式总览、枚举值索引、record 示例和概念约束。
@@ -923,6 +923,14 @@ masked_questions.jsonl 按 id + unit_id 聚合 semantic label records。
 
 # 11. Recover Output Record
 
+当前稳定接口以：
+
+```text
+docs/skill/recover_outputs_interface.md
+```
+
+为准。旧版 span-level recover output schema 已废弃。
+
 文件：
 
 ```text
@@ -932,49 +940,23 @@ data/processed/recover_outputs.jsonl
 用途：
 
 ```text
-记录模型对 masked question 的单次或多次复原结果。
+保存对 unit-level masked questions 的 recovery samples。
+当前 1G 的输入应来自 data/processed/masked_questions.jsonl。
+recover_outputs.jsonl 按 masked_id 绑定 masked question，并可用 sample_id
+记录同一个 masked question 的多次复原结果。
 ```
 
-示例：
-
-```json
-{
-  "id": "gsm8k_0001",
-  "span_id": "span_001",
-  "sample_id": 0,
-  "masked_question": "Tom has [MASK] apples and buys 2 more. How many apples does he have now?",
-  "recovered_question": "Tom has 3 apples and buys 2 more. How many apples does he have now?",
-  "recoverable": "yes",
-  "confidence": 0.82,
-  "reason": "The missing number is recoverable in this stub example."
-}
-```
-
-字段：
-
-```text
-id: str, non-empty
-span_id: str, non-empty
-sample_id: int, >= 0
-masked_question: str, non-empty
-recovered_question: str
-recoverable: str, one of yes/no/uncertain
-confidence: int or float, 0 <= confidence <= 1
-reason: str
-```
-
-可选字段：
-
-```text
-recovery_backend: str
-```
+字段：本文件不再罗列完整字段表。顶层字段以 `docs/skill/recover_outputs_interface.md`
+和 `src/recover_attention/schemas.py` 的 `REQUIRED_FIELDS["recover_output"]` 为准。
 
 约束：
 
 ```text
-1. recovery 的任务是复原问题，不是解题。
-2. recovered_question 可以为空字符串，表示没有可用复原。
-3. recover output 不直接给 attention anchor label。
+1. recover output 是 unit-level / masked_id-driven，不再使用顶层 span_id。
+2. recovery 的任务是复原问题，不是解题。
+3. recovered_question 可以为空字符串，表示没有可用复原。
+4. recover output 不包含 recoverability label、confidence 或 attention anchor label。
+5. recoverability 判断属于后续 scoring 阶段。
 ```
 
 ---

@@ -22,8 +22,9 @@ Token / Span Intervention
 当前阶段：
 
 ```text
-Sprint 1E 已完成。
-下一步建议是 Sprint 1F：Masked Question Construction for Recoverability。
+Sprint 1F 已完成。
+Sprint 1G 前置接口修正已完成：recover_outputs 已对齐到 unit-level / masked_id-driven schema。
+下一步建议是 Sprint 1G：Question Recovery（unit-level recover outputs implementation）。
 ```
 
 当前不做：
@@ -53,6 +54,8 @@ Sprint 1E 已完成。
 | Sprint 1C | 完成 | Ablated question construction |
 | Sprint 1D | 完成 | NLI semantic consistency scoring stub |
 | Sprint 1E | 完成 | Semantic necessity label rule |
+| Sprint 1F | 完成 | Unit-level masked question construction |
+| Sprint 1G-prep | 完成 | Recover output interface alignment |
 
 详细历史见：
 
@@ -71,19 +74,22 @@ conda run -n recover_attention python scripts/03_build_ablation_units.py --input
 conda run -n recover_attention python scripts/04_build_ablated_questions.py --input data/processed/ablation_units.jsonl --output data/processed/ablated_questions.jsonl
 conda run -n recover_attention python scripts/05_run_nli_scoring.py --input data/processed/ablated_questions.jsonl --output data/processed/nli_scores.jsonl --backend stub_v0 --language auto
 conda run -n recover_attention python scripts/06_build_semantic_labels.py --input data/processed/nli_scores.jsonl --output data/processed/semantic_labels.jsonl --backend rule_v0 --equivalent-threshold 0.70 --directional-entailment-threshold 0.50 --contradiction-threshold 0.50
+conda run -n recover_attention python scripts/07_build_masked_questions.py --input data/processed/semantic_labels.jsonl --output data/processed/masked_questions.jsonl --mask-token "[MASK]" --backend unit_mask_v0
 conda run -n recover_attention python -m pytest -q
 ```
 
 最近一次检查结果：
 
 ```text
-pytest: 138 passed
+pytest: 189 passed, 2 skipped
 smoke test: passed
 candidate extraction: passed
 ablation unit construction: passed
 ablated question construction: passed
 nli scoring stub: passed
 semantic label rule: passed
+masked question construction: passed
+recover output interface alignment: passed
 ```
 
 ## 4. 当前关键文件状态
@@ -97,6 +103,7 @@ semantic label rule: passed
 - src/recover_attention/ablation_units.py
 - src/recover_attention/question_ablations.py
 - src/recover_attention/semantic_labels.py
+- src/recover_attention/masked_questions.py
 - scripts/00_smoke_test.py
 - scripts/01_prepare_data.py
 - scripts/02_extract_candidate_spans.py
@@ -104,6 +111,7 @@ semantic label rule: passed
 - scripts/04_build_ablated_questions.py
 - scripts/05_run_nli_scoring.py
 - scripts/06_build_semantic_labels.py
+- scripts/07_build_masked_questions.py
 - tests/test_data_io.py
 - tests/test_schemas.py
 - tests/test_prepare_data.py
@@ -112,43 +120,49 @@ semantic label rule: passed
 - tests/test_question_ablations.py
 - tests/test_nli_scoring.py
 - tests/test_semantic_labels.py
+- tests/test_masked_questions.py
 - data/processed/candidate_spans.jsonl
 - data/processed/ablation_units.jsonl
 - data/processed/ablated_questions.jsonl
 - data/processed/nli_scores.jsonl
 - data/processed/semantic_labels.jsonl
+- data/processed/masked_questions.jsonl
 - docs/skill/semantic_labels_interface.md
+- docs/skill/recover_outputs_interface.md
 - docs/skill/*
 - README.md
 - AGENTS.md
 
 下一阶段将新增或修改：
 
-- src/recover_attention/masked_questions.py
-- scripts/07_build_masked_questions.py
-- tests/test_masked_questions.py
-- data/processed/masked_questions.jsonl
+- src/recover_attention/recover_generation.py
+- scripts/08_run_recovery.py
+- tests/test_recover_generation.py
+- data/processed/recover_outputs.jsonl
 
-具体以 Sprint 1F task card 为准。
+具体以后续 Sprint 1G task card 为准。
 
 ## 5. 当前遗留问题
 
 - 裸 `python` 当前指向 base conda：`D:\conda\Miniconda3\python.exe`；当前验收使用 `conda run -n recover_attention python ...`。
 - git 工作区中仍存在此前 sprint 的文档迁移和 schema/test 改动，需要在提交前统一检查。
 - 如果 `__pycache__` / `.pyc` 出现在 git status 中，需要确认是否被 git 跟踪；若已被跟踪，应单独处理。
-- 不要从 semantic labels 自动扩展到 mask / recovery。
+- `data/processed/*` 是本地生成产物目录，当前被 `.gitignore` 忽略；PROGRESS 中列出的 processed jsonl 不代表会提交到 GitHub。
+- `recover_outputs.jsonl` 目前只完成 unit-level / masked_id-driven 接口修正，尚未实现 recovery 生成。
+- `recover_scores.jsonl` 仍是旧 span-level schema；进入 recoverability scoring 前需要单独做 unit-level 接口修正。
+- 不要从 masked questions 自动扩展到 recovery / recoverability / attention guidance。
 
 ## 6. 下一步
 
 下一步建议：
 
 ```text
-Sprint 1F：Masked Question Construction for Recoverability
+Sprint 1G：Question Recovery（unit-level recover outputs implementation）
 ```
 
 注意：
 
 ```text
-不要自动开始 Sprint 1F。
-必须先有 Sprint 1F task card 或用户明确指令。
+不要自动开始 Sprint 1G。
+必须先有 Sprint 1G task card 或用户明确指令。
 ```
