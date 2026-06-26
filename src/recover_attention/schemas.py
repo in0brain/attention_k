@@ -22,7 +22,12 @@ ALLOWED_SPAN_TYPES = {
 ALLOWED_ABLATION_TYPES = {"delete", "generalize", "replace", "mask"}
 ALLOWED_ABLATED_QUESTION_ABLATION_TYPES = {"delete", "generalize"}
 ALLOWED_NLI_LABELS = {"entailment", "neutral", "contradiction"}
-ALLOWED_NLI_BACKENDS = {"stub_v0"}
+ALLOWED_NLI_BACKENDS = {
+    "stub_v0",
+    "hf_nli_en_v0",
+    "hf_nli_zh_v0",
+    "hf_nli_auto_v0",
+}
 ALLOWED_NLI_LANGUAGES = {"en", "zh"}
 ALLOWED_NLI_LANGUAGE_SETTINGS = {"auto", "en", "zh"}
 ALLOWED_SEMANTIC_NECESSITY_LABELS = {

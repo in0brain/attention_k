@@ -27,4 +27,25 @@ ablation:
   mask_token: "[MASK]"
 
 nli:
-  backend: "stub"
+  backend: "stub_v0"
+  language: "auto"
+  real_backends:
+    en:
+      backend: "hf_nli_en_v0"
+      model: "models/nli/en/roberta-large-mnli"
+      model_id: "FacebookAI/roberta-large-mnli"
+    zh:
+      backend: "hf_nli_zh_v0"
+      model: "models/nli/zh/mdeberta-v3-base-xnli"
+      model_id: "MoritzLaurer/mDeBERTa-v3-base-xnli-multilingual-nli-2mil7"
+    auto:
+      backend: "hf_nli_auto_v0"
+      en_model: "models/nli/en/roberta-large-mnli"
+      zh_model: "models/nli/zh/mdeberta-v3-base-xnli"
+      en_model_id: "FacebookAI/roberta-large-mnli"
+      zh_model_id: "MoritzLaurer/mDeBERTa-v3-base-xnli-multilingual-nli-2mil7"
+  allow_download: false
+  device: "auto"
+  batch_size: 4
+  max_length: 512
+  label_order: "auto"

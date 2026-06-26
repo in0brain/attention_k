@@ -1329,3 +1329,128 @@ intervention_manifest 数量统计：
 下一步建议：
 
 - Sprint 1L-prep：Sprint 1 Boundary Review and Refactor Freeze Plan。
+
+## Sprint 1L：Plug Real Bilingual NLI Backend
+
+已完成内容：
+
+- 在不改变 `nli_scores.jsonl` 顶层字段的前提下，接入真实 HuggingFace NLI backend。
+- `src/recover_attention/nli_scoring.py` 保留 `stub_v0` 确定性行为，并新增：
+  - `hf_nli_en_v0`
+  - `hf_nli_zh_v0`
+  - `hf_nli_auto_v0`
+- 新增本地优先、显式下载授权的模型解析策略：
+  - 本地路径存在时直接加载本地模型。
+  - repo id 未传 `--allow-download` 时直接报错。
+  - 本地路径缺失且未传 `--allow-download` 时直接报错。
+  - 只有显式 `--allow-download` 时才允许使用 HuggingFace model id。
+- 新增 lazy import：`stub_v0` 不依赖 `torch` / `transformers`；真实 backend 调用时才导入。
+- 新增 HF label mapping：
+  - 自动识别 `ENTAILMENT` / `NEUTRAL` / `CONTRADICTION`。
+  - `LABEL_0` / `LABEL_1` / `LABEL_2` 需要显式 `--label-order`。
+- `scripts/05_run_nli_scoring.py` 新增参数：
+  - `--en-model`
+  - `--zh-model`
+  - `--en-model-id`
+  - `--zh-model-id`
+  - `--allow-download`
+  - `--device`
+  - `--batch-size`
+  - `--max-length`
+  - `--label-order`
+  - `--limit`
+- `--limit` 只在 script 层截断输入 records，不改变 library 默认行为。
+
+新增或修改文件：
+
+- src/recover_attention/nli_scoring.py
+- scripts/05_run_nli_scoring.py
+- tests/test_nli_scoring.py
+- src/recover_attention/schemas.py
+- requirements.txt
+- configs/v0_nli_small.yaml
+- PROGRESS.md
+- docs/progress/sprint_1_history.md
+
+新增 backend：
+
+```text
+hf_nli_en_v0
+hf_nli_zh_v0
+hf_nli_auto_v0
+```
+
+中英文语言处理方式：
+
+- `--language en`：所有 record 的 resolved language 为 `en`。
+- `--language zh`：所有 record 的 resolved language 为 `zh`。
+- `--language auto`：含 CJK 字符判为 `zh`，否则判为 `en`。
+- `hf_nli_en_v0` 要求 resolved language 为 `en`。
+- `hf_nli_zh_v0` 要求 resolved language 为 `zh`。
+- `hf_nli_auto_v0` 按 resolved language 路由到英文或中文 / multilingual 模型。
+
+本地模型路径：
+
+```text
+models/nli/en/roberta-large-mnli
+models/nli/zh/mdeberta-v3-base-xnli
+```
+
+远程模型 repo id：
+
+```text
+FacebookAI/roberta-large-mnli
+MoritzLaurer/mDeBERTa-v3-base-xnli-multilingual-nli-2mil7
+```
+
+allow_download 策略：
+
+- 默认 `allow_download=False`。
+- `--allow-download` 是显式 CLI flag。
+- 未开启时不会从 HuggingFace Hub 下载或拉取模型。
+- repo id 未开启 `--allow-download` 会报错。
+- 本地路径缺失且未开启 `--allow-download` 会报错。
+
+是否运行真实模型 smoke：
+
+- 已运行真实 `hf_nli_auto_v0` smoke。
+- 按用户确认，本轮不写入 `data/processed/nli_scores_real_auto_small.jsonl`；真实 smoke 输出写到系统临时目录：
+  `C:\Users\25808\AppData\Local\Temp\recover_attention_nli_scores_real_auto_small.jsonl`
+- 当前 `data/processed/ablated_questions.jsonl` 没有中文样本，因此真实 smoke 只加载英文模型；中文 routing 由 mock test 覆盖。
+
+运行命令：
+
+```bash
+conda run -n recover_attention python scripts/sync_interface_fields.py --check
+conda run -n recover_attention python -m pytest tests/test_nli_scoring.py -q
+conda run -n recover_attention python -m pytest tests/test_schemas.py -q
+conda run -n recover_attention python -m pytest -q
+conda run -n recover_attention python scripts/05_run_nli_scoring.py --input data/processed/ablated_questions.jsonl --output data/processed/nli_scores_stub_check.jsonl --backend stub_v0 --language auto --limit 20
+conda run -n recover_attention python scripts/05_run_nli_scoring.py --input data/processed/ablated_questions.jsonl --output C:\Users\25808\AppData\Local\Temp\recover_attention_nli_scores_real_auto_small.jsonl --backend hf_nli_auto_v0 --language auto --en-model models/nli/en/roberta-large-mnli --zh-model models/nli/zh/mdeberta-v3-base-xnli --device auto --limit 20
+```
+
+检查结果：
+
+- sync_interface_fields --check：全部 in sync。
+- tests/test_nli_scoring.py：43 passed。
+- tests/test_schemas.py：132 passed。
+- 全量 pytest：392 passed, 2 skipped。
+- stub CLI smoke：20 records，language_counts={en: 20}。
+- real NLI smoke：20 records，backend=`hf_nli_auto_v0`，model_sources={en: models/nli/en/roberta-large-mnli}，allow_download=False。
+- local/remote model loading policy：passed。
+
+遗留问题：
+
+- 裸 `python` 当前指向 base conda；本轮所有命令使用 `conda run -n recover_attention python ...`。
+- 真实 NLI backend 需要 `torch` / `transformers`；当前环境已安装，requirements 只添加 optional 注释。
+- 当前 processed ablated question 数据没有中文样本，真实中文模型 smoke 未在真实数据上运行。
+- 本轮只生成允许的 `data/processed/nli_scores_stub_check.jsonl`，未修改其他 `data/processed/*` 文件。
+- `attention_anchor_labels.jsonl` 尚未用真实 NLI 全量重建 downstream。
+- LLM recovery 仍未接入。
+- recover_outputs 仍来自 `oracle_stub_v0`。
+- recover_scores 仍来自 `stub_rule_v0`。
+- 未执行 attention guidance；未做 trajectory / answer stability / raw attention / probe。
+
+下一步建议：
+
+- Sprint 1M：Plug Real LLM Recovery Backend。
