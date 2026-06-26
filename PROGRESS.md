@@ -22,9 +22,9 @@ Token / Span Intervention
 当前阶段：
 
 ```text
-Sprint 1K-prep 已完成：Guidance Boundary and Intervention Manifest Interface Alignment。
-intervention_manifest 接口已设计为 unit-level planned-only，并纳入 interface governance（INTERFACE_DOCS / sync / 测试）。
-下一步建议是 Sprint 1K：Build Intervention Manifest。
+Sprint 1K 已完成：Build Intervention Manifest。
+intervention_manifest.jsonl 已可由 attention_anchor_labels.jsonl 经 manifest_stub_v0 生成（unit-level，planned_only）。
+下一步建议是 Sprint 1L-prep：Sprint 1 Boundary Review and Refactor Freeze Plan。
 ```
 
 当前不做：
@@ -66,6 +66,7 @@ intervention_manifest 接口已设计为 unit-level planned-only，并纳入 int
 | Sprint 1J-prep | 完成 | Attention anchor label interface alignment |
 | Sprint 1J | 完成 | Build attention anchor labels |
 | Sprint 1K-prep | 完成 | Guidance boundary & intervention manifest interface alignment |
+| Sprint 1K | 完成 | Build intervention manifest |
 
 详细历史见：
 
@@ -89,13 +90,14 @@ conda run -n recover_attention python scripts/08_run_recovery.py --input data/pr
 conda run -n recover_attention python scripts/09_score_recovery.py --input data/processed/recover_outputs.jsonl --output data/processed/recover_scores.jsonl --backend stub_rule_v0
 conda run -n recover_attention python scripts/10_build_unit_evidence.py --semantic-labels data/processed/semantic_labels.jsonl --recover-scores data/processed/recover_scores.jsonl --output data/processed/unit_evidence.jsonl --backend aggregate_stub_v0
 conda run -n recover_attention python scripts/11_build_attention_anchor_labels.py --input data/processed/unit_evidence.jsonl --output data/processed/attention_anchor_labels.jsonl --backend early_evidence_rule_stub_v0
+conda run -n recover_attention python scripts/12_build_intervention_manifest.py --input data/processed/attention_anchor_labels.jsonl --output data/processed/intervention_manifest.jsonl --intervention-type mask --backend manifest_stub_v0 --mask-token "[MASK]"
 conda run -n recover_attention python -m pytest -q
 ```
 
 最近一次检查结果：
 
 ```text
-pytest: 347 passed, 2 skipped
+pytest: 367 passed, 2 skipped
 smoke test: passed
 candidate extraction: passed
 ablation unit construction: passed
@@ -115,6 +117,7 @@ unit evidence interface post-build cleanup: passed
 attention anchor label interface alignment: passed
 attention anchor label build passed
 intervention manifest interface alignment: passed
+intervention manifest build passed
 sync_interface_fields --check: all in sync
 ```
 
@@ -134,6 +137,7 @@ sync_interface_fields --check: all in sync
 - src/recover_attention/recover_scoring.py
 - src/recover_attention/unit_evidence.py
 - src/recover_attention/attention_anchor_labels.py
+- src/recover_attention/intervention_manifest.py
 - scripts/00_smoke_test.py
 - scripts/01_prepare_data.py
 - scripts/02_extract_candidate_spans.py
@@ -146,6 +150,7 @@ sync_interface_fields --check: all in sync
 - scripts/09_score_recovery.py
 - scripts/10_build_unit_evidence.py
 - scripts/11_build_attention_anchor_labels.py
+- scripts/12_build_intervention_manifest.py
 - tests/test_data_io.py
 - tests/test_schemas.py
 - tests/test_prepare_data.py
@@ -159,6 +164,7 @@ sync_interface_fields --check: all in sync
 - tests/test_recover_scoring.py
 - tests/test_unit_evidence.py
 - tests/test_attention_anchor_labels.py
+- tests/test_intervention_manifest.py
 - data/processed/candidate_spans.jsonl
 - data/processed/ablation_units.jsonl
 - data/processed/ablated_questions.jsonl
@@ -169,6 +175,7 @@ sync_interface_fields --check: all in sync
 - data/processed/recover_scores.jsonl
 - data/processed/unit_evidence.jsonl
 - data/processed/attention_anchor_labels.jsonl
+- data/processed/intervention_manifest.jsonl
 - docs/skill/semantic_labels_interface.md
 - docs/skill/recover_outputs_interface.md
 - docs/skill/recover_scores_interface.md
@@ -181,12 +188,9 @@ sync_interface_fields --check: all in sync
 
 下一阶段可能新增或修改：
 
-- src/recover_attention/intervention_manifest.py
-- scripts/12_build_intervention_manifest.py
-- tests/test_intervention_manifest.py
-- data/processed/intervention_manifest.jsonl
+- Sprint 1 边界回顾 / refactor freeze plan 相关文档（Sprint 1L-prep）
 
-具体以后续 Sprint 1K task card 为准。
+具体以后续 Sprint 1L-prep task card 为准。
 
 ## 5. 当前遗留问题
 
@@ -207,7 +211,8 @@ sync_interface_fields --check: all in sync
 - 当前 attention anchor label interface 是 unit-level（绑定 id + unit_id，span 信息在 span_ids / spans）；span/token-level expansion 尚未实现。
 - guidance_action / guidance_strength 尚未接入（已在 FORBIDDEN_FIELDS 中显式拒绝）；尚未实现 attention guidance。
 - trajectory stability、answer stability、raw attention pattern、attention steering effect 尚未接入。
-- `intervention_manifest` 目前只有接口和 validator，尚未实现 builder；当前接口是 unit-level planned-only。
+- `intervention_manifest.jsonl` 已由 `manifest_stub_v0` 生成（unit-level，`intervention_status=planned_only`），只用于管线验证，不代表 intervention 已执行或 attention guidance 已实现。
+- 当前 `planned_operation` 只是后续执行计划，不是执行结果；默认 `intervention_type=mask`、`target_scope=unit`，本轮不筛选 label（46 进 / 46 出）。
 - intervention_manifest 不含 hidden_states_path / attentions_path / guidance_action / guidance_strength / baseline·guided·intervened answer（已在 FORBIDDEN_FIELDS 中拒绝）。
 - 本轮未调用真实模型，未做 trajectory / answer stability / raw attention / probe。
 - recover_score governance 文档残留已修复：label_schema.md §0 不再把 recover_score 误列为“不受 interface doc 管理”；新增回归测试 `test_label_schema_out_of_scope_examples_do_not_include_managed_interface_types` 防止再漂移。
@@ -218,12 +223,12 @@ sync_interface_fields --check: all in sync
 下一步建议：
 
 ```text
-Sprint 1K：Build Intervention Manifest
+Sprint 1L-prep：Sprint 1 Boundary Review and Refactor Freeze Plan
 ```
 
 注意：
 
 ```text
-不要自动开始 Sprint 1K。
-必须先有 Sprint 1K task card 或用户明确指令。
+不要自动开始 Sprint 1L-prep。
+必须先有 Sprint 1L-prep task card 或用户明确指令。
 ```

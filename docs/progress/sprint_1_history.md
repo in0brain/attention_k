@@ -1265,3 +1265,67 @@ D:\conda\Miniconda3\envs\recover_attention\python.exe -m pytest -q
 下一步建议：
 
 - Sprint 1K：Build Intervention Manifest。
+
+## Sprint 1K：Build Intervention Manifest
+
+已完成内容：
+
+- 实现 `attention_anchor_labels.jsonl → intervention_manifest.jsonl` 的 planned-only 数据转换阶段（unit-level，每条 anchor label 生成一条 manifest，不筛选 label）。
+- 实现 deterministic backend `manifest_stub_v0`（只用于管线验证，非执行结果）：
+  - 默认 `intervention_type=mask`、`target_scope=unit`、`intervention_status=planned_only`。
+  - `intervention_id = f"{attention_anchor_label_id}__intervention_{intervention_type}_{intervention_backend}"`。
+  - `planned_operation`（dict）记录 operation_name / description / target_scope / target_span_ids / target_texts / mask_token / execution_required；不含 intervened_question / guided_answer / hidden_states_path / attentions_path / stability score。
+  - `evidence` 记录 source ids / source_files / selection_policy（all_attention_anchor_labels_included_for_pipeline_validation）/ limitations / notes。
+- 从 attention_anchor_label 复制 unit metadata 与 anchor 信息；每条输出写入前调用 `validate_intervention_manifest_record`。未改 schema / interface / label_schema。
+- CLI 暴露 `--intervention-type`（默认 mask，仅 mask 路径被验收）/ `--backend` / `--mask-token`。
+
+新增或修改文件：
+
+- src/recover_attention/intervention_manifest.py（新增）
+- scripts/12_build_intervention_manifest.py（新增）
+- tests/test_intervention_manifest.py（新增）
+- data/processed/intervention_manifest.jsonl（生成）
+- PROGRESS.md
+- docs/progress/sprint_1_history.md
+
+输入文件：
+
+- data/processed/attention_anchor_labels.jsonl
+
+输出文件：
+
+- data/processed/intervention_manifest.jsonl
+
+运行命令：
+
+```bash
+D:\conda\Miniconda3\envs\recover_attention\python.exe scripts/sync_interface_fields.py --check
+D:\conda\Miniconda3\envs\recover_attention\python.exe -m pytest tests/test_interface_consistency.py -q
+D:\conda\Miniconda3\envs\recover_attention\python.exe scripts/12_build_intervention_manifest.py --input data/processed/attention_anchor_labels.jsonl --output data/processed/intervention_manifest.jsonl --intervention-type mask --backend manifest_stub_v0 --mask-token "[MASK]"
+D:\conda\Miniconda3\envs\recover_attention\python.exe -m pytest tests/test_intervention_manifest.py -q
+D:\conda\Miniconda3\envs\recover_attention\python.exe -m pytest -q
+```
+
+检查结果：
+
+- sync_interface_fields --check：全部 in sync。
+- tests/test_interface_consistency.py：37 passed, 2 skipped。
+- tests/test_intervention_manifest.py：20 passed。
+- 全量 pytest：367 passed, 2 skipped。
+
+intervention_manifest 数量统计：
+
+- num_input_attention_anchor_labels = 46，num_output_intervention_manifest = 46。
+- intervention_type 分布：{mask: 46}（num_mask=46, num_remove=0, num_replace=0）。
+- intervention_status 分布：{planned_only: 46}；target_scope：{unit: 46}。
+- attention_anchor_label 分布：{Medium Anchor: 46}；unit_scope：{single: 36, group: 10}。
+
+遗留问题：
+
+- 裸 `python` 当前指向 base conda；本轮经由 `D:\conda\Miniconda3\envs\recover_attention\python.exe` 运行（本机 `conda` 不在 PATH）。
+- `intervention_manifest.jsonl` 来自 `manifest_stub_v0`，是 planned-only manifest，只用于管线验证，不代表 intervention 已执行或 attention guidance 已实现。
+- 未生成 guidance_action / guidance_strength；未写 hidden_states_path / attentions_path；未执行模型；未做 trajectory / answer stability / raw attention / probe。
+
+下一步建议：
+
+- Sprint 1L-prep：Sprint 1 Boundary Review and Refactor Freeze Plan。
