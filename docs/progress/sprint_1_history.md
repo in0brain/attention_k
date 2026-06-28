@@ -1560,3 +1560,117 @@ conda run -n recover_attention python -m pytest -q
 下一步建议：
 
 - Sprint 1N：Rebuild Downstream with Real NLI and Real LLM Recovery Outputs。
+
+## Sprint 1N：Rebuild Downstream with Real NLI and Real LLM Recovery Outputs
+
+已完成内容：
+
+- 新增 `scripts/13_rebuild_downstream_real_signals.py`，在不覆盖 `data/processed/*` 的前提下重建真实 downstream 产物。
+- 使用 `hf_nli_auto_v0` 对 `data/processed/ablated_questions.jsonl` 全量 92 条 ablated question 重新打分。
+- 使用真实 NLI 分数重建 `semantic_labels_real.jsonl` 与 `masked_questions_real.jsonl`。
+- 使用 `ollama_chat_v0` + `qwen3.5:9b` 对 46 条 masked question 生成真实 recovery outputs。
+- 使用现有 `stub_rule_v0` exact normalized match 重建 `recover_scores_real.jsonl`，并继续生成 `unit_evidence_real.jsonl`、`attention_anchor_labels_real.jsonl`、`intervention_manifest_real.jsonl`。
+- 生成 `real_signal_report.json` 与 `real_signal_report.md`，记录 label distribution、empty recovery、mask remaining、exact match recovery 与已知限制。
+- `configs/v0_nli_small.yaml` 新增 `real_downstream` 默认配置；不改变 smoke test 主线行为。
+
+新增/修改文件：
+
+- scripts/13_rebuild_downstream_real_signals.py
+- tests/test_rebuild_downstream_real_signals.py
+- configs/v0_nli_small.yaml
+- PROGRESS.md
+- docs/progress/sprint_1_history.md
+
+输出目录：
+
+```text
+outputs/logs/sprint_1N_real_downstream/
+```
+
+输出文件：
+
+```text
+nli_scores_real.jsonl
+semantic_labels_real.jsonl
+masked_questions_real.jsonl
+recover_outputs_real.jsonl
+recover_scores_real.jsonl
+unit_evidence_real.jsonl
+attention_anchor_labels_real.jsonl
+intervention_manifest_real.jsonl
+real_signal_report.json
+real_signal_report.md
+```
+
+真实 NLI backend 与模型路径：
+
+```text
+backend = hf_nli_auto_v0
+language = auto
+en_model = models/nli/en/roberta-large-mnli
+zh_model = models/nli/zh/mdeberta-v3-base-xnli
+allow_download = false
+```
+
+真实 recovery backend 与 Ollama model：
+
+```text
+backend = ollama_chat_v0
+model = qwen3.5:9b
+ollama_base_url = http://localhost:11434
+num_samples = 1
+temperature = 0.0
+top_p = 1.0
+max_tokens = 128
+timeout = 120
+seed = 42
+```
+
+运行命令：
+
+```bash
+conda run -n recover_attention python scripts/sync_interface_fields.py --check
+conda run -n recover_attention python -m pytest tests/test_rebuild_downstream_real_signals.py -q
+conda run -n recover_attention python -m pytest tests/test_schemas.py -q
+conda run -n recover_attention python scripts/13_rebuild_downstream_real_signals.py --ablated-questions data/processed/ablated_questions.jsonl --output-dir outputs/logs/sprint_1N_real_downstream --nli-backend hf_nli_auto_v0 --language auto --en-model models/nli/en/roberta-large-mnli --zh-model models/nli/zh/mdeberta-v3-base-xnli --recovery-backend ollama_chat_v0 --ollama-model qwen3.5:9b --ollama-base-url http://localhost:11434 --num-samples 1 --temperature 0.0 --top-p 1.0 --max-tokens 128 --timeout 120 --seed 42 --limit 10
+conda run -n recover_attention python scripts/13_rebuild_downstream_real_signals.py --ablated-questions data/processed/ablated_questions.jsonl --output-dir outputs/logs/sprint_1N_real_downstream --nli-backend hf_nli_auto_v0 --language auto --en-model models/nli/en/roberta-large-mnli --zh-model models/nli/zh/mdeberta-v3-base-xnli --recovery-backend ollama_chat_v0 --ollama-model qwen3.5:9b --ollama-base-url http://localhost:11434 --num-samples 1 --temperature 0.0 --top-p 1.0 --max-tokens 128 --timeout 120 --seed 42
+conda run -n recover_attention python -m pytest -q
+```
+
+dry run / full run 状态：
+
+- dry run：passed，`--limit 10` 生成 10 条 NLI、5 条 recovery downstream 记录，`empty_recovery_count=0`，`mask_remaining_count=0`，`exact_match_recovery_count=1`。
+- full run：passed，92 条 NLI、46 条 recovery downstream 记录全部生成，`empty_recovery_count=0`，`mask_remaining_count=0`，`exact_match_recovery_count=18`。
+
+real_signal_report.json 关键统计：
+
+- input_counts：`num_ablated_questions=92`。
+- output_counts：`num_nli_scores=92`，`num_semantic_labels=92`，`num_masked_questions=46`，`num_recover_outputs=46`，`num_recover_scores=46`，`num_unit_evidence=46`，`num_attention_anchor_labels=46`，`num_intervention_manifest=46`。
+- nli_backend_counts：`{hf_nli_auto_v0: 92}`。
+- language_counts：`{en: 92}`。
+- semantic_necessity_label_counts：`{Equivalent: 49, Information Loss: 37, Non-equivalent: 6}`。
+- recoverability_label_counts：`{Misleading Recovery: 28, Recoverable: 18}`。
+- attention_anchor_label_counts：`{Risky Anchor: 28, Distractor: 15, Medium Anchor: 2, Weak Anchor: 1}`。
+- intervention_type_counts：`{mask: 46}`。
+
+检查结果：
+
+- dependency check：`recover_attention` 环境中 `yaml` / `torch` / `transformers` 已安装，未补装依赖。
+- sync_interface_fields --check：全部 in sync。
+- tests/test_rebuild_downstream_real_signals.py：10 passed。
+- tests/test_schemas.py：132 passed。
+- 全量 pytest：411 passed, 2 skipped。
+- 输出目录检查：真实 downstream 产物写入 `outputs/logs/sprint_1N_real_downstream/`，未覆盖 `data/processed/*`。
+
+遗留问题：
+
+- `recover_scores_real.jsonl` 仍使用 `stub_rule_v0` exact normalized match；real LLM recovery 可能语义正确但 exact match 失败。
+- 当前 `data/processed/ablated_questions.jsonl` 没有中文样本；full run 实际 `language_counts={en: 92}`。
+- `intervention_manifest_real.jsonl` 仍是 `planned_only`，不代表 intervention 已执行或 attention guidance 已实现。
+- `docs/skill/nli_scores_interface.md` 仍有旧阶段文字提到 Sprint 1D 只支持 `stub_v0`；本 sprint task card 禁止修改 interface docs，当前未改。
+- 未接入 hidden states / attention maps / trajectory stability / answer stability / raw attention / attention guidance / probe。
+- 未声称 attention guidance 有效，未声称减少 hallucination。
+
+下一步建议：
+
+- Sprint 1O：Upgrade Real Recovery Scoring。

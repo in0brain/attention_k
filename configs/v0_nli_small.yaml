@@ -64,3 +64,40 @@ recovery:
       timeout: 120
       seed: 42
   num_samples: 1
+
+real_downstream:
+  output_dir: "outputs/logs/sprint_1N_real_downstream"
+  nli:
+    backend: "hf_nli_auto_v0"
+    language: "auto"
+    en_model: "models/nli/en/roberta-large-mnli"
+    zh_model: "models/nli/zh/mdeberta-v3-base-xnli"
+    allow_download: false
+  semantic_labels:
+    backend: "rule_v0"
+    equivalent_threshold: 0.70
+    directional_entailment_threshold: 0.50
+    contradiction_threshold: 0.50
+  masking:
+    backend: "unit_mask_v0"
+    mask_token: "[MASK]"
+  recovery:
+    backend: "ollama_chat_v0"
+    model: "qwen3.5:9b"
+    fallback_model: "llama3.1:8b"
+    ollama_base_url: "http://localhost:11434"
+    num_samples: 1
+    temperature: 0.0
+    top_p: 1.0
+    max_tokens: 128
+    timeout: 120
+    seed: 42
+  recover_scoring:
+    backend: "stub_rule_v0"
+  unit_evidence:
+    backend: "aggregate_stub_v0"
+  attention_anchor_labels:
+    backend: "early_evidence_rule_stub_v0"
+  intervention_manifest:
+    intervention_type: "mask"
+    backend: "manifest_stub_v0"
