@@ -138,10 +138,32 @@ score_backend
 evidence
 ```
 
-Current allowed scoring backend:
+Current allowed scoring backends:
 
 ```text
 stub_rule_v0
+nli_recovery_judge_v0
+```
+
+Backend summary:
+
+```text
+stub_rule_v0:
+  Deterministic pipeline-validation scorer.
+  It normalizes original_question and recovered_question by stripping and
+  collapsing whitespace, then checks exact equality.
+
+nli_recovery_judge_v0:
+  Real recovery scoring backend for existing recovery outputs.
+  It compares original_question and recovered_question with bidirectional NLI:
+    original_question -> recovered_question
+    recovered_question -> original_question
+  It uses entailment and contradiction scores to assign the existing
+  recoverability labels.
+  It does not call Ollama.
+  It does not generate new recovery outputs.
+  It does not modify recovery generation.
+  It does not prove attention guidance effectiveness.
 ```
 
 ---

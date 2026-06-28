@@ -101,3 +101,23 @@ real_downstream:
   intervention_manifest:
     intervention_type: "mask"
     backend: "manifest_stub_v0"
+
+real_recovery_scoring:
+  output_dir: "outputs/logs/sprint_1O_recovery_scoring"
+  input_recover_outputs: "outputs/logs/sprint_1N_real_downstream/recover_outputs_real.jsonl"
+  output_recover_scores: "outputs/logs/sprint_1O_recovery_scoring/recover_scores_nli_judge.jsonl"
+  report_output: "outputs/logs/sprint_1O_recovery_scoring/recovery_scoring_report.json"
+  score_backend: "nli_recovery_judge_v0"
+  nli:
+    backend: "hf_nli_auto_v0"
+    language: "auto"
+    en_model: "models/nli/en/roberta-large-mnli"
+    zh_model: "models/nli/zh/mdeberta-v3-base-xnli"
+    allow_download: false
+    device: "auto"
+    max_length: 512
+    label_order: "auto"
+  thresholds:
+    recoverable_entailment_threshold: 0.70
+    partial_entailment_threshold: 0.50
+    contradiction_threshold: 0.50

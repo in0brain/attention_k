@@ -77,7 +77,10 @@ ALLOWED_RECOVERY_BACKENDS = {
     "oracle_stub_v0",
     "ollama_chat_v0",
 }
-ALLOWED_RECOVER_SCORE_BACKENDS = {"stub_rule_v0"}
+ALLOWED_RECOVER_SCORE_BACKENDS = {
+    "stub_rule_v0",
+    "nli_recovery_judge_v0",
+}
 ALLOWED_UNIT_EVIDENCE_BACKENDS = {"aggregate_stub_v0"}
 ALLOWED_UNIT_EVIDENCE_STATUSES = {"partial_stub_evidence"}
 ALLOWED_ATTENTION_LABEL_BACKENDS = {"early_evidence_rule_stub_v0"}

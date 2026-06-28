@@ -22,15 +22,16 @@ Token / Span Intervention
 当前阶段：
 
 ```text
-Sprint 1N 已完成：Rebuild Downstream with Real NLI and Real LLM Recovery Outputs。
-scripts/13_rebuild_downstream_real_signals.py 已使用 hf_nli_auto_v0 与 ollama_chat_v0 重建 downstream 真实信号产物。
-输出目录为 outputs/logs/sprint_1N_real_downstream；未覆盖 data/processed/*。
-下一步建议是 Sprint 1O：Upgrade Real Recovery Scoring。
+Sprint 1O 已完成：Upgrade Real Recovery Scoring。
+scripts/09_score_recovery.py 已支持 stub_rule_v0 / nli_recovery_judge_v0。
+nli_recovery_judge_v0 使用 original_question 与 recovered_question 的双向 NLI 对已有 recovery output 评分，不调用 Ollama。
+输出目录为 outputs/logs/sprint_1O_recovery_scoring；未覆盖 data/processed/*。
+下一步建议是 Sprint 1P：Rebuild Downstream with Upgraded Recovery Scoring。
 ```
 
 当前不做：
 
-- semantic recoverability scoring 修改 / real recovery scoring upgrade
+- downstream rebuild with upgraded recovery scoring
 - hidden states 大规模缓存
 - trajectory stability
 - attention guidance
@@ -71,6 +72,7 @@ scripts/13_rebuild_downstream_real_signals.py 已使用 hf_nli_auto_v0 与 ollam
 | Sprint 1L | 完成 | Plug real bilingual NLI backend |
 | Sprint 1M | 完成 | Plug real LLM recovery backend |
 | Sprint 1N | 完成 | Rebuild downstream with real NLI and real LLM recovery outputs |
+| Sprint 1O | 完成 | Upgrade real recovery scoring |
 
 详细历史见：
 
@@ -94,6 +96,7 @@ conda run -n recover_attention python scripts/07_build_masked_questions.py --inp
 conda run -n recover_attention python scripts/08_run_recovery.py --input data/processed/masked_questions.jsonl --output data/processed/recover_outputs.jsonl --backend oracle_stub_v0 --num-samples 1
 conda run -n recover_attention python scripts/08_run_recovery.py --input data/processed/masked_questions.jsonl --output outputs/logs/recover_outputs_ollama_small.jsonl --backend ollama_chat_v0 --model qwen3.5:9b --ollama-base-url http://localhost:11434 --num-samples 1 --temperature 0.0 --top-p 1.0 --max-tokens 128 --timeout 120 --seed 42 --limit 10
 conda run -n recover_attention python scripts/09_score_recovery.py --input data/processed/recover_outputs.jsonl --output data/processed/recover_scores.jsonl --backend stub_rule_v0
+conda run -n recover_attention python scripts/09_score_recovery.py --input outputs/logs/sprint_1N_real_downstream/recover_outputs_real.jsonl --output outputs/logs/sprint_1O_recovery_scoring/recover_scores_nli_judge.jsonl --backend nli_recovery_judge_v0 --nli-backend hf_nli_auto_v0 --language auto --en-model models/nli/en/roberta-large-mnli --zh-model models/nli/zh/mdeberta-v3-base-xnli --device auto --max-length 512 --label-order auto --recoverable-entailment-threshold 0.70 --partial-entailment-threshold 0.50 --contradiction-threshold 0.50 --report-output outputs/logs/sprint_1O_recovery_scoring/recovery_scoring_report.json
 conda run -n recover_attention python scripts/10_build_unit_evidence.py --semantic-labels data/processed/semantic_labels.jsonl --recover-scores data/processed/recover_scores.jsonl --output data/processed/unit_evidence.jsonl --backend aggregate_stub_v0
 conda run -n recover_attention python scripts/11_build_attention_anchor_labels.py --input data/processed/unit_evidence.jsonl --output data/processed/attention_anchor_labels.jsonl --backend early_evidence_rule_stub_v0
 conda run -n recover_attention python scripts/12_build_intervention_manifest.py --input data/processed/attention_anchor_labels.jsonl --output data/processed/intervention_manifest.jsonl --intervention-type mask --backend manifest_stub_v0 --mask-token "[MASK]"
@@ -104,7 +107,7 @@ conda run -n recover_attention python -m pytest -q
 最近一次检查结果：
 
 ```text
-pytest: 411 passed, 2 skipped
+pytest: 427 passed, 2 skipped
 smoke test: passed
 candidate extraction: passed
 ablation unit construction: passed
@@ -126,6 +129,11 @@ ollama_chat_v0 smoke: 10 records, num_empty_recoveries=0
 recover score interface alignment: passed
 recover score governance doc cleanup: passed
 recoverability scoring stub: passed
+real recovery scoring upgrade: passed
+nli_recovery_judge_v0 small run: passed
+nli_recovery_judge_v0 full run: passed, 46 records
+stub_rule_v0 regression: passed
+recovery scoring report: passed
 unit evidence interface alignment: passed
 unit evidence build passed
 unit evidence interface post-build cleanup: passed
@@ -210,6 +218,12 @@ sync_interface_fields --check: all in sync
 - outputs/logs/sprint_1N_real_downstream/intervention_manifest_real.jsonl
 - outputs/logs/sprint_1N_real_downstream/real_signal_report.json
 - outputs/logs/sprint_1N_real_downstream/real_signal_report.md
+- outputs/logs/sprint_1O_recovery_scoring/recover_scores_stub_check.jsonl
+- outputs/logs/sprint_1O_recovery_scoring/recover_scores_nli_judge_small.jsonl
+- outputs/logs/sprint_1O_recovery_scoring/recovery_scoring_report_small.json
+- outputs/logs/sprint_1O_recovery_scoring/recover_scores_nli_judge.jsonl
+- outputs/logs/sprint_1O_recovery_scoring/recovery_scoring_report.json
+- outputs/logs/sprint_1O_recovery_scoring/recovery_scoring_report.md
 - docs/skill/semantic_labels_interface.md
 - docs/skill/recover_outputs_interface.md
 - docs/skill/recover_scores_interface.md
@@ -222,9 +236,9 @@ sync_interface_fields --check: all in sync
 
 下一阶段可能新增或修改：
 
-- 真实 recovery scoring / semantic recovery judge（Sprint 1O）
+- 使用 upgraded recovery scores 重建 unit_evidence / attention_anchor_labels / intervention_manifest（Sprint 1P）
 
-具体以后续 Sprint 1O task card 为准。
+具体以后续 Sprint 1P task card 为准。
 
 ## 5. 当前遗留问题
 
@@ -232,9 +246,9 @@ sync_interface_fields --check: all in sync
 - `data/processed/*` 是本地生成产物目录；Sprint 1N 真实 downstream 产物写入 `outputs/logs/sprint_1N_real_downstream/`，未覆盖 processed 主线文件。
 - 真实 NLI backend 默认优先使用 `models/nli/en/roberta-large-mnli` 与 `models/nli/zh/mdeberta-v3-base-xnli` 本地模型；只有显式传入 `--allow-download` 时才允许远程模型加载。
 - 当前 `data/processed/ablated_questions.jsonl` 没有中文样本；Sprint 1N 全量真实 run 只实际加载英文 NLI 模型，中文 routing 仍由 mock test 覆盖。
-- `recover_scores_real.jsonl` 仍由 `stub_rule_v0` exact normalized match 生成，不做语义等价判断或模型 judge。
-- real LLM recovery output 可能语义正确但 exact match 失败；本轮 `exact_match_recovery_count=18/46` 不能作为最终恢复质量结论。
-- `unit_evidence_real.jsonl`、`attention_anchor_labels_real.jsonl`、`intervention_manifest_real.jsonl` 是 early evidence downstream 产物；`intervention_manifest_real.jsonl` 仍是 `planned_only`，不代表 intervention 已执行。
+- `nli_recovery_judge_v0` 是 question-level NLI judge，不直接验证每个 masked span。
+- upgraded `recover_scores_nli_judge.jsonl` 尚未用于重建 unit_evidence / attention_anchor_labels / intervention_manifest。
+- `unit_evidence_real.jsonl`、`attention_anchor_labels_real.jsonl`、`intervention_manifest_real.jsonl` 仍来自 Sprint 1N 的 `stub_rule_v0` downstream；`intervention_manifest_real.jsonl` 仍是 `planned_only`，不代表 intervention 已执行。
 - `docs/skill/nli_scores_interface.md` 仍有旧阶段文字提到 Sprint 1D 只支持 `stub_v0`；Sprint 1N task card 禁止修改 interface docs，本轮以脚本、schema 和测试为准。
 - 当前没有接入 hidden states / attention maps / trajectory stability / answer stability / raw attention / attention guidance / probe。
 - 当前没有声称 attention guidance 有效，也没有声称减少 hallucination。
@@ -244,12 +258,12 @@ sync_interface_fields --check: all in sync
 下一步建议：
 
 ```text
-Sprint 1O：Upgrade Real Recovery Scoring
+Sprint 1P：Rebuild Downstream with Upgraded Recovery Scoring
 ```
 
 注意：
 
 ```text
-不要自动开始 Sprint 1O。
-必须先有 Sprint 1O task card 或用户明确指令。
+不要自动开始 Sprint 1P。
+必须先有 Sprint 1P task card 或用户明确指令。
 ```

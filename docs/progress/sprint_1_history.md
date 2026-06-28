@@ -1674,3 +1674,128 @@ real_signal_report.json 关键统计：
 下一步建议：
 
 - Sprint 1O：Upgrade Real Recovery Scoring。
+
+## Sprint 1O：Upgrade Real Recovery Scoring
+
+已完成内容：
+
+- 新增 recover score backend：`nli_recovery_judge_v0`。
+- 保留 `stub_rule_v0` exact normalized match 行为不变。
+- `scripts/09_score_recovery.py` 新增 NLI 参数、threshold 参数、`--limit` 与 `--report-output`。
+- 使用 Sprint 1N 的 `recover_outputs_real.jsonl` 生成 upgraded recovery scores。
+- 生成 `recovery_scoring_report.json` 与 `recovery_scoring_report.md`。
+- 更新 recover score schema backend enum 与 interface 文档。
+- 未调用 Ollama，未生成新的 recovery outputs，未重建 downstream。
+
+新增/修改文件：
+
+- src/recover_attention/recover_scoring.py
+- scripts/09_score_recovery.py
+- tests/test_recover_scoring.py
+- src/recover_attention/schemas.py
+- docs/skill/recover_scores_interface.md
+- configs/v0_nli_small.yaml
+- PROGRESS.md
+- docs/progress/sprint_1_history.md
+
+新增 backend：
+
+```text
+nli_recovery_judge_v0
+```
+
+NLI 判断规则：
+
+- 对每个 recovery sample 做双向 NLI：
+  `original_question -> recovered_question` 与 `recovered_question -> original_question`。
+- `bidirectional_entailment_score = min(forward.entailment, backward.entailment)`。
+- `contradiction_score = max(forward.contradiction, backward.contradiction)`。
+- empty recovery、mask remaining、exact match 先走 shortcut。
+- 多 sample 时按 `masked_id` 聚合，`recoverability_score` 取 sample 最大值，`confidence_mean` 取 sample confidence 平均值，`recovery_consistency` 按 normalized recovered_question 的重复比例计算。
+
+阈值设置：
+
+```text
+recoverable_entailment_threshold = 0.70
+partial_entailment_threshold = 0.50
+contradiction_threshold = 0.50
+```
+
+输出目录：
+
+```text
+outputs/logs/sprint_1O_recovery_scoring/
+```
+
+输出文件：
+
+```text
+recover_scores_stub_check.jsonl
+recover_scores_nli_judge_small.jsonl
+recovery_scoring_report_small.json
+recovery_scoring_report_small.md
+recover_scores_nli_judge.jsonl
+recovery_scoring_report.json
+recovery_scoring_report.md
+```
+
+运行命令：
+
+```bash
+conda run -n recover_attention python scripts/sync_interface_fields.py --check
+conda run -n recover_attention python -m pytest tests/test_recover_scoring.py -q
+conda run -n recover_attention python -m pytest tests/test_schemas.py -q
+conda run -n recover_attention python scripts/09_score_recovery.py --input data/processed/recover_outputs.jsonl --output outputs/logs/sprint_1O_recovery_scoring/recover_scores_stub_check.jsonl --backend stub_rule_v0
+conda run -n recover_attention python scripts/09_score_recovery.py --input outputs/logs/sprint_1N_real_downstream/recover_outputs_real.jsonl --output outputs/logs/sprint_1O_recovery_scoring/recover_scores_nli_judge_small.jsonl --backend nli_recovery_judge_v0 --nli-backend hf_nli_auto_v0 --language auto --en-model models/nli/en/roberta-large-mnli --zh-model models/nli/zh/mdeberta-v3-base-xnli --device auto --max-length 512 --label-order auto --recoverable-entailment-threshold 0.70 --partial-entailment-threshold 0.50 --contradiction-threshold 0.50 --limit 10 --report-output outputs/logs/sprint_1O_recovery_scoring/recovery_scoring_report_small.json
+conda run -n recover_attention python scripts/09_score_recovery.py --input outputs/logs/sprint_1N_real_downstream/recover_outputs_real.jsonl --output outputs/logs/sprint_1O_recovery_scoring/recover_scores_nli_judge.jsonl --backend nli_recovery_judge_v0 --nli-backend hf_nli_auto_v0 --language auto --en-model models/nli/en/roberta-large-mnli --zh-model models/nli/zh/mdeberta-v3-base-xnli --device auto --max-length 512 --label-order auto --recoverable-entailment-threshold 0.70 --partial-entailment-threshold 0.50 --contradiction-threshold 0.50 --report-output outputs/logs/sprint_1O_recovery_scoring/recovery_scoring_report.json
+conda run -n recover_attention python -m pytest -q
+```
+
+limit 10 run 状态：
+
+- passed。
+- 输入 10 条 `recover_outputs_real`，输出 10 条 `recover_scores_nli_judge_small`。
+- label 分布：`{Misleading Recovery: 2, Non-recoverable: 3, Recoverable: 5}`。
+
+full run 状态：
+
+- passed。
+- 输入 46 条 `recover_outputs_real`，输出 46 条 `recover_scores_nli_judge`。
+- label 分布：`{Misleading Recovery: 13, Non-recoverable: 9, Partially Recoverable: 2, Recoverable: 22}`。
+
+recovery_scoring_report.json 关键统计摘要：
+
+- input_counts：`num_recover_outputs=46`，`num_masked_ids=46`。
+- output_counts：`num_recover_scores=46`。
+- backend_counts：`{nli_recovery_judge_v0: 46}`。
+- misleading_recovery_counts：`{False: 33, True: 13}`。
+- empty_recovery_count：0。
+- mask_remaining_count：0。
+- exact_match_recovery_count：18。
+- recoverability_score distribution：`min=0.0011658324`，`max=1.0`，`mean=0.5580016031`，`median=0.5760838848`。
+- confidence_mean distribution：`min=0.5049341732`，`max=1.0`，`mean=0.9255154471`，`median=0.9938544857`。
+- recovery_consistency distribution：`min=1.0`，`max=1.0`，`mean=1.0`，`median=1.0`。
+
+检查结果：
+
+- sync_interface_fields --check：全部 in sync。
+- tests/test_recover_scoring.py：31 passed。
+- tests/test_schemas.py：132 passed。
+- stub_rule_v0 regression：passed，46 records。
+- nli_recovery_judge_v0 small run：passed，10 records。
+- nli_recovery_judge_v0 full run：passed，46 records。
+- recovery scoring report：passed。
+- 全量 pytest：427 passed, 2 skipped。
+
+遗留问题：
+
+- `nli_recovery_judge_v0` 是 question-level NLI judge，不直接验证每个 masked span。
+- NLI 等价不等于最终 reasoning usefulness。
+- upgraded `recover_scores_nli_judge.jsonl` 尚未用于重建 `unit_evidence` / `attention_anchor_labels` / `intervention_manifest`。
+- 当前没有接入 hidden states / attention maps / trajectory stability / answer stability / raw attention / attention guidance / probe。
+- 当前没有声称 attention guidance 有效，也没有声称减少 hallucination。
+- Preflight 中记录的 small run 产物不在 task card 第 10 节允许生成列表，但第 20.3 节要求生成；本轮按必跑命令生成 small run 产物。
+
+下一步建议：
+
+- Sprint 1P：Rebuild Downstream with Upgraded Recovery Scoring。
