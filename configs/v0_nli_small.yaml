@@ -121,3 +121,20 @@ real_recovery_scoring:
     recoverable_entailment_threshold: 0.70
     partial_entailment_threshold: 0.50
     contradiction_threshold: 0.50
+
+upgraded_downstream:
+  output_dir: "outputs/logs/sprint_1P_upgraded_downstream"
+  semantic_labels: "outputs/logs/sprint_1N_real_downstream/semantic_labels_real.jsonl"
+  upgraded_recover_scores: "outputs/logs/sprint_1O_recovery_scoring/recover_scores_nli_judge.jsonl"
+  baseline_recover_scores: "outputs/logs/sprint_1N_real_downstream/recover_scores_real.jsonl"
+  baseline_unit_evidence: "outputs/logs/sprint_1N_real_downstream/unit_evidence_real.jsonl"
+  baseline_attention_anchor_labels: "outputs/logs/sprint_1N_real_downstream/attention_anchor_labels_real.jsonl"
+  baseline_intervention_manifest: "outputs/logs/sprint_1N_real_downstream/intervention_manifest_real.jsonl"
+  baseline_report: "outputs/logs/sprint_1N_real_downstream/real_signal_report.json"
+  unit_evidence:
+    backend: "aggregate_stub_v0"
+  attention_anchor_labels:
+    backend: "early_evidence_rule_stub_v0"
+  intervention_manifest:
+    intervention_type: "mask"
+    backend: "manifest_stub_v0"

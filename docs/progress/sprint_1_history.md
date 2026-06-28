@@ -1799,3 +1799,105 @@ recovery_scoring_report.json 关键统计摘要：
 下一步建议：
 
 - Sprint 1P：Rebuild Downstream with Upgraded Recovery Scoring。
+
+## Sprint 1P：Rebuild Downstream with Upgraded Recovery Scoring
+
+已完成内容：
+
+- 新增 `scripts/14_rebuild_downstream_upgraded_recovery_scoring.py`。
+- 读取 Sprint 1N 的 `semantic_labels_real.jsonl` 与 baseline downstream 产物。
+- 读取 Sprint 1O 的 `recover_scores_nli_judge.jsonl`。
+- 使用 upgraded recovery scores 重建 `unit_evidence_upgraded.jsonl`。
+- 使用 upgraded unit evidence 重建 `attention_anchor_labels_upgraded.jsonl`。
+- 使用 upgraded attention anchor labels 重建 `intervention_manifest_upgraded.jsonl`。
+- 生成 `upgraded_downstream_report.json` 与 `upgraded_downstream_report.md`。
+- 未重新运行 NLI scoring，未调用 Ollama，未修改 scoring rule / schema / downstream builder。
+
+新增/修改文件：
+
+- scripts/14_rebuild_downstream_upgraded_recovery_scoring.py
+- tests/test_rebuild_downstream_upgraded_recovery_scoring.py
+- configs/v0_nli_small.yaml
+- PROGRESS.md
+- docs/progress/sprint_1_history.md
+
+输出目录：
+
+```text
+outputs/logs/sprint_1P_upgraded_downstream/
+```
+
+输入文件：
+
+```text
+outputs/logs/sprint_1N_real_downstream/semantic_labels_real.jsonl
+outputs/logs/sprint_1N_real_downstream/recover_scores_real.jsonl
+outputs/logs/sprint_1N_real_downstream/unit_evidence_real.jsonl
+outputs/logs/sprint_1N_real_downstream/attention_anchor_labels_real.jsonl
+outputs/logs/sprint_1N_real_downstream/intervention_manifest_real.jsonl
+outputs/logs/sprint_1N_real_downstream/real_signal_report.json
+outputs/logs/sprint_1O_recovery_scoring/recover_scores_nli_judge.jsonl
+outputs/logs/sprint_1O_recovery_scoring/recovery_scoring_report.json
+```
+
+输出文件：
+
+```text
+unit_evidence_upgraded.jsonl
+attention_anchor_labels_upgraded.jsonl
+intervention_manifest_upgraded.jsonl
+upgraded_downstream_report.json
+upgraded_downstream_report.md
+```
+
+baseline vs upgraded scoring 对比方式：
+
+- recover score 以 `masked_id` 对齐。
+- unit evidence / attention anchor / intervention manifest 以 `(id, unit_id)` 对齐。
+- 对比 recoverability label transition、recoverability score delta、attention anchor label transition、attention importance score delta。
+- changed_cases 优先展示 attention_anchor_label 变化，其次 recoverability_label 变化，再按 score delta 排序。
+
+dry run 状态：
+
+- passed。
+- `--limit 10` 输出 10 条 `unit_evidence_upgraded`、10 条 `attention_anchor_labels_upgraded`、10 条 `intervention_manifest_upgraded`。
+- `recoverability_label_changed_count=5`，`attention_anchor_label_changed_count=5`，`num_changed_cases=7`。
+
+full run 状态：
+
+- passed。
+- 输出 46 条 `unit_evidence_upgraded`、46 条 `attention_anchor_labels_upgraded`、46 条 `intervention_manifest_upgraded`。
+- `recoverability_label_changed_count=15`，`attention_anchor_label_changed_count=15`，`num_changed_cases=20`。
+
+upgraded_downstream_report.json 关键统计摘要：
+
+- baseline recoverability label counts：`{Misleading Recovery: 28, Recoverable: 18}`。
+- upgraded recoverability label counts：`{Misleading Recovery: 13, Non-recoverable: 9, Partially Recoverable: 2, Recoverable: 22}`。
+- baseline attention anchor label counts：`{Distractor: 15, Medium Anchor: 2, Risky Anchor: 28, Weak Anchor: 1}`。
+- upgraded attention anchor label counts：`{Distractor: 23, Medium Anchor: 2, Risky Anchor: 13, Strong Anchor: 4, Weak Anchor: 4}`。
+- attention importance score delta：`min=-0.3`，`max=0.0`，`mean=-0.0543478261`，`median=0.0`。
+- intervention manifest count：baseline 46，upgraded 46，`manifest_count_changed=false`。
+
+检查结果：
+
+- sync_interface_fields --check：全部 in sync。
+- tests/test_rebuild_downstream_upgraded_recovery_scoring.py：8 passed。
+- tests/test_schemas.py：132 passed。
+- dry run：passed。
+- full run：passed。
+- 全量 pytest：435 passed, 2 skipped。
+
+遗留问题：
+
+- `unit_evidence_upgraded` 仍使用 `aggregate_stub_v0`。
+- `attention_anchor_labels_upgraded` 仍使用 `early_evidence_rule_stub_v0`。
+- `intervention_manifest_upgraded` 仍是 `planned_only`。
+- `nli_recovery_judge_v0` 是 question-level NLI judge，不直接验证每个 masked span。
+- 本 sprint 未重新运行 NLI，也未重新调用 Ollama。
+- 当前没有接入 hidden states / attention maps / trajectory stability / answer stability / raw attention / attention guidance / probe。
+- 本 sprint 只比较 upgraded recovery scoring 对 downstream labels 的影响，不证明 attention guidance 有效。
+- 当前没有声称减少 hallucination。
+
+下一步建议：
+
+- Sprint 1Q：Real Signal Quality Review。
