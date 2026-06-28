@@ -22,15 +22,16 @@ Token / Span Intervention
 当前阶段：
 
 ```text
-Sprint 1L 已完成：Plug Real Bilingual NLI Backend。
-scripts/05_run_nli_scoring.py 已支持 stub_v0 / hf_nli_en_v0 / hf_nli_zh_v0 / hf_nli_auto_v0。
-真实 NLI backend 默认本地模型优先；只有显式 --allow-download 时才允许从 HuggingFace Hub 拉取。
-下一步建议是 Sprint 1M：Plug Real LLM Recovery Backend。
+Sprint 1M 已完成：Plug Real LLM Recovery Backend。
+scripts/08_run_recovery.py 已支持 oracle_stub_v0 / ollama_chat_v0。
+ollama_chat_v0 通过本地 Ollama HTTP API 调用 qwen3.5:9b；fallback model 为 llama3.1:8b，本轮未触发 fallback。
+下一步建议是 Sprint 1N：Rebuild Downstream with Real NLI and Real LLM Recovery Outputs。
 ```
 
 当前不做：
 
-- LLM recovery
+- downstream rebuild with real recovery outputs
+- semantic recoverability scoring 修改
 - hidden states 大规模缓存
 - trajectory stability
 - attention guidance
@@ -69,6 +70,7 @@ scripts/05_run_nli_scoring.py 已支持 stub_v0 / hf_nli_en_v0 / hf_nli_zh_v0 / 
 | Sprint 1K-prep | 完成 | Guidance boundary & intervention manifest interface alignment |
 | Sprint 1K | 完成 | Build intervention manifest |
 | Sprint 1L | 完成 | Plug real bilingual NLI backend |
+| Sprint 1M | 完成 | Plug real LLM recovery backend |
 
 详细历史见：
 
@@ -90,6 +92,7 @@ conda run -n recover_attention python scripts/05_run_nli_scoring.py --input data
 conda run -n recover_attention python scripts/06_build_semantic_labels.py --input data/processed/nli_scores.jsonl --output data/processed/semantic_labels.jsonl --backend rule_v0 --equivalent-threshold 0.70 --directional-entailment-threshold 0.50 --contradiction-threshold 0.50
 conda run -n recover_attention python scripts/07_build_masked_questions.py --input data/processed/semantic_labels.jsonl --output data/processed/masked_questions.jsonl --mask-token "[MASK]" --backend unit_mask_v0
 conda run -n recover_attention python scripts/08_run_recovery.py --input data/processed/masked_questions.jsonl --output data/processed/recover_outputs.jsonl --backend oracle_stub_v0 --num-samples 1
+conda run -n recover_attention python scripts/08_run_recovery.py --input data/processed/masked_questions.jsonl --output outputs/logs/recover_outputs_ollama_small.jsonl --backend ollama_chat_v0 --model qwen3.5:9b --ollama-base-url http://localhost:11434 --num-samples 1 --temperature 0.0 --top-p 1.0 --max-tokens 128 --timeout 120 --seed 42 --limit 10
 conda run -n recover_attention python scripts/09_score_recovery.py --input data/processed/recover_outputs.jsonl --output data/processed/recover_scores.jsonl --backend stub_rule_v0
 conda run -n recover_attention python scripts/10_build_unit_evidence.py --semantic-labels data/processed/semantic_labels.jsonl --recover-scores data/processed/recover_scores.jsonl --output data/processed/unit_evidence.jsonl --backend aggregate_stub_v0
 conda run -n recover_attention python scripts/11_build_attention_anchor_labels.py --input data/processed/unit_evidence.jsonl --output data/processed/attention_anchor_labels.jsonl --backend early_evidence_rule_stub_v0
@@ -100,7 +103,7 @@ conda run -n recover_attention python -m pytest -q
 最近一次检查结果：
 
 ```text
-pytest: 392 passed, 2 skipped
+pytest: 401 passed, 2 skipped
 smoke test: passed
 candidate extraction: passed
 ablation unit construction: passed
@@ -114,6 +117,11 @@ masked question construction: passed
 recover output interface alignment: passed
 recover output self-contained interface refinement: passed
 question recovery stub: passed
+real LLM recovery backend integration: passed
+oracle recovery stub regression: passed
+prompt leakage guard: passed
+qwen3.5:9b real smoke: passed
+ollama_chat_v0 smoke: 10 records, num_empty_recoveries=0
 recover score interface alignment: passed
 recover score governance doc cleanup: passed
 recoverability scoring stub: passed
@@ -140,7 +148,7 @@ sync_interface_fields --check: all in sync
 - src/recover_attention/nli_scoring.py（支持 stub_v0 / hf_nli_en_v0 / hf_nli_zh_v0 / hf_nli_auto_v0）
 - src/recover_attention/semantic_labels.py
 - src/recover_attention/masked_questions.py
-- src/recover_attention/recover_generation.py
+- src/recover_attention/recover_generation.py（支持 oracle_stub_v0 / ollama_chat_v0）
 - src/recover_attention/recover_scoring.py
 - src/recover_attention/unit_evidence.py
 - src/recover_attention/attention_anchor_labels.py
@@ -183,6 +191,8 @@ sync_interface_fields --check: all in sync
 - data/processed/unit_evidence.jsonl
 - data/processed/attention_anchor_labels.jsonl
 - data/processed/intervention_manifest.jsonl
+- outputs/logs/recover_outputs_stub_check.jsonl
+- outputs/logs/recover_outputs_ollama_small.jsonl
 - docs/skill/semantic_labels_interface.md
 - docs/skill/recover_outputs_interface.md
 - docs/skill/recover_scores_interface.md
@@ -195,9 +205,9 @@ sync_interface_fields --check: all in sync
 
 下一阶段可能新增或修改：
 
-- 真实 LLM recovery backend 接入（Sprint 1M）
+- 使用真实 NLI 与真实 LLM recovery outputs 重建 downstream（Sprint 1N）
 
-具体以后续 Sprint 1M task card 为准。
+具体以后续 Sprint 1N task card 为准。
 
 ## 5. 当前遗留问题
 
@@ -210,8 +220,14 @@ sync_interface_fields --check: all in sync
 - 本轮真实 smoke 使用 `hf_nli_auto_v0` + 本地英文模型跑通 20 条样本；当前 `data/processed/ablated_questions.jsonl` 没有中文样本，因此真实 smoke 未加载中文模型，中文 routing 由 mock test 覆盖。
 - `data/processed/nli_scores_stub_check.jsonl` 是本轮按用户确认生成的 stub CLI smoke 检查产物；未修改其他 `data/processed/*` 文件。
 - `recover_outputs.jsonl` 已由 `oracle_stub_v0` 生成；该 backend 只用于管线验证，不代表真实恢复能力。
+- `outputs/logs/recover_outputs_ollama_small.jsonl` 已由 `ollama_chat_v0` + `qwen3.5:9b` 生成 10 条 smoke recovery；这是实际 recovery generation 输出，但尚未做 recoverability scoring 或质量评估。
 - `recover_scores.jsonl` 已由 `oracle_stub_v0` recovery output + `stub_rule_v0` exact-match scorer 生成，只用于管线验证。
 - `stub_rule_v0` 只做 `strip` 和连续空白折叠后的 exact normalized match，不做真实语义相似度或模型 judge。
+- `ollama_chat_v0` 是真实 recovery generation backend，但 recover_scoring 仍是 `stub_rule_v0` exact match。
+- 当前没有修改 semantic recoverability scoring。
+- 当前没有用真实 recovery 全量重建 recover_scores / unit_evidence / attention_anchor_labels / intervention_manifest。
+- qwen3.5:9b smoke 只验证本地调用与 schema 产物，不代表恢复质量；样例中可能出现猜测或解题式补全。
+- `docs/skill/label_schema.md` 仍有旧摘要提到 `recovery_backend` 只允许 `oracle_stub_v0`；本 sprint task card 禁止修改该文件，当前以 `schemas.py` 与 `recover_outputs_interface.md` 为权威来源。
 - `unit_evidence` 目前只汇总 semantic necessity 与 semantic recoverability early evidence。
 - recoverability 来自 `oracle_stub_v0` + `stub_rule_v0`，只用于管线验证。
 - trajectory stability、answer stability、raw attention pattern 仍未接入。
@@ -227,7 +243,8 @@ sync_interface_fields --check: all in sync
 - 当前 `planned_operation` 只是后续执行计划，不是执行结果；默认 `intervention_type=mask`、`target_scope=unit`，本轮不筛选 label（46 进 / 46 出）。
 - intervention_manifest 不含 hidden_states_path / attentions_path / guidance_action / guidance_strength / baseline·guided·intervened answer（已在 FORBIDDEN_FIELDS 中拒绝）。
 - attention_anchor_labels 尚未用真实 NLI 全量重建 downstream。
-- 本轮未接入 LLM recovery，未做 trajectory / answer stability / raw attention / probe。
+- 当前没有接入 hidden states / attention maps / trajectory stability / attention guidance。
+- 本轮未做 trajectory / answer stability / raw attention / probe。
 - recover_score governance 文档残留已修复：label_schema.md §0 不再把 recover_score 误列为“不受 interface doc 管理”；新增回归测试 `test_label_schema_out_of_scope_examples_do_not_include_managed_interface_types` 防止再漂移。
 - 不要从 recover score interface 自动扩展到 attention guidance。
 
@@ -236,12 +253,12 @@ sync_interface_fields --check: all in sync
 下一步建议：
 
 ```text
-Sprint 1M：Plug Real LLM Recovery Backend
+Sprint 1N：Rebuild Downstream with Real NLI and Real LLM Recovery Outputs
 ```
 
 注意：
 
 ```text
-不要自动开始 Sprint 1M。
-必须先有 Sprint 1M task card 或用户明确指令。
+不要自动开始 Sprint 1N。
+必须先有 Sprint 1N task card 或用户明确指令。
 ```

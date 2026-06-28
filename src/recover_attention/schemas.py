@@ -73,7 +73,10 @@ ALLOWED_ABLATION_UNIT_GROUP_TYPES = {
 }
 ALLOWED_MASK_BACKENDS = {"unit_mask_v0"}
 ALLOWED_MASK_STRATEGIES = {"replace_each_span"}
-ALLOWED_RECOVERY_BACKENDS = {"oracle_stub_v0"}
+ALLOWED_RECOVERY_BACKENDS = {
+    "oracle_stub_v0",
+    "ollama_chat_v0",
+}
 ALLOWED_RECOVER_SCORE_BACKENDS = {"stub_rule_v0"}
 ALLOWED_UNIT_EVIDENCE_BACKENDS = {"aggregate_stub_v0"}
 ALLOWED_UNIT_EVIDENCE_STATUSES = {"partial_stub_evidence"}

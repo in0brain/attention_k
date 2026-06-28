@@ -5,3 +5,6 @@ pytest>=8.0
 # torch
 # transformers
 # huggingface_hub
+
+# Optional for local Ollama recovery backend:
+# ollama server / Ollama app must be installed separately

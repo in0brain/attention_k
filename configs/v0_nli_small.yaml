@@ -49,3 +49,18 @@ nli:
   batch_size: 4
   max_length: 512
   label_order: "auto"
+
+recovery:
+  backend: "oracle_stub_v0"
+  real_backends:
+    ollama:
+      backend: "ollama_chat_v0"
+      primary_model: "qwen3.5:9b"
+      fallback_model: "llama3.1:8b"
+      ollama_base_url: "http://localhost:11434"
+      temperature: 0.0
+      top_p: 1.0
+      max_tokens: 128
+      timeout: 120
+      seed: 42
+  num_samples: 1

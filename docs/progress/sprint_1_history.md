@@ -1454,3 +1454,109 @@ conda run -n recover_attention python scripts/05_run_nli_scoring.py --input data
 下一步建议：
 
 - Sprint 1M：Plug Real LLM Recovery Backend。
+
+## Sprint 1M：Plug Real LLM Recovery Backend
+
+已完成内容：
+
+- 新增真实本地 LLM recovery backend：`ollama_chat_v0`。
+- 保留 `oracle_stub_v0` 默认行为：`recovered_question = original_question`，仅用于管线验证。
+- `scripts/08_run_recovery.py` 新增 Ollama 参数：`--model`、`--ollama-base-url`、`--temperature`、`--top-p`、`--max-tokens`、`--timeout`、`--seed`、`--limit`。
+- `--limit` 只在 script 层截断输入 records，不改变 library 默认行为。
+- `recover_outputs.jsonl` 顶层字段未变化；模型运行配置只进入 stats / CLI 输出，不写入 record。
+- `call_ollama_chat` 使用 Python 标准库 `urllib.request` 调用本地 `/api/chat`，不新增 Python Ollama package 依赖。
+- Ollama payload 设置 `stream=false` 与 `think=false`；`think=false` 用于避免 qwen3.5:9b 将 token 预算耗尽在 `message.thinking` 而返回空 `message.content`。
+- `build_recovery_prompt` 只使用 `masked_question`、`mask_token`、mask 数量和最小 instruction。
+- `clean_recovered_question` 清理 code fence 与常见前缀（`Recovered question:` / `Answer:` / `Output:`）。
+- 新增 fake Ollama pytest，覆盖 `ollama_chat_v0` record 构造、prompt 防泄漏、CLI `--limit` 和 CLI fake Ollama smoke。
+
+新增/修改文件：
+
+- src/recover_attention/recover_generation.py
+- scripts/08_run_recovery.py
+- tests/test_recover_generation.py
+- src/recover_attention/schemas.py
+- docs/skill/recover_outputs_interface.md
+- configs/v0_nli_small.yaml
+- requirements.txt
+- PROGRESS.md
+- docs/progress/sprint_1_history.md
+- outputs/logs/recover_outputs_stub_check.jsonl（CLI smoke 生成）
+- outputs/logs/recover_outputs_ollama_small.jsonl（真实 Ollama smoke 生成）
+
+新增 backend：
+
+```text
+ollama_chat_v0
+```
+
+Prompt 防泄漏原则：
+
+- 传给 LLM 的 prompt 不包含 `original_question`。
+- 传给 LLM 的 prompt 不包含 `spans[*].text`。
+- 传给 LLM 的 prompt 不包含 source ids、semantic_sources、recoverability label、attention anchor label 或 downstream evidence。
+- prompt 只包含 masked question、mask token、mask 数量和恢复问题所需的最小指令。
+
+Ollama model：
+
+```text
+primary = qwen3.5:9b
+fallback = llama3.1:8b
+```
+
+Ollama base_url / decoding config：
+
+```text
+ollama_base_url = http://localhost:11434
+temperature = 0.0
+top_p = 1.0
+max_tokens = 128
+timeout = 120
+seed = 42
+think = false
+```
+
+是否运行真实 Ollama smoke：
+
+- 已运行真实 `ollama_chat_v0` smoke。
+- 使用模型：`qwen3.5:9b`。
+- 未触发 fallback，因为 `qwen3.5:9b` 与 `llama3.1:8b` 均在 `ollama list` 中存在。
+- 输出文件：`outputs/logs/recover_outputs_ollama_small.jsonl`。
+- 输出 10 条 records，`num_empty_recoveries=0`。
+
+运行命令：
+
+```bash
+conda run -n recover_attention python scripts/sync_interface_fields.py --check
+conda run -n recover_attention python -m pytest tests/test_recover_generation.py -q
+conda run -n recover_attention python -m pytest tests/test_schemas.py -q
+conda run -n recover_attention python scripts/08_run_recovery.py --input data/processed/masked_questions.jsonl --output outputs/logs/recover_outputs_stub_check.jsonl --backend oracle_stub_v0 --num-samples 1 --limit 10
+conda run -n recover_attention python scripts/08_run_recovery.py --input data/processed/masked_questions.jsonl --output outputs/logs/recover_outputs_ollama_small.jsonl --backend ollama_chat_v0 --model qwen3.5:9b --ollama-base-url http://localhost:11434 --num-samples 1 --temperature 0.0 --top-p 1.0 --max-tokens 128 --timeout 120 --seed 42 --limit 10
+conda run -n recover_attention python -m pytest -q
+```
+
+检查结果：
+
+- sync_interface_fields --check：全部 in sync。
+- tests/test_recover_generation.py：20 passed。
+- tests/test_schemas.py：132 passed。
+- oracle recovery stub regression：passed（stub CLI smoke 10 records）。
+- prompt leakage guard：passed。
+- real LLM recovery backend integration：passed。
+- qwen3.5:9b real smoke：passed（10 records，`num_empty_recoveries=0`）。
+- 全量 pytest：401 passed, 2 skipped。
+
+遗留问题：
+
+- 裸 `python` 当前指向 base conda；本轮所有验收命令使用 `conda run -n recover_attention python ...`。
+- `ollama_chat_v0` 是真实 recovery generation backend，但当前 `recover_scoring.py` 仍是 `stub_rule_v0` exact normalized match。
+- 当前没有修改 semantic recoverability scoring。
+- 当前没有用真实 recovery 全量重建 `recover_scores.jsonl` / `unit_evidence.jsonl` / `attention_anchor_labels.jsonl` / `intervention_manifest.jsonl`。
+- 当前没有接入 hidden states / attention maps / trajectory stability / attention guidance。
+- qwen3.5:9b smoke 只验证本地调用和 schema 产物，不代表恢复质量；模型可能产生猜测或解题式补全。
+- `docs/skill/label_schema.md` 仍有旧摘要提到 `recovery_backend` 只允许 `oracle_stub_v0`；本 sprint task card 禁止修改该文件，当前以 `schemas.py` 与 `recover_outputs_interface.md` 为权威来源。
+- 本轮未自动运行 `ollama pull`，未新增 HuggingFace causal LM backend，未新增 OpenAI / Claude / Gemini API backend。
+
+下一步建议：
+
+- Sprint 1N：Rebuild Downstream with Real NLI and Real LLM Recovery Outputs。

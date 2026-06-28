@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import importlib.util
 import subprocess
 import sys
 from pathlib import Path
@@ -14,14 +15,30 @@ if str(SRC_DIR) not in sys.path:
 
 from recover_attention.data_io import read_jsonl, write_jsonl
 from recover_attention.recover_generation import (
+    DEFAULT_MAX_TOKENS,
     DEFAULT_NUM_SAMPLES,
+    DEFAULT_OLLAMA_BASE_URL,
+    DEFAULT_OLLAMA_MODEL,
     DEFAULT_RECOVERY_BACKEND,
+    DEFAULT_SEED,
+    DEFAULT_TEMPERATURE,
+    DEFAULT_TIMEOUT,
+    DEFAULT_TOP_P,
+    OLLAMA_CHAT_BACKEND,
+    ORACLE_STUB_BACKEND,
+    SUPPORTED_RECOVERY_BACKENDS,
     build_recover_output_file,
     build_recover_output_record,
     build_recover_output_records,
     build_recovered_question_oracle_stub,
+    build_recovery_prompt,
+    clean_recovered_question,
 )
-from recover_attention.schemas import REQUIRED_FIELDS, validate_recover_output_record
+from recover_attention.schemas import (
+    ALLOWED_RECOVERY_BACKENDS,
+    REQUIRED_FIELDS,
+    validate_recover_output_record,
+)
 
 
 ORIGINAL_QUESTION = "Tom has 3 apples and buys 2 more."
@@ -94,6 +111,60 @@ def masked_question_record(
     }
 
 
+def prompt_leakage_guard_record() -> dict:
+    original_question = "Alice hid cobalt-token near the gate."
+    span_text = "cobalt-token"
+    start = original_question.index(span_text)
+    return {
+        "masked_id": "q_prompt__unit_001__mask",
+        "id": "q_prompt",
+        "unit_id": "unit_001",
+        "unit_scope": "single",
+        "group_type": "single",
+        "span_ids": ["span_001"],
+        "spans": [
+            {
+                "span_id": "span_001",
+                "text": span_text,
+                "type": "object",
+                "start": start,
+                "end": start + len(span_text),
+            }
+        ],
+        "original_question": original_question,
+        "masked_question": "Alice hid [MASK] near the gate.",
+        "mask_token": "[MASK]",
+        "mask_backend": "unit_mask_v0",
+        "mask_strategy": "replace_each_span",
+        "source_semantic_label_ids": [],
+        "source_nli_ids": [],
+        "source_ablation_ids": [],
+        "semantic_sources": [],
+    }
+
+
+def load_recovery_cli_module():
+    spec = importlib.util.spec_from_file_location(
+        "run_recovery_cli_test",
+        PROJECT_ROOT / "scripts" / "08_run_recovery.py",
+    )
+    assert spec is not None
+    assert spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def test_supported_recovery_backends_include_oracle_and_ollama() -> None:
+    assert ORACLE_STUB_BACKEND in SUPPORTED_RECOVERY_BACKENDS
+    assert OLLAMA_CHAT_BACKEND in SUPPORTED_RECOVERY_BACKENDS
+
+
+def test_schema_allowed_recovery_backends_include_ollama() -> None:
+    assert ORACLE_STUB_BACKEND in ALLOWED_RECOVERY_BACKENDS
+    assert OLLAMA_CHAT_BACKEND in ALLOWED_RECOVERY_BACKENDS
+
+
 def test_oracle_stub_single_unit_recovers_original_question() -> None:
     masked_record = masked_question_record()
     output = build_recover_output_record(masked_record, sample_id=0)
@@ -126,6 +197,93 @@ def test_output_has_no_old_or_scoring_fields() -> None:
     assert OLD_TOP_LEVEL_FIELDS.isdisjoint(output.keys())
     assert SCORING_FIELDS.isdisjoint(output.keys())
     assert set(output) == set(REQUIRED_FIELDS["recover_output"])
+
+
+def test_recovery_prompt_does_not_leak_original_question_or_span_text() -> None:
+    masked_record = prompt_leakage_guard_record()
+    prompt = build_recovery_prompt(masked_record)
+
+    assert masked_record["masked_question"] in prompt
+    assert masked_record["mask_token"] in prompt
+    assert masked_record["original_question"] not in prompt
+    for span in masked_record["spans"]:
+        assert span["text"] not in prompt
+
+
+def test_recovery_prompt_uses_actual_mask_token() -> None:
+    masked_record = prompt_leakage_guard_record()
+    masked_record["masked_question"] = "Alice hid <X> near the gate."
+    masked_record["mask_token"] = "<X>"
+
+    prompt = build_recovery_prompt(masked_record)
+
+    assert "<X>" in prompt
+    assert "[MASK]" not in prompt
+
+
+def test_clean_recovered_question_removes_common_prefix() -> None:
+    assert (
+        clean_recovered_question("Recovered question: Tom has 3 apples.")
+        == "Tom has 3 apples."
+    )
+
+
+def test_clean_recovered_question_removes_code_fence() -> None:
+    assert clean_recovered_question("```text\nOutput: Tom has 3 apples.\n```") == (
+        "Tom has 3 apples."
+    )
+
+
+def test_ollama_chat_backend_uses_fake_call_and_builds_valid_record(monkeypatch) -> None:
+    import recover_attention.recover_generation as recovery_generation
+
+    captured: dict[str, object] = {}
+
+    def fake_call_ollama_chat(
+        prompt: str,
+        model: str,
+        base_url: str = DEFAULT_OLLAMA_BASE_URL,
+        temperature: float = DEFAULT_TEMPERATURE,
+        top_p: float = DEFAULT_TOP_P,
+        max_tokens: int = DEFAULT_MAX_TOKENS,
+        timeout: int = DEFAULT_TIMEOUT,
+        seed: int | None = DEFAULT_SEED,
+    ) -> str:
+        captured.update(
+            {
+                "prompt": prompt,
+                "model": model,
+                "base_url": base_url,
+                "temperature": temperature,
+                "top_p": top_p,
+                "max_tokens": max_tokens,
+                "timeout": timeout,
+                "seed": seed,
+            }
+        )
+        return "Recovered question: Tom has 3 apples and buys 2 more."
+
+    monkeypatch.setattr(recovery_generation, "call_ollama_chat", fake_call_ollama_chat)
+
+    output = build_recover_output_record(
+        masked_question_record(),
+        sample_id=0,
+        backend=OLLAMA_CHAT_BACKEND,
+        model="fake-model",
+        ollama_base_url="http://localhost:11434",
+        temperature=0.0,
+        top_p=1.0,
+        max_tokens=64,
+        timeout=10,
+        seed=123,
+    )
+
+    assert captured["model"] == "fake-model"
+    assert "original_question" not in str(captured["prompt"])
+    assert output["recovered_question"] == "Tom has 3 apples and buys 2 more."
+    assert output["recovery_backend"] == OLLAMA_CHAT_BACKEND
+    assert set(output) == set(REQUIRED_FIELDS["recover_output"])
+    assert validate_recover_output_record(output) is None
 
 
 def test_num_samples_three_generates_three_samples_per_masked_id() -> None:
@@ -226,6 +384,93 @@ def test_cli_smoke_test_builds_recover_outputs(tmp_path: Path) -> None:
     assert validate_recover_output_record(records[0]) is None
 
 
+def test_cli_limit_outputs_first_n_records(tmp_path: Path) -> None:
+    input_path = tmp_path / "masked_questions.jsonl"
+    output_path = tmp_path / "recover_outputs.jsonl"
+    write_jsonl(
+        [
+            masked_question_record(question_id="q1", unit_id="unit_001"),
+            masked_question_record(question_id="q2", unit_id="unit_002"),
+        ],
+        input_path,
+    )
+
+    subprocess.run(
+        [
+            sys.executable,
+            str(PROJECT_ROOT / "scripts" / "08_run_recovery.py"),
+            "--input",
+            str(input_path),
+            "--output",
+            str(output_path),
+            "--backend",
+            DEFAULT_RECOVERY_BACKEND,
+            "--num-samples",
+            str(DEFAULT_NUM_SAMPLES),
+            "--limit",
+            "1",
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+    records = read_jsonl(output_path)
+    assert len(records) == 1
+    assert records[0]["masked_id"] == "q1__unit_001__mask"
+    assert validate_recover_output_record(records[0]) is None
+
+
+def test_cli_ollama_chat_smoke_uses_fake_call(tmp_path: Path, monkeypatch) -> None:
+    import recover_attention.recover_generation as recovery_generation
+
+    input_path = tmp_path / "masked_questions.jsonl"
+    output_path = tmp_path / "recover_outputs.jsonl"
+    write_jsonl([masked_question_record()], input_path)
+
+    def fake_call_ollama_chat(
+        prompt: str,
+        model: str,
+        base_url: str = DEFAULT_OLLAMA_BASE_URL,
+        temperature: float = DEFAULT_TEMPERATURE,
+        top_p: float = DEFAULT_TOP_P,
+        max_tokens: int = DEFAULT_MAX_TOKENS,
+        timeout: int = DEFAULT_TIMEOUT,
+        seed: int | None = DEFAULT_SEED,
+    ) -> str:
+        return "Recovered question: Tom has 3 apples and buys 2 more."
+
+    monkeypatch.setattr(recovery_generation, "call_ollama_chat", fake_call_ollama_chat)
+    module = load_recovery_cli_module()
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "08_run_recovery.py",
+            "--input",
+            str(input_path),
+            "--output",
+            str(output_path),
+            "--backend",
+            OLLAMA_CHAT_BACKEND,
+            "--model",
+            "fake-model",
+            "--num-samples",
+            "1",
+            "--limit",
+            "1",
+        ],
+    )
+
+    module.main()
+
+    records = read_jsonl(output_path)
+    assert len(records) == 1
+    assert records[0]["recovered_question"] == "Tom has 3 apples and buys 2 more."
+    assert records[0]["recovery_backend"] == OLLAMA_CHAT_BACKEND
+    assert validate_recover_output_record(records[0]) is None
+
+
 def test_batch_stats_fields_are_complete() -> None:
     records, stats = build_recover_output_records([masked_question_record()])
 
@@ -235,6 +480,14 @@ def test_batch_stats_fields_are_complete() -> None:
         "num_output_recoveries": 1,
         "num_samples": 1,
         "recovery_backend": "oracle_stub_v0",
+        "model": "qwen3.5:9b",
+        "ollama_base_url": "http://localhost:11434",
+        "temperature": 0.0,
+        "top_p": 1.0,
+        "max_tokens": 128,
+        "timeout": 120,
+        "seed": 42,
+        "num_empty_recoveries": 0,
         "unit_scope_counts": {"single": 1},
         "group_type_counts": {"single": 1},
         "mask_backend_counts": {"unit_mask_v0": 1},

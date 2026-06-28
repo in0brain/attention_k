@@ -102,11 +102,22 @@ recovery.
 
 ```text
 oracle_stub_v0
+ollama_chat_v0
 ```
 
-This backend is a pipeline-verification stub. It may use source metadata such as
-`original_question` and `spans`, so its outputs must not be interpreted as real
-recovery performance.
+Backend meanings:
+
+```text
+oracle_stub_v0:
+  Pipeline-verification stub. It may use source metadata such as
+  original_question and spans, so its outputs must not be interpreted as real
+  recovery performance.
+
+ollama_chat_v0:
+  Real local LLM recovery backend using the local Ollama HTTP API.
+  Its prompt may use only masked_question, mask_token, mask count, and minimal
+  instructions. It must not pass original_question or spans[*].text to the LLM.
+```
 
 ---
 
