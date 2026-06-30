@@ -22,12 +22,13 @@ Token / Span Intervention
 当前阶段：
 
 ```text
-Sprint 2C 已完成：Probe Dataset Construction。
-probe_dataset_mapping_v0 已读取 Sprint 2B 的正式 representation_features.jsonl 与 representation_feature_report.json，并基于 human metadata 构造 probe targets。
-正式输出为 outputs/logs/sprint_2C_probe_dataset/probe_dataset.jsonl 和 probe_dataset_report.json。
-Target mapping：risk_positive=7，positive_anchor=3，negative=8，hard_negative_or_weak_positive=2，unmapped=0。
-本阶段未读取 hidden-state tensors，未重新抽取 features，未划分 train/dev/test，未训练 probe，未生成 guidance candidate，未执行 attention guidance。
-下一步建议是 Sprint 2D：Probe Training Baseline。
+Sprint 2D 已完成：Probe Training Baseline。
+probe_training_baseline_v0 已读取 Sprint 2C probe_dataset.jsonl / probe_dataset_report.json，并训练最小线性 ridge one-vs-rest probe baseline。
+正式输出为 outputs/logs/sprint_2D_probe_training_baseline/probe_predictions.jsonl、probe_eval_report.json 和 probe_model.pkl。
+训练设置：model=ridge_classifier_ovr_v0，cv=leave_one_out，seed=42，null feature strategy=zero impute + missing indicators，feature scaling=train-fold z-score。
+诊断结果：num_predictions=20，accuracy=0.85，macro_f1=0.680952380952381，majority_baseline_accuracy=0.4。
+本阶段未读取 hidden-state tensors，未重新抽取 representation features，未重构 probe dataset，未生成 guidance candidate，未执行 attention steering，未声称 hallucination reduction。
+下一步建议是 Sprint 2E：Guidance Candidate Manifest Dry Run。
 ```
 
 当前不做：
@@ -36,7 +37,7 @@ Target mapping：risk_positive=7，positive_anchor=3，negative=8，hard_negativ
 - 重跑 NLI
 - 修改 recovery prompt / recovery scoring / masked question construction
 - 重跑 hidden-state cache
-- 训练 probe
+- 重训 probe 或扩展 probe training
 - 构造 probe train/dev/test split
 - 执行 attention guidance
 - 联网下载模型
@@ -85,6 +86,7 @@ Target mapping：risk_positive=7，positive_anchor=3，negative=8，hard_negativ
 | Sprint 2B | 完成 | Representation Feature Extraction |
 | Sprint 2B-fix | 完成 | Representation Feature Extraction Scope Alignment |
 | Sprint 2C | 完成 | Probe Dataset Construction |
+| Sprint 2D | 完成 | Probe Training Baseline |
 
 详细历史见：
 
@@ -119,13 +121,14 @@ conda run -n recover_attention python scripts/15_consolidate_human_review.py
 conda run -n recover_attention python scripts/16_cache_hidden_states.py --input outputs/logs/sprint_1Q_real_signal_quality_review/sprint_1Q_to_2A_manifest.jsonl --output-dir outputs/logs/sprint_2A_hidden_state_cache_baseline --backend stub_hidden_state_v0 --layer-indices 0 1 2 --hidden-size 8 --mask-token "[MASK]" --overwrite
 conda run -n recover_attention python scripts/17_extract_representation_features.py --input-manifest outputs/logs/sprint_2A_real_hidden_state_cache/hidden_state_manifest.jsonl --input-report outputs/logs/sprint_2A_real_hidden_state_cache/hidden_state_cache_report.json --alignment-report outputs/logs/sprint_2A_real_hidden_state_cache/token_alignment_report.json --metadata outputs/logs/sprint_2A_real_hidden_state_cache/real_run_metadata.json --output-dir outputs/logs/sprint_2B_representation_features --backend representation_features_minimal_v0 --overwrite
 conda run -n recover_attention python scripts/18_build_probe_dataset.py --features outputs/logs/sprint_2B_representation_features/representation_features.jsonl --feature-report outputs/logs/sprint_2B_representation_features/representation_feature_report.json --output-dir outputs/logs/sprint_2C_probe_dataset --backend probe_dataset_mapping_v0 --overwrite
+conda run -n recover_attention python scripts/19_train_probe_baseline.py --dataset outputs/logs/sprint_2C_probe_dataset/probe_dataset.jsonl --dataset-report outputs/logs/sprint_2C_probe_dataset/probe_dataset_report.json --output-dir outputs/logs/sprint_2D_probe_training_baseline --backend probe_training_baseline_v0 --model ridge_classifier_ovr_v0 --cv leave_one_out --seed 42 --overwrite
 conda run -n recover_attention python -m pytest -q
 ```
 
 最近一次检查结果：
 
 ```text
-pytest: 484 passed, 2 skipped
+pytest: 493 passed, 2 skipped
 smoke test: passed
 candidate extraction: passed
 ablation unit construction: passed
@@ -197,6 +200,15 @@ probe_dataset_report: num_probe_records=20, num_probe_target_usable=20, num_unma
 probe target counts: risk_positive=7, positive_anchor=3, negative=8, hard_negative_or_weak_positive=2
 null representation features retained: records_with_null_position_features=8
 targeted probe dataset pytest: 7 passed
+probe training baseline: passed, backend=probe_training_baseline_v0, output_dir=outputs/logs/sprint_2D_probe_training_baseline
+probe_predictions.jsonl: 20 records
+probe_eval_report: status=ok, model=ridge_classifier_ovr_v0, cv=leave_one_out, num_folds=20
+probe baseline metrics: accuracy=0.85, macro_f1=0.680952380952381, weighted_f1=0.8285714285714285
+binary anchor_or_risk metrics: accuracy=0.9, macro_f1=0.898989898989899
+majority baseline: label=negative, accuracy=0.4, macro_f1=0.14285714285714288
+feature flattening: num_base_features=99, num_features_with_missing_indicators=198
+probe_model.pkl: saved
+targeted probe training pytest: 9 passed
 ```
 
 ## 4. 当前关键文件状态
@@ -222,6 +234,7 @@ targeted probe dataset pytest: 7 passed
 - src/recover_attention/hidden_state_cache.py
 - src/recover_attention/representation_features.py
 - src/recover_attention/probe_dataset.py
+- src/recover_attention/probe_training.py
 - scripts/00_smoke_test.py
 - scripts/01_prepare_data.py
 - scripts/02_extract_candidate_spans.py
@@ -241,6 +254,7 @@ targeted probe dataset pytest: 7 passed
 - scripts/16_cache_hidden_states.py
 - scripts/17_extract_representation_features.py
 - scripts/18_build_probe_dataset.py
+- scripts/19_train_probe_baseline.py
 - tests/test_data_io.py
 - tests/test_schemas.py
 - tests/test_prepare_data.py
@@ -262,6 +276,7 @@ targeted probe dataset pytest: 7 passed
 - tests/test_hidden_state_cache.py
 - tests/test_representation_features.py
 - tests/test_probe_dataset.py
+- tests/test_probe_training.py
 - data/processed/candidate_spans.jsonl
 - data/processed/ablation_units.jsonl
 - data/processed/ablated_questions.jsonl
@@ -318,6 +333,10 @@ targeted probe dataset pytest: 7 passed
 - outputs/logs/sprint_2B_representation_features/feature_schema.json（deprecated_extra_outputs）
 - outputs/logs/sprint_2C_probe_dataset/probe_dataset.jsonl
 - outputs/logs/sprint_2C_probe_dataset/probe_dataset_report.json
+- outputs/logs/sprint_2D_probe_training_baseline/probe_predictions.jsonl
+- outputs/logs/sprint_2D_probe_training_baseline/probe_eval_report.json
+- outputs/logs/sprint_2D_probe_training_baseline/probe_model.pkl
+- outputs/logs/sprint_2D_probe_training_baseline/probe_feature_index.json（optional debug output）
 - docs/skill/semantic_labels_interface.md
 - docs/skill/recover_outputs_interface.md
 - docs/skill/recover_scores_interface.md
@@ -330,9 +349,9 @@ targeted probe dataset pytest: 7 passed
 
 下一阶段可能新增或修改：
 
-- probe training baseline（Sprint 2D）
+- guidance candidate manifest dry run（Sprint 2E）
 
-具体以后续 Sprint 2D task card 为准。
+具体以后续 Sprint 2E task card 为准。
 
 ## 5. 当前遗留问题
 
@@ -353,9 +372,10 @@ targeted probe dataset pytest: 7 passed
 - Sprint 2B 正式输出已收口为 representation_features.jsonl 和 representation_feature_report.json；旧 debug 输出不作为 2C 输入契约。
 - Sprint 2B 只抽取 representation features，不构造 probe dataset，不选择 target，不划分 train/dev/test，不生成 guidance candidate manifest。
 - Sprint 2C 只构造 probe dataset，不划分 train/dev/test，不训练 probe，不生成 predictions / eval report / model file，不生成 guidance candidate manifest。
-- 真实 hidden-state cache、2B representation features 和 2C probe dataset 只说明数据构造流程完成，不代表 probe、attention guidance 或 hallucination reduction 已验证。
+- Sprint 2D 只训练最小 probe baseline 并输出诊断指标，不生成 guidance candidate manifest，不执行 attention guidance。
+- 真实 hidden-state cache、2B representation features、2C probe dataset 和 2D probe baseline 只说明最小训练闭环跑通，不代表 attention guidance 或 hallucination reduction 已验证。
 - `docs/skill/nli_scores_interface.md` 仍有旧阶段文字提到 Sprint 1D 只支持 `stub_v0`；Sprint 1N task card 禁止修改 interface docs，本轮以脚本、schema 和测试为准。
-- 当前没有接入 attention maps / trajectory stability / answer stability / raw attention / attention guidance / probe training。
+- 当前没有接入 attention maps / trajectory stability / answer stability / raw attention / attention guidance。
 - 当前没有声称 attention guidance 有效，也没有声称减少 hallucination。
 
 ## 6. 下一步
@@ -363,12 +383,12 @@ targeted probe dataset pytest: 7 passed
 下一步建议：
 
 ```text
-Sprint 2D：Probe Training Baseline
+Sprint 2E：Guidance Candidate Manifest Dry Run
 ```
 
 注意：
 
 ```text
-不要自动开始 Sprint 2D。
-必须先有 Sprint 2D task card 或用户明确指令。
+不要自动开始 Sprint 2E。
+必须先有 Sprint 2E task card 或用户明确指令。
 ```

@@ -365,6 +365,111 @@ git status --short
 
 Sprint 2D：Probe Training Baseline.
 
+## Sprint 2D：Probe Training Baseline
+
+### Goal
+
+Train a minimal hidden-state probe baseline from Sprint 2C probe dataset.
+
+### Completed
+
+- Implemented `src/recover_attention/probe_training.py`.
+- Implemented `scripts/19_train_probe_baseline.py`.
+- Added `tests/test_probe_training.py`.
+- Read only the formal Sprint 2C inputs:
+  - `outputs/logs/sprint_2C_probe_dataset/probe_dataset.jsonl`
+  - `outputs/logs/sprint_2C_probe_dataset/probe_dataset_report.json`
+- Flattened `feature_values` scalar features and `feature_arrays` layer-wise features.
+- Converted null numeric features to `0.0` with `__is_missing` indicator features.
+- Used train-fold z-score standardization for cross-validation.
+- Trained a deterministic numpy-based one-vs-rest ridge classifier because `scikit-learn` is not installed in the current environment.
+- Ran leave-one-out cross-validation over 20 usable records.
+- Saved the final model bundle trained on all usable records.
+
+### Inputs
+
+```text
+outputs/logs/sprint_2C_probe_dataset/probe_dataset.jsonl
+outputs/logs/sprint_2C_probe_dataset/probe_dataset_report.json
+```
+
+### Outputs
+
+```text
+outputs/logs/sprint_2D_probe_training_baseline/probe_predictions.jsonl
+outputs/logs/sprint_2D_probe_training_baseline/probe_eval_report.json
+outputs/logs/sprint_2D_probe_training_baseline/probe_model.pkl
+outputs/logs/sprint_2D_probe_training_baseline/probe_feature_index.json
+```
+
+`probe_feature_index.json` is an optional debug output and is not a 2E input contract.
+
+### New Or Modified Files
+
+- src/recover_attention/probe_training.py
+- scripts/19_train_probe_baseline.py
+- tests/test_probe_training.py
+- PROGRESS.md
+- docs/progress/sprint_2_history.md
+- outputs/logs/sprint_2D_probe_training_baseline/probe_predictions.jsonl
+- outputs/logs/sprint_2D_probe_training_baseline/probe_eval_report.json
+- outputs/logs/sprint_2D_probe_training_baseline/probe_model.pkl
+- outputs/logs/sprint_2D_probe_training_baseline/probe_feature_index.json
+
+### Training Setup
+
+- backend: `probe_training_baseline_v0`
+- model: `ridge_classifier_ovr_v0`
+- cross validation: `leave_one_out`
+- target: `probe_target`
+- null feature strategy: zero impute + missing indicators
+- scaling: train-fold z-score
+- seed: 42
+- num_base_features: 99
+- num_features_with_missing_indicators: 198
+
+### Commands
+
+```bash
+conda run -n recover_attention python -m pytest tests/test_probe_training.py -q
+conda run -n recover_attention python scripts/19_train_probe_baseline.py --dataset outputs/logs/sprint_2C_probe_dataset/probe_dataset.jsonl --dataset-report outputs/logs/sprint_2C_probe_dataset/probe_dataset_report.json --output-dir outputs/logs/sprint_2D_probe_training_baseline --backend probe_training_baseline_v0 --model ridge_classifier_ovr_v0 --cv leave_one_out --seed 42 --overwrite
+conda run -n recover_attention python -m pytest -q
+git diff --name-only
+git status --short
+```
+
+### Checks
+
+- targeted pytest: 9 passed.
+- training command: passed.
+- full pytest: 493 passed, 2 skipped.
+- num_predictions: 20.
+- status: `ok`.
+- accuracy: 0.85.
+- macro_f1: 0.680952380952381.
+- weighted_f1: 0.8285714285714285.
+- binary_anchor_or_risk_accuracy: 0.9.
+- binary_anchor_or_risk_macro_f1: 0.898989898989899.
+- majority baseline label: `negative`.
+- majority baseline accuracy: 0.4.
+- majority baseline macro_f1: 0.14285714285714288.
+- `probe_model.pkl`: saved.
+
+### Notes
+
+- Scores are diagnostic only because the dataset has only 20 human-reviewed records.
+- Feature and layer signal summaries are not causal claims.
+- No hidden-state tensors were read.
+- No Sprint 2B representation features were read as training input.
+- No probe dataset was rebuilt.
+- No guidance candidate manifest was generated.
+- No attention steering was performed.
+- No hallucination reduction claim was made.
+
+### Next
+
+Sprint 2E：Guidance Candidate Manifest Dry Run.
+
 ## Sprint 2A-real：Real Hidden State Cache Run
 
 已完成内容：
