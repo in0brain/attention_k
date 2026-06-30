@@ -1901,3 +1901,85 @@ upgraded_downstream_report.json 关键统计摘要：
 下一步建议：
 
 - Sprint 1Q：Real Signal Quality Review。
+
+## Sprint 1R：Human Review Consolidation & Known Issue Freeze
+
+已完成内容：
+
+- 新增 `src/recover_attention/human_review_consolidation.py`。
+- 新增 `scripts/15_consolidate_human_review.py`。
+- 修正 1R consolidator 边界：只读取并校验 Sprint 1Q 结构化 JSONL / report JSON，不再写回或覆盖这两个输入文件。
+- 生成 `sprint_1Q_human_review_summary.json`。
+- 生成 `sprint_1Q_known_issues.md`。
+- 生成 Sprint 2A hidden-state 输入 manifest：`sprint_1Q_to_2A_manifest.jsonl`。
+- 新增测试明确校验运行前后 labels JSONL 与 report JSON 内容不变。
+- 未重跑 Ollama，未重跑 NLI，未修改 recovery prompt / recovery scoring / masked question construction / unit-group 生成逻辑。
+- 未训练 probe，未缓存 hidden states，未执行 attention guidance。
+
+新增/修改文件：
+
+- src/recover_attention/human_review_consolidation.py
+- scripts/15_consolidate_human_review.py
+- tests/test_human_review_consolidation.py
+- outputs/logs/sprint_1Q_real_signal_quality_review/sprint_1Q_human_review_summary.json
+- outputs/logs/sprint_1Q_real_signal_quality_review/sprint_1Q_known_issues.md
+- outputs/logs/sprint_1Q_real_signal_quality_review/sprint_1Q_to_2A_manifest.jsonl
+- PROGRESS.md
+- docs/progress/sprint_1_history.md
+
+输入文件：
+
+```text
+outputs/logs/sprint_1Q_real_signal_quality_review/sprint_1Q_human_review_labels_template.jsonl
+outputs/logs/sprint_1Q_real_signal_quality_review/upgraded_downstream_report_with_human_fields.json
+```
+
+输出文件：
+
+```text
+outputs/logs/sprint_1Q_real_signal_quality_review/sprint_1Q_human_review_summary.json
+outputs/logs/sprint_1Q_real_signal_quality_review/sprint_1Q_known_issues.md
+outputs/logs/sprint_1Q_real_signal_quality_review/sprint_1Q_to_2A_manifest.jsonl
+```
+
+运行命令：
+
+```bash
+conda run -n recover_attention python --version
+conda run -n recover_attention python -m pytest tests/test_human_review_consolidation.py -q
+conda run -n recover_attention python scripts/15_consolidate_human_review.py
+conda run -n recover_attention python -m pytest -q
+git diff --name-only
+git status --short
+```
+
+检查结果：
+
+- `conda run -n recover_attention python --version`：Python 3.10.20。
+- `tests/test_human_review_consolidation.py`：8 passed。
+- `scripts/15_consolidate_human_review.py`：passed，`validation_warning_count=0`。
+- 全量 pytest：443 passed, 2 skipped。
+- reviewed_count：20。
+- unreviewed_count：0。
+- manifest_count：20。
+- auto_vs_human_recoverability_disagreement_count：3。
+- auto_vs_human_attention_anchor_disagreement_count：4。
+- fragment_recovery_count：6。
+- wrong_numeric_recovery_count：6。
+- generic_recovery_count：3。
+- misleading_entity_or_unit_count：1。
+- read-only hash check：`sprint_1Q_human_review_labels_template.jsonl`、`upgraded_downstream_report_with_human_fields.json`、`sprint_1Q_human_review_sheet.md` 运行前后 SHA256 不变。
+
+遗留问题：
+
+- Sprint 1Q human review guide 的审查表仍为空；本轮使用已填好的 `sprint_1Q_human_review_labels_template.jsonl` 作为结构化来源，只读校验 report JSON，不重新同步或覆盖 report JSON。
+- full-question recovery alignment 仅记录为 deferred，未实现。
+- span-aware recovery validation 仅记录为 deferred，未实现。
+- entity/unit consistency check 仅记录为 deferred，未实现。
+- unit/group mask budget control 仅记录为 deferred，未实现。
+- Sprint 2A manifest 只包含 hidden-state 阶段需要的最小字段，不包含 hidden states。
+- 当前没有声称 attention guidance 有效，也没有声称减少 hallucination。
+
+下一步建议：
+
+- Sprint 2A：Hidden State Cache Baseline。
