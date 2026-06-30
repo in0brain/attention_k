@@ -83,7 +83,7 @@ git status --short
 
 - Sprint 2B：Representation Feature Extraction。
 
-## Sprint 2A-real：Real Hidden State Cache Run（blocked）
+## Sprint 2A-real：Real Hidden State Cache Run
 
 已完成内容：
 
@@ -109,6 +109,9 @@ git status --short
 - 实现 4bit run 的 bitsandbytes 缺失检测。
 - 实现 layer index 越界过滤与 warning。
 - 新增/更新测试覆盖真实 backend 参数解析、本地模型路径缺失、`local_files_only=True`、4bit 参数解析、bitsandbytes 缺失阻断和 layer index 过滤。
+- 使用本地 HF causal LM backend 完成 Sprint 1R manifest 中 20 条 reviewed cases 的真实 hidden-state cache。
+- 输出 `hidden_state_manifest.jsonl`、`hidden_state_cache_report.json`、`token_alignment_report.json` 和 `real_run_metadata.json`。
+- 保持 Sprint 1Q / 1R / 2A stub 产物只读。
 
 输入文件：
 
@@ -126,11 +129,12 @@ outputs/logs/sprint_2A_real_hidden_state_cache/real_run_metadata.json
 outputs/logs/sprint_2A_real_hidden_state_cache/hidden_states/*.pt
 ```
 
-实际输出状态：
+实际输出状态：passed。
+
+output_dir：
 
 ```text
-blocked_by_missing_bitsandbytes
-outputs/logs/sprint_2A_real_hidden_state_cache/ 未生成成功产物
+outputs/logs/sprint_2A_real_hidden_state_cache
 ```
 
 新增或修改文件：
@@ -157,23 +161,22 @@ git status --short
 - 全量 pytest：465 passed, 2 skipped。
 - 本地模型路径检查：`D:/models/Qwen2.5-7B-Instruct` 存在。
 - Sprint 2A stub 输出检查：`hidden_state_manifest.jsonl`、`hidden_state_cache_report.json`、`token_alignment_report.json` 均存在。
-- `transformers`：可用。
-- `torch`：可用。
-- `bitsandbytes`：缺失。
-- 真实 4bit cache command：blocked by missing bitsandbytes。
-- 未 fallback 到 fp16 全量加载。
-- 未联网下载模型。
-- 未生成真实 hidden-state 成功报告。
+- 2A-real real hidden-state cache run：passed。
+- backend：`hf_local_causal_lm_hidden_states_v0`。
+- output_dir：`outputs/logs/sprint_2A_real_hidden_state_cache`。
+- `hidden_state_manifest.jsonl`：60 records。
+- `hidden_state_cache_report.json`：`num_cases=20`，`num_inputs_total=60`，`num_hidden_state_files=60`。
+- `real_run_metadata.json`：`backend=hf_local_causal_lm_hidden_states_v0`，`num_cases=20`，`num_inputs_total=60`。
 - 未修改 Sprint 1Q / 1R / 2A stub 输出。
 
 遗留问题：
 
-- 当前真实 hidden-state cache run 未完成，原因是 `recover_attention` 环境缺少 `bitsandbytes`。
-- 当前没有 `outputs/logs/sprint_2A_real_hidden_state_cache/hidden_state_manifest.jsonl` 可供后续真实 representation feature extraction 消费。
-- 不应将 Sprint 2A-real 标记为完成。
-- 安装或修复 bitsandbytes 后，应重跑同一真实 4bit cache 命令。
-- 不要未经用户确认改用 fp16 全量加载或其他更高显存配置。
+- 当前只完成真实 hidden states 缓存，尚未抽取 representation features。
+- 当前不分析 hidden-state distance。
+- 当前不训练 probe。
+- 当前不执行 attention guidance。
+- 后续 Sprint 2B 读取真实 cache 进行 representation feature extraction。
 
 下一步建议：
 
-- 安装/修复 `bitsandbytes` 后重跑 Sprint 2A-real 真实 hidden-state cache。
+- Sprint 2B：Representation Feature Extraction。

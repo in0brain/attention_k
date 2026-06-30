@@ -22,10 +22,10 @@ Token / Span Intervention
 当前阶段：
 
 ```text
-Sprint 2A-real implementation prepared，但真实 4bit hidden-state cache run 被 blocked_by_missing_bitsandbytes 阻断。
-hf_local_causal_lm_hidden_states_v0 的本地 HF backend、CLI 参数、local_files_only=True 边界、bitsandbytes 缺失检测和测试已准备完成。
-真实输出目录 outputs/logs/sprint_2A_real_hidden_state_cache 未生成成功产物；未 fallback 到 fp16 全量加载，未联网下载模型，未修改 Sprint 1Q / 1R / 2A stub 输出。
-下一步建议是安装/修复 bitsandbytes 后重跑 Sprint 2A-real 真实 cache 命令，或由用户明确确认其他低显存本地方案。
+Sprint 2A-real 已完成：Real Hidden State Cache Run。
+hf_local_causal_lm_hidden_states_v0 已使用本地 HF causal LM 对 Sprint 1R manifest 的 20 条 reviewed cases 缓存真实 hidden states。
+真实输出目录为 outputs/logs/sprint_2A_real_hidden_state_cache；未修改 Sprint 1Q / 1R / 2A stub 输出，未训练 probe，未执行 representation analysis 或 attention guidance。
+下一步建议是 Sprint 2B：Representation Feature Extraction。
 ```
 
 当前不做：
@@ -35,7 +35,6 @@ hf_local_causal_lm_hidden_states_v0 的本地 HF backend、CLI 参数、local_fi
 - 修改 recovery prompt / recovery scoring / masked question construction
 - 训练 probe
 - 执行 attention guidance
-- fallback 到 fp16 全量加载真实 HF 模型
 - 联网下载模型
 - 大规模实验
 
@@ -78,7 +77,7 @@ hf_local_causal_lm_hidden_states_v0 的本地 HF backend、CLI 参数、local_fi
 | Sprint 1Q | 完成 | Real Signal Quality Review human labels |
 | Sprint 1R | 完成 | Human Review Consolidation & Known Issue Freeze |
 | Sprint 2A | 完成 | Hidden State Cache Baseline |
-| Sprint 2A-real | 阻塞 | Real hidden-state cache backend prepared；run blocked by missing bitsandbytes |
+| Sprint 2A-real | 完成 | Real Hidden State Cache Run |
 
 详细历史见：
 
@@ -170,7 +169,8 @@ hidden state input_type_counts: {original: 20, masked: 20, recovered: 20}
 token alignment report: single_mask_cases=17, group_mask_cases=3, fragment_recovery_outputs=8, alignment_warning_count=8
 hidden state cache read-only check: Sprint 1Q / 1R input hashes unchanged
 real hidden state backend implementation: prepared, backend=hf_local_causal_lm_hidden_states_v0
-real hidden state 4bit run: blocked_by_missing_bitsandbytes, no fp16 fallback attempted, no real output manifest generated
+real hidden state cache run: passed, backend=hf_local_causal_lm_hidden_states_v0, output_dir=outputs/logs/sprint_2A_real_hidden_state_cache
+real hidden state cache outputs: hidden_state_manifest.jsonl=60 records, num_cases=20, num_inputs_total=60, num_hidden_state_files=60
 sync_interface_fields --check: all in sync
 ```
 
@@ -275,6 +275,11 @@ sync_interface_fields --check: all in sync
 - outputs/logs/sprint_2A_hidden_state_cache_baseline/hidden_state_cache_report.json
 - outputs/logs/sprint_2A_hidden_state_cache_baseline/token_alignment_report.json
 - outputs/logs/sprint_2A_hidden_state_cache_baseline/hidden_states/*.pt
+- outputs/logs/sprint_2A_real_hidden_state_cache/hidden_state_manifest.jsonl
+- outputs/logs/sprint_2A_real_hidden_state_cache/hidden_state_cache_report.json
+- outputs/logs/sprint_2A_real_hidden_state_cache/token_alignment_report.json
+- outputs/logs/sprint_2A_real_hidden_state_cache/real_run_metadata.json
+- outputs/logs/sprint_2A_real_hidden_state_cache/hidden_states/*.pt
 - docs/skill/semantic_labels_interface.md
 - docs/skill/recover_outputs_interface.md
 - docs/skill/recover_scores_interface.md
@@ -307,10 +312,10 @@ sync_interface_fields --check: all in sync
 - Sprint 2A hidden states 来自 deterministic stub backend，不是真实模型 hidden states。
 - Sprint 2A token alignment 是基础 deterministic 对齐，不处理复杂 paraphrase。
 - Sprint 2A recovered fragment 输出只记录 warning，不中断 cache；后续在 2B / 2C 判断是否保留。
-- Sprint 2A-real 的真实 backend 已实现本地 `local_files_only=True` 加载边界，但当前 `recover_attention` 环境缺少 `bitsandbytes`，4bit 真实 cache run 已按 task card 停止。
-- `outputs/logs/sprint_2A_real_hidden_state_cache/` 未生成成功产物；当前没有真实 hidden states cache 可供 2B 消费。
+- Sprint 2A-real 已生成真实 hidden states cache，但尚未做 representation feature extraction。
+- 真实 hidden-state cache 只说明缓存流程完成，不代表 probe、attention guidance 或 hallucination reduction 已验证。
 - `docs/skill/nli_scores_interface.md` 仍有旧阶段文字提到 Sprint 1D 只支持 `stub_v0`；Sprint 1N task card 禁止修改 interface docs，本轮以脚本、schema 和测试为准。
-- 当前没有接入真实 hidden states / attention maps / trajectory stability / answer stability / raw attention / attention guidance / probe。
+- 当前没有接入 attention maps / trajectory stability / answer stability / raw attention / attention guidance / probe。
 - 当前没有声称 attention guidance 有效，也没有声称减少 hallucination。
 
 ## 6. 下一步
@@ -318,12 +323,12 @@ sync_interface_fields --check: all in sync
 下一步建议：
 
 ```text
-安装/修复 bitsandbytes 后重跑 Sprint 2A-real 真实 hidden-state cache。
+Sprint 2B：Representation Feature Extraction
 ```
 
 注意：
 
 ```text
-不要自动 fallback 到 fp16 全量加载。
-真实 cache 成功前，不要将 Sprint 2A-real 标记为完成。
+不要自动开始 Sprint 2B。
+必须先有 Sprint 2B task card 或用户明确指令。
 ```
