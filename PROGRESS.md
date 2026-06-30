@@ -22,10 +22,12 @@ Token / Span Intervention
 当前阶段：
 
 ```text
-Sprint 2A-real 已完成：Real Hidden State Cache Run。
-hf_local_causal_lm_hidden_states_v0 已使用本地 HF causal LM 对 Sprint 1R manifest 的 20 条 reviewed cases 缓存真实 hidden states。
-真实输出目录为 outputs/logs/sprint_2A_real_hidden_state_cache；未修改 Sprint 1Q / 1R / 2A stub 输出，未训练 probe，未执行 representation analysis 或 attention guidance。
-下一步建议是 Sprint 2B：Representation Feature Extraction。
+Sprint 2B-fix 已完成：Representation Feature Extraction Scope Alignment。
+representation_features_minimal_v0 已从 Sprint 2A-real hidden-state cache 中按 masked_id 逐 case 提取最小 representation features。
+正式输出为 outputs/logs/sprint_2B_representation_features/representation_features.jsonl 和 representation_feature_report.json。
+旧 debug 输出 representation_feature_manifest.jsonl / input_representation_summary.jsonl / feature_schema.json 已降级为 deprecated_extra_outputs，不作为 2B 验收或 2C 输入契约。
+本阶段未重跑 HF forward，未修改 Sprint 1Q / 1R / 2A / 2A-real 输出，未构造 probe dataset，未训练 probe，未执行 attention guidance。
+下一步建议是 Sprint 2C：Probe Dataset Construction。
 ```
 
 当前不做：
@@ -33,7 +35,9 @@ hf_local_causal_lm_hidden_states_v0 已使用本地 HF causal LM 对 Sprint 1R m
 - 重跑 Ollama
 - 重跑 NLI
 - 修改 recovery prompt / recovery scoring / masked question construction
+- 重跑 hidden-state cache
 - 训练 probe
+- 构造 probe train/dev/test split
 - 执行 attention guidance
 - 联网下载模型
 - 大规模实验
@@ -78,12 +82,15 @@ hf_local_causal_lm_hidden_states_v0 已使用本地 HF causal LM 对 Sprint 1R m
 | Sprint 1R | 完成 | Human Review Consolidation & Known Issue Freeze |
 | Sprint 2A | 完成 | Hidden State Cache Baseline |
 | Sprint 2A-real | 完成 | Real Hidden State Cache Run |
+| Sprint 2B | 完成 | Representation Feature Extraction |
+| Sprint 2B-fix | 完成 | Representation Feature Extraction Scope Alignment |
 
 详细历史见：
 
 ```text
 docs/progress/sprint_0_history.md
 docs/progress/sprint_1_history.md
+docs/progress/sprint_2_history.md
 ```
 
 ## 3. 当前可运行命令
@@ -109,13 +116,14 @@ conda run -n recover_attention python scripts/13_rebuild_downstream_real_signals
 conda run -n recover_attention python scripts/14_rebuild_downstream_upgraded_recovery_scoring.py --semantic-labels outputs/logs/sprint_1N_real_downstream/semantic_labels_real.jsonl --upgraded-recover-scores outputs/logs/sprint_1O_recovery_scoring/recover_scores_nli_judge.jsonl --baseline-recover-scores outputs/logs/sprint_1N_real_downstream/recover_scores_real.jsonl --baseline-unit-evidence outputs/logs/sprint_1N_real_downstream/unit_evidence_real.jsonl --baseline-attention-anchor-labels outputs/logs/sprint_1N_real_downstream/attention_anchor_labels_real.jsonl --baseline-intervention-manifest outputs/logs/sprint_1N_real_downstream/intervention_manifest_real.jsonl --baseline-report outputs/logs/sprint_1N_real_downstream/real_signal_report.json --output-dir outputs/logs/sprint_1P_upgraded_downstream --unit-evidence-backend aggregate_stub_v0 --attention-label-backend early_evidence_rule_stub_v0 --intervention-type mask --intervention-backend manifest_stub_v0 --mask-token "[MASK]"
 conda run -n recover_attention python scripts/15_consolidate_human_review.py
 conda run -n recover_attention python scripts/16_cache_hidden_states.py --input outputs/logs/sprint_1Q_real_signal_quality_review/sprint_1Q_to_2A_manifest.jsonl --output-dir outputs/logs/sprint_2A_hidden_state_cache_baseline --backend stub_hidden_state_v0 --layer-indices 0 1 2 --hidden-size 8 --mask-token "[MASK]" --overwrite
+conda run -n recover_attention python scripts/17_extract_representation_features.py --input-manifest outputs/logs/sprint_2A_real_hidden_state_cache/hidden_state_manifest.jsonl --input-report outputs/logs/sprint_2A_real_hidden_state_cache/hidden_state_cache_report.json --alignment-report outputs/logs/sprint_2A_real_hidden_state_cache/token_alignment_report.json --metadata outputs/logs/sprint_2A_real_hidden_state_cache/real_run_metadata.json --output-dir outputs/logs/sprint_2B_representation_features --backend representation_features_minimal_v0 --overwrite
 conda run -n recover_attention python -m pytest -q
 ```
 
 最近一次检查结果：
 
 ```text
-pytest: 465 passed, 2 skipped
+pytest: 477 passed, 2 skipped
 smoke test: passed
 candidate extraction: passed
 ablation unit construction: passed
@@ -171,6 +179,15 @@ hidden state cache read-only check: Sprint 1Q / 1R input hashes unchanged
 real hidden state backend implementation: prepared, backend=hf_local_causal_lm_hidden_states_v0
 real hidden state cache run: passed, backend=hf_local_causal_lm_hidden_states_v0, output_dir=outputs/logs/sprint_2A_real_hidden_state_cache
 real hidden state cache outputs: hidden_state_manifest.jsonl=60 records, num_cases=20, num_inputs_total=60, num_hidden_state_files=60
+representation feature extraction scope alignment: passed
+representation feature extraction: passed, backend=representation_features_minimal_v0, output_dir=outputs/logs/sprint_2B_representation_features
+representation_features.jsonl: 20 records
+representation_feature_report: sprint=2B-fix, num_masked_groups=20, num_recovered_variants=20, num_skipped_groups=0, num_skipped_recovered_variants=0
+minimal features: question/span/mask_position cosine distance curves
+position pooled features: nullable, position_pool_feature_null_records=8
+hidden-state tests discovered: tests/test_hidden_state_cache.py; tests/test_hidden_state_cache_hf.py absent and not a failure
+docs/codex_tasks/sprint_2B_representation_feature_extraction.md: pre-existing AM status recorded and scope-aligned
+targeted representation feature pytest: 12 passed
 sync_interface_fields --check: all in sync
 ```
 
@@ -195,6 +212,7 @@ sync_interface_fields --check: all in sync
 - src/recover_attention/human_review_consolidation.py
 - src/recover_attention/token_alignment.py
 - src/recover_attention/hidden_state_cache.py
+- src/recover_attention/representation_features.py
 - scripts/00_smoke_test.py
 - scripts/01_prepare_data.py
 - scripts/02_extract_candidate_spans.py
@@ -212,6 +230,7 @@ sync_interface_fields --check: all in sync
 - scripts/14_rebuild_downstream_upgraded_recovery_scoring.py
 - scripts/15_consolidate_human_review.py
 - scripts/16_cache_hidden_states.py
+- scripts/17_extract_representation_features.py
 - tests/test_data_io.py
 - tests/test_schemas.py
 - tests/test_prepare_data.py
@@ -231,6 +250,7 @@ sync_interface_fields --check: all in sync
 - tests/test_human_review_consolidation.py
 - tests/test_token_alignment.py
 - tests/test_hidden_state_cache.py
+- tests/test_representation_features.py
 - data/processed/candidate_spans.jsonl
 - data/processed/ablation_units.jsonl
 - data/processed/ablated_questions.jsonl
@@ -280,6 +300,11 @@ sync_interface_fields --check: all in sync
 - outputs/logs/sprint_2A_real_hidden_state_cache/token_alignment_report.json
 - outputs/logs/sprint_2A_real_hidden_state_cache/real_run_metadata.json
 - outputs/logs/sprint_2A_real_hidden_state_cache/hidden_states/*.pt
+- outputs/logs/sprint_2B_representation_features/representation_features.jsonl
+- outputs/logs/sprint_2B_representation_features/representation_feature_report.json
+- outputs/logs/sprint_2B_representation_features/representation_feature_manifest.jsonl（deprecated_extra_outputs）
+- outputs/logs/sprint_2B_representation_features/input_representation_summary.jsonl（deprecated_extra_outputs）
+- outputs/logs/sprint_2B_representation_features/feature_schema.json（deprecated_extra_outputs）
 - docs/skill/semantic_labels_interface.md
 - docs/skill/recover_outputs_interface.md
 - docs/skill/recover_scores_interface.md
@@ -292,9 +317,9 @@ sync_interface_fields --check: all in sync
 
 下一阶段可能新增或修改：
 
-- representation feature extraction（Sprint 2B）
+- probe dataset construction（Sprint 2C）
 
-具体以后续 Sprint 2A task card 为准。
+具体以后续 Sprint 2C task card 为准。
 
 ## 5. 当前遗留问题
 
@@ -311,9 +336,10 @@ sync_interface_fields --check: all in sync
 - Sprint 1R 只冻结 known issues，不实现 full-question validator、span-aware numeric scorer、entity/unit consistency scorer 或 unit/group budget selector。
 - Sprint 2A hidden states 来自 deterministic stub backend，不是真实模型 hidden states。
 - Sprint 2A token alignment 是基础 deterministic 对齐，不处理复杂 paraphrase。
-- Sprint 2A recovered fragment 输出只记录 warning，不中断 cache；后续在 2B / 2C 判断是否保留。
-- Sprint 2A-real 已生成真实 hidden states cache，但尚未做 representation feature extraction。
-- 真实 hidden-state cache 只说明缓存流程完成，不代表 probe、attention guidance 或 hallucination reduction 已验证。
+- Sprint 2A recovered fragment 输出只记录 warning，不中断 cache；Sprint 2B 对应 span / mask_position features 可为 null，后续在 2C 判断是否保留或如何标注。
+- Sprint 2B 正式输出已收口为 representation_features.jsonl 和 representation_feature_report.json；旧 debug 输出不作为 2C 输入契约。
+- Sprint 2B 只抽取 representation features，不构造 probe dataset，不选择 target，不划分 train/dev/test，不生成 guidance candidate manifest。
+- 真实 hidden-state cache 和 2B representation features 只说明特征抽取流程完成，不代表 probe、attention guidance 或 hallucination reduction 已验证。
 - `docs/skill/nli_scores_interface.md` 仍有旧阶段文字提到 Sprint 1D 只支持 `stub_v0`；Sprint 1N task card 禁止修改 interface docs，本轮以脚本、schema 和测试为准。
 - 当前没有接入 attention maps / trajectory stability / answer stability / raw attention / attention guidance / probe。
 - 当前没有声称 attention guidance 有效，也没有声称减少 hallucination。
@@ -323,12 +349,12 @@ sync_interface_fields --check: all in sync
 下一步建议：
 
 ```text
-Sprint 2B：Representation Feature Extraction
+Sprint 2C：Probe Dataset Construction
 ```
 
 注意：
 
 ```text
-不要自动开始 Sprint 2B。
-必须先有 Sprint 2B task card 或用户明确指令。
+不要自动开始 Sprint 2C。
+必须先有 Sprint 2C task card 或用户明确指令。
 ```

@@ -83,6 +83,199 @@ git status --short
 
 - Sprint 2B：Representation Feature Extraction。
 
+## Sprint 2B：Representation Feature Extraction
+
+已完成内容：
+
+- 实现 `src/recover_attention/representation_features.py`。
+- 实现 `representation_features_v0`。
+- 按 `masked_id` 分组逐 case 读取 Sprint 2A-real hidden-state cache。
+- 使用 `torch.load(path, map_location="cpu")` 只在 CPU 加载当前 case 需要的 tensor。
+- 为每条 input record 生成 input-level summary。
+- 为每个 masked case × recovered variant 生成一条 feature record，记录数不写死为 20。
+- 提取 global mean pooling 和 last token pooling 的 layer-wise cosine / l2 distance。
+- 提取 recovery closure features。
+- 提取辅助 span-aware pooling features；span/token overlap 缺失时置为 null 并记录 warning，不中断流程。
+- 生成 documentation-only `feature_schema.json`，未接入全局 schema validator。
+- 新增 `scripts/17_extract_representation_features.py`。
+- 新增 `tests/test_representation_features.py`。
+
+输入文件：
+
+```text
+outputs/logs/sprint_2A_real_hidden_state_cache/hidden_state_manifest.jsonl
+outputs/logs/sprint_2A_real_hidden_state_cache/hidden_state_cache_report.json
+outputs/logs/sprint_2A_real_hidden_state_cache/token_alignment_report.json
+outputs/logs/sprint_2A_real_hidden_state_cache/real_run_metadata.json
+outputs/logs/sprint_2A_real_hidden_state_cache/hidden_states/*.pt
+```
+
+输出文件：
+
+```text
+outputs/logs/sprint_2B_representation_features/representation_feature_manifest.jsonl
+outputs/logs/sprint_2B_representation_features/input_representation_summary.jsonl
+outputs/logs/sprint_2B_representation_features/representation_feature_report.json
+outputs/logs/sprint_2B_representation_features/feature_schema.json
+```
+
+新增或修改文件：
+
+- src/recover_attention/representation_features.py
+- scripts/17_extract_representation_features.py
+- tests/test_representation_features.py
+- PROGRESS.md
+- docs/progress/sprint_2_history.md
+
+运行命令：
+
+```bash
+conda run -n recover_attention python -m pytest tests/test_representation_features.py -q
+conda run -n recover_attention python scripts/17_extract_representation_features.py --input-manifest outputs/logs/sprint_2A_real_hidden_state_cache/hidden_state_manifest.jsonl --input-report outputs/logs/sprint_2A_real_hidden_state_cache/hidden_state_cache_report.json --alignment-report outputs/logs/sprint_2A_real_hidden_state_cache/token_alignment_report.json --metadata outputs/logs/sprint_2A_real_hidden_state_cache/real_run_metadata.json --output-dir outputs/logs/sprint_2B_representation_features --backend representation_features_v0 --eps 1e-8 --overwrite
+conda run -n recover_attention python -m pytest -q
+git diff --name-only
+git status --short
+```
+
+检查结果：
+
+- `tests/test_representation_features.py`：11 passed。
+- 2B extraction command：passed。
+- backend：`representation_features_v0`。
+- output_dir：`outputs/logs/sprint_2B_representation_features`。
+- `representation_feature_manifest.jsonl`：20 records。
+- `input_representation_summary.jsonl`：60 records。
+- `representation_feature_report.json`：`num_masked_groups=20`，`num_recovered_variants=20`，`num_skipped_groups=0`，`num_skipped_recovered_variants=0`。
+- source backend：`hf_local_causal_lm_hidden_states_v0`。
+- source layer indices：`[0, 8, 16, 24, 27]`。
+- span-aware auxiliary features：`span_aware_feature_null_records=8`。
+- full pytest：476 passed, 2 skipped。
+
+边界说明：
+
+- 本 sprint 未重跑 HF model forward。
+- 本 sprint 未修改 Sprint 1Q / 1R / 2A / 2A-real outputs。
+- 本 sprint 未使用 GPU。
+- 本 sprint 未构造 probe dataset。
+- 本 sprint 未选择 target label。
+- 本 sprint 未生成 train/dev/test split。
+- 本 sprint 未训练 probe。
+- 本 sprint 未执行 attention guidance。
+- 本 sprint 未声称 hallucination reduction。
+
+遗留问题：
+
+- 2B features 尚未被整理成 2C probe dataset。
+- span-aware features 对 8 条 fragment recovery 相关记录为 nullable，后续 2C 需决定保留策略或标注策略。
+- 当前只完成 representation feature extraction，不验证 feature 对 probe 或 guidance 的有效性。
+
+下一步建议：
+
+- Sprint 2C：Probe Dataset Construction。
+
+## Sprint 2B-fix：Representation Feature Extraction Scope Alignment
+
+### Goal
+
+Align Sprint 2B with the minimal Sprint 2 loop.
+
+2B is responsible for:
+
+```text
+hidden states → representation features
+```
+
+2C is responsible for:
+
+```text
+human labels → probe targets / probe dataset
+```
+
+### Fixes
+
+- Removed the invalid must-read requirement for `tests/test_hidden_state_cache_hf.py`.
+- Confirmed that `tests/test_hidden_state_cache_hf.py` does not exist and its absence is not a failure.
+- Recorded that `docs/codex_tasks/sprint_2B_representation_feature_extraction.md` had pre-existing `AM` status.
+- Restored the 2B output contract:
+  - `representation_features.jsonl`
+  - `representation_feature_report.json`
+- De-scoped `representation_feature_manifest.jsonl`, `input_representation_summary.jsonl`, and `feature_schema.json` as required outputs.
+- Marked legacy/debug files as `deprecated_extra_outputs` in `representation_feature_report.json` when they are present on disk.
+- Restored the minimal feature scope:
+  - mask position representation
+  - span pooled representation
+  - question pooled representation
+  - original vs masked cosine distance
+  - original vs recovered cosine distance
+  - masked vs recovered cosine distance
+  - layer-wise distance curve
+
+### Inputs
+
+```text
+outputs/logs/sprint_2A_real_hidden_state_cache/hidden_state_manifest.jsonl
+outputs/logs/sprint_2A_real_hidden_state_cache/hidden_state_cache_report.json
+outputs/logs/sprint_2A_real_hidden_state_cache/token_alignment_report.json
+outputs/logs/sprint_2A_real_hidden_state_cache/real_run_metadata.json
+outputs/logs/sprint_2A_real_hidden_state_cache/hidden_states/*.pt
+```
+
+### Outputs
+
+```text
+outputs/logs/sprint_2B_representation_features/representation_features.jsonl
+outputs/logs/sprint_2B_representation_features/representation_feature_report.json
+```
+
+Deprecated extra outputs still present from the previous 2B run:
+
+```text
+outputs/logs/sprint_2B_representation_features/representation_feature_manifest.jsonl
+outputs/logs/sprint_2B_representation_features/input_representation_summary.jsonl
+outputs/logs/sprint_2B_representation_features/feature_schema.json
+```
+
+These are not required Sprint 2B outputs and are not 2C input contracts.
+
+### Commands
+
+```bash
+git status --short
+conda run -n recover_attention python -c "from pathlib import Path; [print(p) for p in sorted(Path('tests').glob('test_*hidden_state*'))]"
+conda run -n recover_attention python -m pytest tests/test_representation_features.py -q
+conda run -n recover_attention python scripts/17_extract_representation_features.py --input-manifest outputs/logs/sprint_2A_real_hidden_state_cache/hidden_state_manifest.jsonl --input-report outputs/logs/sprint_2A_real_hidden_state_cache/hidden_state_cache_report.json --alignment-report outputs/logs/sprint_2A_real_hidden_state_cache/token_alignment_report.json --metadata outputs/logs/sprint_2A_real_hidden_state_cache/real_run_metadata.json --output-dir outputs/logs/sprint_2B_representation_features --backend representation_features_minimal_v0 --overwrite
+conda run -n recover_attention python -m pytest -q
+git diff --name-only
+git status --short
+```
+
+### Checks
+
+- hidden-state tests discovered：`tests/test_hidden_state_cache.py`。
+- `tests/test_hidden_state_cache_hf.py`：absent and not a failure。
+- targeted pytest：12 passed。
+- 2B-fix extraction command：passed。
+- backend：`representation_features_minimal_v0`。
+- `representation_features.jsonl`：20 records。
+- `representation_feature_report.json`：`sprint=2B-fix`，`num_masked_groups=20`，`num_recovered_variants=20`，`num_feature_records=20`，`num_skipped_groups=0`，`num_skipped_recovered_variants=0`。
+- `position_pool_feature_null_records=8`。
+- full pytest：477 passed, 2 skipped。
+
+### Not Done
+
+- No probe dataset.
+- No target selection.
+- No train/dev/test split.
+- No probe training.
+- No guidance candidate manifest.
+- No attention steering.
+- No HF forward.
+- No Sprint 1Q / 1R / 2A / 2A-real output modification.
+
+### Next
+
+Sprint 2C：Probe Dataset Construction.
+
 ## Sprint 2A-real：Real Hidden State Cache Run
 
 已完成内容：
