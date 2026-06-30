@@ -695,6 +695,103 @@ git status --short
 
 Sprint 3A：Attention Steering Interface Design.
 
+## Sprint 2 Final Checkpoint and Visualization Summary
+
+### Goal
+
+Produce a final Sprint 2 checkpoint package with full pytest confirmation, stage summary Markdown, audit JSON, and visualization figures.
+
+### Completed
+
+- Implemented `src/recover_attention/stage_summary.py`.
+- Implemented `scripts/22_write_sprint_2_stage_summary.py`.
+- Added `tests/test_stage_summary.py`.
+- Read only formal Sprint 2A-real / 2B / 2C / 2D / 2E / 2F artifacts.
+- Generated the Sprint 2 stage summary Markdown report.
+- Generated the Sprint 2 stage summary audit JSON.
+- Generated six required PNG visualization figures.
+- Recorded full pytest result and PowerShell measured duration.
+- Preserved pre-existing `AM` task card state for `docs/codex_tasks/sprint_2_final_checkpoint_visualization_summary.md`.
+- Did not rerun upstream pipeline scripts 16 / 17 / 18 / 19 / 20 / 21.
+- Did not read hidden-state `.pt` tensors.
+- Did not load `probe_model.pkl`; only file existence was checked.
+
+### Inputs
+
+```text
+outputs/logs/sprint_2A_real_hidden_state_cache/hidden_state_cache_report.json
+outputs/logs/sprint_2A_real_hidden_state_cache/token_alignment_report.json
+outputs/logs/sprint_2A_real_hidden_state_cache/real_run_metadata.json
+outputs/logs/sprint_2B_representation_features/representation_feature_report.json
+outputs/logs/sprint_2B_representation_features/representation_features.jsonl
+outputs/logs/sprint_2C_probe_dataset/probe_dataset_report.json
+outputs/logs/sprint_2C_probe_dataset/probe_dataset.jsonl
+outputs/logs/sprint_2D_probe_training_baseline/probe_eval_report.json
+outputs/logs/sprint_2D_probe_training_baseline/probe_predictions.jsonl
+outputs/logs/sprint_2E_guidance_candidate_dry_run/guidance_candidate_report.json
+outputs/logs/sprint_2E_guidance_candidate_dry_run/guidance_candidate_manifest.jsonl
+outputs/logs/sprint_2F_mini_closed_loop_report/sprint_2_minimal_closed_loop_report.md
+outputs/logs/sprint_2F_mini_closed_loop_report/sprint_2_minimal_closed_loop_audit.json
+```
+
+### Outputs
+
+```text
+outputs/logs/sprint_2_stage_summary/sprint_2_stage_summary.md
+outputs/logs/sprint_2_stage_summary/sprint_2_stage_summary_audit.json
+outputs/logs/sprint_2_stage_summary/figures/sprint_2_pipeline_overview.png
+outputs/logs/sprint_2_stage_summary/figures/probe_target_counts.png
+outputs/logs/sprint_2_stage_summary/figures/probe_metrics_vs_baseline.png
+outputs/logs/sprint_2_stage_summary/figures/guidance_candidate_action_counts.png
+outputs/logs/sprint_2_stage_summary/figures/guidance_confidence_counts.png
+outputs/logs/sprint_2_stage_summary/figures/sprint_2_boundary_summary.png
+```
+
+### Commands
+
+```bash
+git status --short
+conda run -n recover_attention python -m pytest tests/test_stage_summary.py -q
+conda run -n recover_attention python scripts/22_write_sprint_2_stage_summary.py --output-dir outputs/logs/sprint_2_stage_summary --backend sprint_2_stage_summary_v0 --overwrite
+conda run -n recover_attention python -m pytest -q
+conda run -n recover_attention python scripts/22_write_sprint_2_stage_summary.py --output-dir outputs/logs/sprint_2_stage_summary --backend sprint_2_stage_summary_v0 --full-pytest-passed 515 --full-pytest-skipped 2 --full-pytest-duration-seconds 10.4918917 --overwrite
+git diff --name-only
+git status --short
+```
+
+Full pytest timing command:
+
+```powershell
+Measure-Command { conda run -n recover_attention python -m pytest -q }
+```
+
+### Checks
+
+- targeted pytest: 7 passed.
+- stage summary generation command: passed.
+- full pytest: 515 passed, 2 skipped.
+- PowerShell measured duration: 10.4918917 seconds.
+- audit status: `ok`.
+- audit backend: `sprint_2_stage_summary_v0`.
+- audit loop status: hidden_state_cache=true, representation_features=true, probe_dataset=true, probe_training=true, guidance_candidate_dry_run=true, closed_loop_report=true.
+- audit boundary: executed_attention_steering=false, validated_answer_accuracy_improvement=false, validated_hallucination_reduction=false.
+- figures generated: six required PNG files.
+- output_dir: `outputs/logs/sprint_2_stage_summary`.
+
+### Notes
+
+- This checkpoint does not rerun upstream pipeline scripts.
+- This checkpoint does not train a probe.
+- This checkpoint does not perform attention steering.
+- This checkpoint does not validate answer accuracy improvement.
+- This checkpoint does not validate hallucination reduction.
+- This checkpoint supports Sprint 3A planning, but it is not evidence that attention steering is effective.
+- Windows serial execution requirement remains in effect.
+
+### Next
+
+Sprint 3A：Attention Steering Interface Design.
+
 ## Sprint 2A-real：Real Hidden State Cache Run
 
 已完成内容：
