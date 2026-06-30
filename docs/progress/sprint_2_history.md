@@ -470,6 +470,231 @@ git status --short
 
 Sprint 2E：Guidance Candidate Manifest Dry Run.
 
+## Sprint 2E：Guidance Candidate Manifest Dry Run
+
+### Goal
+
+Convert Sprint 2D probe predictions into planned-only guidance candidate records.
+
+### Completed
+
+- Implemented `src/recover_attention/guidance_candidates.py`.
+- Implemented `scripts/20_build_guidance_candidate_manifest.py`.
+- Added `tests/test_guidance_candidates.py`.
+- Read only the formal Sprint 2D inputs:
+  - `outputs/logs/sprint_2D_probe_training_baseline/probe_predictions.jsonl`
+  - `outputs/logs/sprint_2D_probe_training_baseline/probe_eval_report.json`
+- Did not load `probe_model.pkl`; it was not a 2E input.
+- Produced one guidance candidate record per probe prediction, including negative `no_guidance` records.
+- Assigned candidate action from `predicted_probe_target`, not from gold labels.
+- Added confidence diagnostics from `decision_scores` margin.
+- Recorded that `docs/codex_tasks/sprint_2E_guidance_candidate_manifest_dry_run.md` had pre-existing `AM` status before this sprint.
+
+### Inputs
+
+```text
+outputs/logs/sprint_2D_probe_training_baseline/probe_predictions.jsonl
+outputs/logs/sprint_2D_probe_training_baseline/probe_eval_report.json
+```
+
+### Outputs
+
+```text
+outputs/logs/sprint_2E_guidance_candidate_dry_run/guidance_candidate_manifest.jsonl
+outputs/logs/sprint_2E_guidance_candidate_dry_run/guidance_candidate_report.json
+```
+
+### New Or Modified Files
+
+- src/recover_attention/guidance_candidates.py
+- scripts/20_build_guidance_candidate_manifest.py
+- tests/test_guidance_candidates.py
+- PROGRESS.md
+- docs/progress/sprint_2_history.md
+- outputs/logs/sprint_2E_guidance_candidate_dry_run/guidance_candidate_manifest.jsonl
+- outputs/logs/sprint_2E_guidance_candidate_dry_run/guidance_candidate_report.json
+
+### Candidate Actions
+
+- `risk_positive` -> `increase_attention_to_original_span`
+- `positive_anchor` -> `preserve_original_span_attention`
+- `hard_negative_or_weak_positive` -> `review_before_guidance`
+- `negative` -> `no_guidance`
+
+### Commands
+
+```bash
+conda run -n recover_attention python -m pytest tests/test_guidance_candidates.py -q
+conda run -n recover_attention python scripts/20_build_guidance_candidate_manifest.py --predictions outputs/logs/sprint_2D_probe_training_baseline/probe_predictions.jsonl --eval-report outputs/logs/sprint_2D_probe_training_baseline/probe_eval_report.json --output-dir outputs/logs/sprint_2E_guidance_candidate_dry_run --backend guidance_candidate_dry_run_v0 --overwrite
+conda run -n recover_attention python -m pytest -q
+git diff --name-only
+git status --short
+```
+
+### Checks
+
+- targeted pytest: 8 passed.
+- dry run command: passed.
+- full pytest: 501 passed, 2 skipped.
+- backend: `guidance_candidate_dry_run_v0`.
+- output_dir: `outputs/logs/sprint_2E_guidance_candidate_dry_run`.
+- `guidance_candidate_manifest.jsonl`: 20 records.
+- `guidance_candidate_report.json`: status `ok`.
+- `num_guidance_candidate_records`: 20.
+- `guidance_candidate_true`: 13.
+- `guidance_candidate_false`: 7.
+- predicted target counts: `risk_positive=8`, `positive_anchor=4`, `negative=7`, `hard_negative_or_weak_positive=1`.
+- candidate action counts: `increase_attention_to_original_span=8`, `preserve_original_span_attention=4`, `review_before_guidance=1`, `no_guidance=7`.
+- confidence counts: `high=17`, `medium=3`, `low=0`, `unknown=0`.
+- prediction correctness diagnostics: `correct=17`, `incorrect=3`.
+
+### Notes
+
+- Dry run only: all records have `execution_status=planned_only`, `dry_run=true`, `will_modify_attention=false`, `will_run_model=false`, and `will_change_answer=false`.
+- No probe model was loaded.
+- No probe was retrained.
+- No probe dataset was rebuilt.
+- No hidden-state tensors were read.
+- No representation features were recomputed.
+- No tokenizer, HF model, Ollama, NLI model, or recovery model was called.
+- No attention weights were modified.
+- No attention steering, CoT generation, answer accuracy evaluation, or hallucination reduction claim was made.
+
+### Next
+
+Sprint 2F：Mini Closed-loop Report.
+
+## Sprint 2F：Mini Closed-loop Report
+
+### Goal
+
+Summarize whether Sprint 2 formed a minimal hidden-state-to-guidance-candidate dry-run loop.
+
+### Completed
+
+- Implemented `src/recover_attention/closed_loop_report.py`.
+- Implemented `scripts/21_write_sprint_2_closed_loop_report.py`.
+- Added `tests/test_closed_loop_report.py`.
+- Read only formal Sprint 2A-real / 2B / 2C / 2D / 2E reports and manifest-style outputs.
+- Generated the Sprint 2 minimal closed-loop Markdown report.
+- Generated an auxiliary audit JSON for boundary checks.
+- Did not read hidden-state `.pt` tensors.
+- Did not load `probe_model.pkl`; only file existence was checked.
+- Did not rerun upstream pipeline scripts 16 / 17 / 18 / 19 / 20.
+- Preserved pre-existing `AM` task card state for Sprint 2E / 2F task cards.
+- Preserved pre-existing untracked Sprint 2E implementation files.
+
+### Inputs
+
+```text
+outputs/logs/sprint_2A_real_hidden_state_cache/hidden_state_cache_report.json
+outputs/logs/sprint_2A_real_hidden_state_cache/token_alignment_report.json
+outputs/logs/sprint_2A_real_hidden_state_cache/real_run_metadata.json
+outputs/logs/sprint_2B_representation_features/representation_features.jsonl
+outputs/logs/sprint_2B_representation_features/representation_feature_report.json
+outputs/logs/sprint_2C_probe_dataset/probe_dataset.jsonl
+outputs/logs/sprint_2C_probe_dataset/probe_dataset_report.json
+outputs/logs/sprint_2D_probe_training_baseline/probe_predictions.jsonl
+outputs/logs/sprint_2D_probe_training_baseline/probe_eval_report.json
+outputs/logs/sprint_2E_guidance_candidate_dry_run/guidance_candidate_manifest.jsonl
+outputs/logs/sprint_2E_guidance_candidate_dry_run/guidance_candidate_report.json
+```
+
+### Outputs
+
+```text
+outputs/logs/sprint_2F_mini_closed_loop_report/sprint_2_minimal_closed_loop_report.md
+outputs/logs/sprint_2F_mini_closed_loop_report/sprint_2_minimal_closed_loop_audit.json
+```
+
+### New Or Modified Files
+
+- src/recover_attention/closed_loop_report.py
+- scripts/21_write_sprint_2_closed_loop_report.py
+- tests/test_closed_loop_report.py
+- PROGRESS.md
+- docs/progress/sprint_2_history.md
+- outputs/logs/sprint_2F_mini_closed_loop_report/sprint_2_minimal_closed_loop_report.md
+- outputs/logs/sprint_2F_mini_closed_loop_report/sprint_2_minimal_closed_loop_audit.json
+
+### Core Conclusion
+
+Sprint 2 formed a dry-run loop:
+
+```text
+hidden-state cache -> representation features -> probe dataset -> probe training -> guidance candidate manifest
+```
+
+This is not an executed attention-steering loop.
+
+### Six Question Summary
+
+- Hidden states can be stably cached for the current 20 reviewed cases: 20 cases, 60 inputs, 60 hidden-state files, backend `hf_local_causal_lm_hidden_states_v0`.
+- Token/span/mask alignment supports the minimal loop, with 17 single-mask cases, 3 group-mask cases, 8 fragment recovery outputs, and 8 alignment warnings.
+- Representation features show diagnostic signals in the current 20-record sample, but the sample is too small to claim stable generalizable separation.
+- The probe produced diagnostic signal above majority baseline: accuracy 0.85, macro_f1 0.680952380952381, majority baseline accuracy 0.4.
+- Probe predictions can be mapped into planned-only guidance candidates: 20 records, 13 candidate=true, 7 candidate=false.
+- Sprint 3 must address dry-run boundary, evaluation boundary, data scale, token/span alignment, probe robustness, guidance design, and Windows serial execution.
+
+### Non-claims
+
+- No attention guidance was executed.
+- No transformer attention weights were modified.
+- No attention mask was injected.
+- No CoT generation was rerun under guidance.
+- No answer accuracy improvement was evaluated.
+- No hallucination reduction was validated.
+- No closed-loop intervention was validated.
+
+### Engineering Stability Note
+
+During Sprint 2E, one Windows temporary file lock occurred when two `conda run` commands were launched in parallel.
+
+Serial rerun passed.
+
+This is recorded as an engineering stability issue, not a pipeline logic failure, model failure, or test design failure.
+
+Future runs should execute targeted pytest, pipeline command, and full pytest serially.
+
+### Workspace State Note
+
+- Pre-existing AM task card state was observed for:
+  - `docs/codex_tasks/sprint_2E_guidance_candidate_manifest_dry_run.md`
+  - `docs/codex_tasks/sprint_2F_mini_closed_loop_report.md`
+- The task cards were not rewritten.
+- Pre-existing untracked Sprint 2E files were preserved:
+  - `src/recover_attention/guidance_candidates.py`
+  - `scripts/20_build_guidance_candidate_manifest.py`
+  - `tests/test_guidance_candidates.py`
+- No upstream pipeline scripts were rerun.
+- Sprint 2F only generated closed-loop report artifacts.
+
+### Commands
+
+```bash
+git status --short
+conda run -n recover_attention python -m pytest tests/test_closed_loop_report.py -q
+conda run -n recover_attention python scripts/21_write_sprint_2_closed_loop_report.py --output-dir outputs/logs/sprint_2F_mini_closed_loop_report --backend sprint_2_closed_loop_report_v0 --overwrite
+conda run -n recover_attention python -m pytest -q
+git diff --name-only
+git status --short
+```
+
+### Checks
+
+- targeted pytest: 7 passed.
+- report generation command: passed.
+- full pytest: 508 passed, 2 skipped.
+- audit status: `ok`.
+- audit loop status: hidden_state_cache=true, representation_features=true, probe_dataset=true, probe_training=true, guidance_candidate_dry_run=true.
+- audit boundary: executed_attention_steering=false, validated_hallucination_reduction=false.
+- required boundary statements: present.
+- Windows serial execution note: present.
+
+### Next
+
+Sprint 3A：Attention Steering Interface Design.
+
 ## Sprint 2A-real：Real Hidden State Cache Run
 
 已完成内容：

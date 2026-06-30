@@ -22,13 +22,14 @@ Token / Span Intervention
 当前阶段：
 
 ```text
-Sprint 2D 已完成：Probe Training Baseline。
-probe_training_baseline_v0 已读取 Sprint 2C probe_dataset.jsonl / probe_dataset_report.json，并训练最小线性 ridge one-vs-rest probe baseline。
-正式输出为 outputs/logs/sprint_2D_probe_training_baseline/probe_predictions.jsonl、probe_eval_report.json 和 probe_model.pkl。
-训练设置：model=ridge_classifier_ovr_v0，cv=leave_one_out，seed=42，null feature strategy=zero impute + missing indicators，feature scaling=train-fold z-score。
-诊断结果：num_predictions=20，accuracy=0.85，macro_f1=0.680952380952381，majority_baseline_accuracy=0.4。
-本阶段未读取 hidden-state tensors，未重新抽取 representation features，未重构 probe dataset，未生成 guidance candidate，未执行 attention steering，未声称 hallucination reduction。
-下一步建议是 Sprint 2E：Guidance Candidate Manifest Dry Run。
+Sprint 2F 已完成：Mini Closed-loop Report。
+sprint_2_closed_loop_report_v0 已读取 Sprint 2A-real / 2B / 2C / 2D / 2E 的正式报告与产物，生成 Sprint 2 最小闭环总结。
+正式输出为 outputs/logs/sprint_2F_mini_closed_loop_report/sprint_2_minimal_closed_loop_report.md。
+核心结论：Sprint 2 形成了 hidden-state cache → representation features → probe dataset → probe training → guidance candidate manifest 的 dry-run 闭环。
+边界说明：Sprint 2E 只是 planned-only guidance candidate dry run；attention guidance 尚未执行；transformer attention weights 尚未修改；CoT 推理尚未在 guidance 下重跑；answer accuracy 尚未验证提升；hallucination reduction 尚未验证。
+工程稳定性：Sprint 2E 中曾因并行启动两个 conda run 出现 Windows 临时文件占用，串行重跑后通过；后续 sprint 默认串行执行 targeted pytest、pipeline command、full pytest。
+工作区状态：pre-existing AM task card state 已观察并保留；pre-existing untracked Sprint 2E files 已保留；未重跑上游 pipeline scripts。
+下一步建议是 Sprint 3A：Attention Steering Interface Design。
 ```
 
 当前不做：
@@ -87,6 +88,8 @@ probe_training_baseline_v0 已读取 Sprint 2C probe_dataset.jsonl / probe_datas
 | Sprint 2B-fix | 完成 | Representation Feature Extraction Scope Alignment |
 | Sprint 2C | 完成 | Probe Dataset Construction |
 | Sprint 2D | 完成 | Probe Training Baseline |
+| Sprint 2E | 完成 | Guidance Candidate Manifest Dry Run |
+| Sprint 2F | 完成 | Mini Closed-loop Report |
 
 详细历史见：
 
@@ -122,13 +125,15 @@ conda run -n recover_attention python scripts/16_cache_hidden_states.py --input 
 conda run -n recover_attention python scripts/17_extract_representation_features.py --input-manifest outputs/logs/sprint_2A_real_hidden_state_cache/hidden_state_manifest.jsonl --input-report outputs/logs/sprint_2A_real_hidden_state_cache/hidden_state_cache_report.json --alignment-report outputs/logs/sprint_2A_real_hidden_state_cache/token_alignment_report.json --metadata outputs/logs/sprint_2A_real_hidden_state_cache/real_run_metadata.json --output-dir outputs/logs/sprint_2B_representation_features --backend representation_features_minimal_v0 --overwrite
 conda run -n recover_attention python scripts/18_build_probe_dataset.py --features outputs/logs/sprint_2B_representation_features/representation_features.jsonl --feature-report outputs/logs/sprint_2B_representation_features/representation_feature_report.json --output-dir outputs/logs/sprint_2C_probe_dataset --backend probe_dataset_mapping_v0 --overwrite
 conda run -n recover_attention python scripts/19_train_probe_baseline.py --dataset outputs/logs/sprint_2C_probe_dataset/probe_dataset.jsonl --dataset-report outputs/logs/sprint_2C_probe_dataset/probe_dataset_report.json --output-dir outputs/logs/sprint_2D_probe_training_baseline --backend probe_training_baseline_v0 --model ridge_classifier_ovr_v0 --cv leave_one_out --seed 42 --overwrite
+conda run -n recover_attention python scripts/20_build_guidance_candidate_manifest.py --predictions outputs/logs/sprint_2D_probe_training_baseline/probe_predictions.jsonl --eval-report outputs/logs/sprint_2D_probe_training_baseline/probe_eval_report.json --output-dir outputs/logs/sprint_2E_guidance_candidate_dry_run --backend guidance_candidate_dry_run_v0 --overwrite
+conda run -n recover_attention python scripts/21_write_sprint_2_closed_loop_report.py --output-dir outputs/logs/sprint_2F_mini_closed_loop_report --backend sprint_2_closed_loop_report_v0 --overwrite
 conda run -n recover_attention python -m pytest -q
 ```
 
 最近一次检查结果：
 
 ```text
-pytest: 493 passed, 2 skipped
+pytest: 508 passed, 2 skipped
 smoke test: passed
 candidate extraction: passed
 ablation unit construction: passed
@@ -209,6 +214,21 @@ majority baseline: label=negative, accuracy=0.4, macro_f1=0.14285714285714288
 feature flattening: num_base_features=99, num_features_with_missing_indicators=198
 probe_model.pkl: saved
 targeted probe training pytest: 9 passed
+guidance candidate dry run: passed, backend=guidance_candidate_dry_run_v0, output_dir=outputs/logs/sprint_2E_guidance_candidate_dry_run
+guidance_candidate_manifest.jsonl: 20 records
+guidance_candidate_report: status=ok, num_guidance_candidate_records=20, guidance_candidate_true=13, guidance_candidate_false=7
+predicted target counts: risk_positive=8, positive_anchor=4, negative=7, hard_negative_or_weak_positive=1
+candidate action counts: increase_attention_to_original_span=8, preserve_original_span_attention=4, review_before_guidance=1, no_guidance=7
+confidence counts: high=17, medium=3, low=0, unknown=0
+guidance correctness diagnostics: prediction_correct=17, prediction_incorrect=3
+targeted guidance candidate pytest: 8 passed
+mini closed-loop report: passed, backend=sprint_2_closed_loop_report_v0, output_dir=outputs/logs/sprint_2F_mini_closed_loop_report
+sprint_2_minimal_closed_loop_report.md: generated
+sprint_2_minimal_closed_loop_audit.json: status=ok, hidden_state_cache=true, representation_features=true, probe_dataset=true, probe_training=true, guidance_candidate_dry_run=true
+2F boundary audit: executed_attention_steering=false, validated_hallucination_reduction=false, required_boundary_statements_present=true
+2F Windows stability note: present, engineering stability issue, serial execution required
+2F workspace state note: pre-existing AM task card state observed; pre-existing untracked Sprint 2E files preserved; no upstream pipeline scripts rerun
+targeted closed-loop report pytest: 7 passed
 ```
 
 ## 4. 当前关键文件状态
@@ -235,6 +255,8 @@ targeted probe training pytest: 9 passed
 - src/recover_attention/representation_features.py
 - src/recover_attention/probe_dataset.py
 - src/recover_attention/probe_training.py
+- src/recover_attention/guidance_candidates.py
+- src/recover_attention/closed_loop_report.py
 - scripts/00_smoke_test.py
 - scripts/01_prepare_data.py
 - scripts/02_extract_candidate_spans.py
@@ -255,6 +277,8 @@ targeted probe training pytest: 9 passed
 - scripts/17_extract_representation_features.py
 - scripts/18_build_probe_dataset.py
 - scripts/19_train_probe_baseline.py
+- scripts/20_build_guidance_candidate_manifest.py
+- scripts/21_write_sprint_2_closed_loop_report.py
 - tests/test_data_io.py
 - tests/test_schemas.py
 - tests/test_prepare_data.py
@@ -277,6 +301,8 @@ targeted probe training pytest: 9 passed
 - tests/test_representation_features.py
 - tests/test_probe_dataset.py
 - tests/test_probe_training.py
+- tests/test_guidance_candidates.py
+- tests/test_closed_loop_report.py
 - data/processed/candidate_spans.jsonl
 - data/processed/ablation_units.jsonl
 - data/processed/ablated_questions.jsonl
@@ -337,6 +363,10 @@ targeted probe training pytest: 9 passed
 - outputs/logs/sprint_2D_probe_training_baseline/probe_eval_report.json
 - outputs/logs/sprint_2D_probe_training_baseline/probe_model.pkl
 - outputs/logs/sprint_2D_probe_training_baseline/probe_feature_index.json（optional debug output）
+- outputs/logs/sprint_2E_guidance_candidate_dry_run/guidance_candidate_manifest.jsonl
+- outputs/logs/sprint_2E_guidance_candidate_dry_run/guidance_candidate_report.json
+- outputs/logs/sprint_2F_mini_closed_loop_report/sprint_2_minimal_closed_loop_report.md
+- outputs/logs/sprint_2F_mini_closed_loop_report/sprint_2_minimal_closed_loop_audit.json
 - docs/skill/semantic_labels_interface.md
 - docs/skill/recover_outputs_interface.md
 - docs/skill/recover_scores_interface.md
@@ -349,9 +379,9 @@ targeted probe training pytest: 9 passed
 
 下一阶段可能新增或修改：
 
-- guidance candidate manifest dry run（Sprint 2E）
+- attention steering interface design（Sprint 3A）
 
-具体以后续 Sprint 2E task card 为准。
+具体以后续 Sprint 3A task card 为准。
 
 ## 5. 当前遗留问题
 
@@ -373,7 +403,11 @@ targeted probe training pytest: 9 passed
 - Sprint 2B 只抽取 representation features，不构造 probe dataset，不选择 target，不划分 train/dev/test，不生成 guidance candidate manifest。
 - Sprint 2C 只构造 probe dataset，不划分 train/dev/test，不训练 probe，不生成 predictions / eval report / model file，不生成 guidance candidate manifest。
 - Sprint 2D 只训练最小 probe baseline 并输出诊断指标，不生成 guidance candidate manifest，不执行 attention guidance。
-- 真实 hidden-state cache、2B representation features、2C probe dataset 和 2D probe baseline 只说明最小训练闭环跑通，不代表 attention guidance 或 hallucination reduction 已验证。
+- Sprint 2E 只生成 planned-only guidance candidate manifest，不加载 probe model，不重训 probe，不执行 attention steering。
+- Sprint 2F 只总结 Sprint 2 dry-run 闭环，不新增实验，不执行 attention steering，不验证 answer accuracy 或 hallucination reduction。
+- 真实 hidden-state cache、2B representation features、2C probe dataset、2D probe baseline、2E guidance candidate dry run 和 2F closed-loop report 只说明最小闭环 dry-run 产物已生成并可审查，不代表 attention guidance 或 hallucination reduction 已验证。
+- Sprint 2F 保留并记录了本轮前已有的 `docs/codex_tasks/sprint_2E_guidance_candidate_manifest_dry_run.md` 和 `docs/codex_tasks/sprint_2F_mini_closed_loop_report.md` 的 AM 状态；未重写 task card。
+- Sprint 2F 保留并记录了本轮前已有的 untracked Sprint 2E 文件：`src/recover_attention/guidance_candidates.py`、`scripts/20_build_guidance_candidate_manifest.py`、`tests/test_guidance_candidates.py`。
 - `docs/skill/nli_scores_interface.md` 仍有旧阶段文字提到 Sprint 1D 只支持 `stub_v0`；Sprint 1N task card 禁止修改 interface docs，本轮以脚本、schema 和测试为准。
 - 当前没有接入 attention maps / trajectory stability / answer stability / raw attention / attention guidance。
 - 当前没有声称 attention guidance 有效，也没有声称减少 hallucination。
@@ -383,12 +417,12 @@ targeted probe training pytest: 9 passed
 下一步建议：
 
 ```text
-Sprint 2E：Guidance Candidate Manifest Dry Run
+Sprint 3A：Attention Steering Interface Design
 ```
 
 注意：
 
 ```text
-不要自动开始 Sprint 2E。
-必须先有 Sprint 2E task card 或用户明确指令。
+不要自动开始 Sprint 3A。
+必须先有 Sprint 3A task card 或用户明确指令。
 ```
