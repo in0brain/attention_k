@@ -22,10 +22,10 @@ Token / Span Intervention
 当前阶段：
 
 ```text
-Sprint 1R 已完成：Human Review Consolidation & Known Issue Freeze。
-scripts/15_consolidate_human_review.py 只读取并校验 Sprint 1Q 结构化人工审核 JSONL / report JSON，生成 summary、known issues 与 Sprint 2A manifest。
-输出目录为 outputs/logs/sprint_1Q_real_signal_quality_review；未覆盖 data/processed/*，未覆盖 Sprint 1N / Sprint 1O / Sprint 1P 自动输出。
-下一步建议是 Sprint 2A：Hidden State Cache Baseline。
+Sprint 2A-real implementation prepared，但真实 4bit hidden-state cache run 被 blocked_by_missing_bitsandbytes 阻断。
+hf_local_causal_lm_hidden_states_v0 的本地 HF backend、CLI 参数、local_files_only=True 边界、bitsandbytes 缺失检测和测试已准备完成。
+真实输出目录 outputs/logs/sprint_2A_real_hidden_state_cache 未生成成功产物；未 fallback 到 fp16 全量加载，未联网下载模型，未修改 Sprint 1Q / 1R / 2A stub 输出。
+下一步建议是安装/修复 bitsandbytes 后重跑 Sprint 2A-real 真实 cache 命令，或由用户明确确认其他低显存本地方案。
 ```
 
 当前不做：
@@ -35,6 +35,8 @@ scripts/15_consolidate_human_review.py 只读取并校验 Sprint 1Q 结构化人
 - 修改 recovery prompt / recovery scoring / masked question construction
 - 训练 probe
 - 执行 attention guidance
+- fallback 到 fp16 全量加载真实 HF 模型
+- 联网下载模型
 - 大规模实验
 
 ## 2. 已完成 Sprint 摘要
@@ -75,6 +77,8 @@ scripts/15_consolidate_human_review.py 只读取并校验 Sprint 1Q 结构化人
 | Sprint 1P | 完成 | Rebuild downstream with upgraded recovery scoring |
 | Sprint 1Q | 完成 | Real Signal Quality Review human labels |
 | Sprint 1R | 完成 | Human Review Consolidation & Known Issue Freeze |
+| Sprint 2A | 完成 | Hidden State Cache Baseline |
+| Sprint 2A-real | 阻塞 | Real hidden-state cache backend prepared；run blocked by missing bitsandbytes |
 
 详细历史见：
 
@@ -105,13 +109,14 @@ conda run -n recover_attention python scripts/12_build_intervention_manifest.py 
 conda run -n recover_attention python scripts/13_rebuild_downstream_real_signals.py --ablated-questions data/processed/ablated_questions.jsonl --output-dir outputs/logs/sprint_1N_real_downstream --nli-backend hf_nli_auto_v0 --language auto --en-model models/nli/en/roberta-large-mnli --zh-model models/nli/zh/mdeberta-v3-base-xnli --recovery-backend ollama_chat_v0 --ollama-model qwen3.5:9b --ollama-base-url http://localhost:11434 --num-samples 1 --temperature 0.0 --top-p 1.0 --max-tokens 128 --timeout 120 --seed 42
 conda run -n recover_attention python scripts/14_rebuild_downstream_upgraded_recovery_scoring.py --semantic-labels outputs/logs/sprint_1N_real_downstream/semantic_labels_real.jsonl --upgraded-recover-scores outputs/logs/sprint_1O_recovery_scoring/recover_scores_nli_judge.jsonl --baseline-recover-scores outputs/logs/sprint_1N_real_downstream/recover_scores_real.jsonl --baseline-unit-evidence outputs/logs/sprint_1N_real_downstream/unit_evidence_real.jsonl --baseline-attention-anchor-labels outputs/logs/sprint_1N_real_downstream/attention_anchor_labels_real.jsonl --baseline-intervention-manifest outputs/logs/sprint_1N_real_downstream/intervention_manifest_real.jsonl --baseline-report outputs/logs/sprint_1N_real_downstream/real_signal_report.json --output-dir outputs/logs/sprint_1P_upgraded_downstream --unit-evidence-backend aggregate_stub_v0 --attention-label-backend early_evidence_rule_stub_v0 --intervention-type mask --intervention-backend manifest_stub_v0 --mask-token "[MASK]"
 conda run -n recover_attention python scripts/15_consolidate_human_review.py
+conda run -n recover_attention python scripts/16_cache_hidden_states.py --input outputs/logs/sprint_1Q_real_signal_quality_review/sprint_1Q_to_2A_manifest.jsonl --output-dir outputs/logs/sprint_2A_hidden_state_cache_baseline --backend stub_hidden_state_v0 --layer-indices 0 1 2 --hidden-size 8 --mask-token "[MASK]" --overwrite
 conda run -n recover_attention python -m pytest -q
 ```
 
 最近一次检查结果：
 
 ```text
-pytest: 443 passed, 2 skipped
+pytest: 465 passed, 2 skipped
 smoke test: passed
 candidate extraction: passed
 ablation unit construction: passed
@@ -160,6 +165,12 @@ human review summary: auto_vs_human_recoverability_disagreement_count=3, auto_vs
 human review read-only check: labels JSONL / report JSON / human review sheet hashes unchanged
 known issues freeze: passed
 Sprint 2A manifest: passed, 20 records
+hidden state cache baseline: passed, backend=stub_hidden_state_v0, num_cases=20, num_inputs_total=60, num_hidden_state_files=60
+hidden state input_type_counts: {original: 20, masked: 20, recovered: 20}
+token alignment report: single_mask_cases=17, group_mask_cases=3, fragment_recovery_outputs=8, alignment_warning_count=8
+hidden state cache read-only check: Sprint 1Q / 1R input hashes unchanged
+real hidden state backend implementation: prepared, backend=hf_local_causal_lm_hidden_states_v0
+real hidden state 4bit run: blocked_by_missing_bitsandbytes, no fp16 fallback attempted, no real output manifest generated
 sync_interface_fields --check: all in sync
 ```
 
@@ -182,6 +193,8 @@ sync_interface_fields --check: all in sync
 - src/recover_attention/attention_anchor_labels.py
 - src/recover_attention/intervention_manifest.py
 - src/recover_attention/human_review_consolidation.py
+- src/recover_attention/token_alignment.py
+- src/recover_attention/hidden_state_cache.py
 - scripts/00_smoke_test.py
 - scripts/01_prepare_data.py
 - scripts/02_extract_candidate_spans.py
@@ -198,6 +211,7 @@ sync_interface_fields --check: all in sync
 - scripts/13_rebuild_downstream_real_signals.py
 - scripts/14_rebuild_downstream_upgraded_recovery_scoring.py
 - scripts/15_consolidate_human_review.py
+- scripts/16_cache_hidden_states.py
 - tests/test_data_io.py
 - tests/test_schemas.py
 - tests/test_prepare_data.py
@@ -215,6 +229,8 @@ sync_interface_fields --check: all in sync
 - tests/test_rebuild_downstream_real_signals.py
 - tests/test_rebuild_downstream_upgraded_recovery_scoring.py
 - tests/test_human_review_consolidation.py
+- tests/test_token_alignment.py
+- tests/test_hidden_state_cache.py
 - data/processed/candidate_spans.jsonl
 - data/processed/ablation_units.jsonl
 - data/processed/ablated_questions.jsonl
@@ -255,6 +271,10 @@ sync_interface_fields --check: all in sync
 - outputs/logs/sprint_1Q_real_signal_quality_review/sprint_1Q_human_review_summary.json
 - outputs/logs/sprint_1Q_real_signal_quality_review/sprint_1Q_known_issues.md
 - outputs/logs/sprint_1Q_real_signal_quality_review/sprint_1Q_to_2A_manifest.jsonl
+- outputs/logs/sprint_2A_hidden_state_cache_baseline/hidden_state_manifest.jsonl
+- outputs/logs/sprint_2A_hidden_state_cache_baseline/hidden_state_cache_report.json
+- outputs/logs/sprint_2A_hidden_state_cache_baseline/token_alignment_report.json
+- outputs/logs/sprint_2A_hidden_state_cache_baseline/hidden_states/*.pt
 - docs/skill/semantic_labels_interface.md
 - docs/skill/recover_outputs_interface.md
 - docs/skill/recover_scores_interface.md
@@ -267,7 +287,7 @@ sync_interface_fields --check: all in sync
 
 下一阶段可能新增或修改：
 
-- hidden-state cache baseline（Sprint 2A）
+- representation feature extraction（Sprint 2B）
 
 具体以后续 Sprint 2A task card 为准。
 
@@ -284,9 +304,13 @@ sync_interface_fields --check: all in sync
 - 本 sprint 只比较 upgraded scoring 对 downstream labels 的影响，不证明 attention guidance 有效。
 - Sprint 1Q human review guide 的表格仍为空；Sprint 1R 使用已填好的 `sprint_1Q_human_review_labels_template.jsonl` 作为结构化来源，只读校验 report JSON，不重新同步或覆盖 report JSON。
 - Sprint 1R 只冻结 known issues，不实现 full-question validator、span-aware numeric scorer、entity/unit consistency scorer 或 unit/group budget selector。
-- Sprint 1R manifest 只提供 Sprint 2A hidden-state 阶段所需最小字段，不缓存 hidden states。
+- Sprint 2A hidden states 来自 deterministic stub backend，不是真实模型 hidden states。
+- Sprint 2A token alignment 是基础 deterministic 对齐，不处理复杂 paraphrase。
+- Sprint 2A recovered fragment 输出只记录 warning，不中断 cache；后续在 2B / 2C 判断是否保留。
+- Sprint 2A-real 的真实 backend 已实现本地 `local_files_only=True` 加载边界，但当前 `recover_attention` 环境缺少 `bitsandbytes`，4bit 真实 cache run 已按 task card 停止。
+- `outputs/logs/sprint_2A_real_hidden_state_cache/` 未生成成功产物；当前没有真实 hidden states cache 可供 2B 消费。
 - `docs/skill/nli_scores_interface.md` 仍有旧阶段文字提到 Sprint 1D 只支持 `stub_v0`；Sprint 1N task card 禁止修改 interface docs，本轮以脚本、schema 和测试为准。
-- 当前没有接入 hidden states / attention maps / trajectory stability / answer stability / raw attention / attention guidance / probe。
+- 当前没有接入真实 hidden states / attention maps / trajectory stability / answer stability / raw attention / attention guidance / probe。
 - 当前没有声称 attention guidance 有效，也没有声称减少 hallucination。
 
 ## 6. 下一步
@@ -294,12 +318,12 @@ sync_interface_fields --check: all in sync
 下一步建议：
 
 ```text
-Sprint 2A：Hidden State Cache Baseline
+安装/修复 bitsandbytes 后重跑 Sprint 2A-real 真实 hidden-state cache。
 ```
 
 注意：
 
 ```text
-不要自动开始 Sprint 2A。
-必须先有 Sprint 2A task card 或用户明确指令。
+不要自动 fallback 到 fp16 全量加载。
+真实 cache 成功前，不要将 Sprint 2A-real 标记为完成。
 ```
