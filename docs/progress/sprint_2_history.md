@@ -276,6 +276,95 @@ git status --short
 
 Sprint 2C：Probe Dataset Construction.
 
+## Sprint 2C：Probe Dataset Construction
+
+### Goal
+
+Construct a probe-ready dataset by mapping Sprint 1Q / 1R human review metadata to probe targets and joining those targets with Sprint 2B representation features.
+
+### Completed
+
+- Implemented `src/recover_attention/probe_dataset.py`.
+- Implemented `scripts/18_build_probe_dataset.py`.
+- Added `tests/test_probe_dataset.py`.
+- Read only the formal Sprint 2B inputs:
+  - `outputs/logs/sprint_2B_representation_features/representation_features.jsonl`
+  - `outputs/logs/sprint_2B_representation_features/representation_feature_report.json`
+- Did not read hidden-state `.pt` tensors.
+- Did not read legacy/debug 2B files as inputs:
+  - `representation_feature_manifest.jsonl`
+  - `input_representation_summary.jsonl`
+  - `feature_schema.json`
+- Mapped human metadata to probe targets with `probe_dataset_mapping_v0`.
+- Preserved null span / mask-position representation features as null with missing indicators.
+- Kept one output record per `representation_features.jsonl` record.
+- Recorded that `docs/codex_tasks/sprint_2C_probe_dataset_construction.md` had pre-existing `AM` status before this sprint.
+
+### Inputs
+
+```text
+outputs/logs/sprint_2B_representation_features/representation_features.jsonl
+outputs/logs/sprint_2B_representation_features/representation_feature_report.json
+```
+
+### Outputs
+
+```text
+outputs/logs/sprint_2C_probe_dataset/probe_dataset.jsonl
+outputs/logs/sprint_2C_probe_dataset/probe_dataset_report.json
+```
+
+### New Or Modified Files
+
+- src/recover_attention/probe_dataset.py
+- scripts/18_build_probe_dataset.py
+- tests/test_probe_dataset.py
+- PROGRESS.md
+- docs/progress/sprint_2_history.md
+- outputs/logs/sprint_2C_probe_dataset/probe_dataset.jsonl
+- outputs/logs/sprint_2C_probe_dataset/probe_dataset_report.json
+
+### Commands
+
+```bash
+conda run -n recover_attention python -m pytest tests/test_probe_dataset.py -q
+conda run -n recover_attention python scripts/18_build_probe_dataset.py --features outputs/logs/sprint_2B_representation_features/representation_features.jsonl --feature-report outputs/logs/sprint_2B_representation_features/representation_feature_report.json --output-dir outputs/logs/sprint_2C_probe_dataset --backend probe_dataset_mapping_v0 --overwrite
+conda run -n recover_attention python -m pytest -q
+git diff --name-only
+git status --short
+```
+
+### Checks
+
+- Targeted pytest：7 passed.
+- Build command：passed.
+- backend：`probe_dataset_mapping_v0`.
+- output_dir：`outputs/logs/sprint_2C_probe_dataset`.
+- `probe_dataset.jsonl`：20 records.
+- `probe_dataset_report.json`：`num_probe_records=20`, `num_probe_target_usable=20`, `num_unmapped=0`.
+- Target counts：`risk_positive=7`, `positive_anchor=3`, `negative=8`, `hard_negative_or_weak_positive=2`.
+- Null feature counts：`records_with_null_position_features=8`.
+- Forbidden outputs generated：none.
+- Full pytest：484 passed, 2 skipped.
+
+### Not Done
+
+- No train/dev/test split.
+- No k-fold split.
+- No probe training.
+- No probe predictions.
+- No probe evaluation report.
+- No probe model file.
+- No guidance candidate manifest.
+- No attention steering.
+- No hidden-state tensor read.
+- No representation feature re-extraction.
+- No Sprint 1Q / 1R / 2A / 2A-real / 2B output modification beyond the new 2C outputs.
+
+### Next
+
+Sprint 2D：Probe Training Baseline.
+
 ## Sprint 2A-real：Real Hidden State Cache Run
 
 已完成内容：
