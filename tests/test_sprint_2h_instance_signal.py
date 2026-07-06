@@ -1,0 +1,266 @@
+"""Tests for Sprint 2H-B instance-level signal construction modules."""
+
+from __future__ import annotations
+
+import sys
+from pathlib import Path
+
+import numpy as np
+import pytest
+
+SRC = Path(__file__).resolve().parents[1] / "src"
+if str(SRC) not in sys.path:
+    sys.path.insert(0, str(SRC))
+
+from recover_attention import (  # noqa: E402
+    fragility_probe_training as fpt,
+    model_recovery as mr,
+    recovery_drift as rd,
+    risk_strength_targets as rst,
+    solution_path_numbers as spn,
+)
+
+
+# --------------------------------------------------------------------------- #
+# solution_path_numbers
+# --------------------------------------------------------------------------- #
+def test_normalize_number_text_variants():
+    assert spn.normalize_number_text("$30") == [30.0]
+    assert spn.normalize_number_text("1,000") == [1000.0]
+    assert spn.normalize_number_text("50%") == [50.0, 0.5]
+    assert spn.normalize_number_text("3.0") == [3.0]
+    assert spn.normalize_number_text("twelve") == [12.0]
+    assert spn.normalize_number_text("apples") == []
+
+
+def test_parse_solution_expressions():
+    solution = "Natalia sold 48/2 = <<48/2=24>>24 clips.\n48+24 = <<48+24=72>>72 clips.\n#### 72"
+    parsed = spn.parse_solution_expressions(solution)
+    assert 48.0 in parsed["operand_values"]
+    assert 24.0 in parsed["result_values"]
+    assert 72.0 in parsed["result_values"]
+    assert parsed["num_expressions"] == 2
+
+
+def test_classify_chosen_span_on_off_ambiguous():
+    question = "Tom has 12 candies and gives away 5. He buys 12 more. How many are left?"
+    solution = "12-5 = <<12-5=7>>7. 7+? ... #### 7"
+    # value 12 appears twice in question and is an operand -> ambiguous
+    result = spn.classify_chosen_span_solution_path("12", "number", question, solution)
+    assert result["status"] == spn.AMBIGUOUS
+    # value 5 appears once and is an operand -> on path
+    result5 = spn.classify_chosen_span_solution_path("5", "number", question, solution)
+    assert result5["status"] == spn.ON_PATH
+
+
+def test_off_path_distractor_number():
+    question = "In 2020, Sam bought 4 apples for 3 dollars each. What was the total?"
+    solution = "4*3 = <<4*3=12>>12 dollars. #### 12"
+    census = spn.build_question_census(question, solution)
+    statuses = {n["text"]: n["status"] for n in census["number_spans"]}
+    assert statuses["2020"] == spn.OFF_PATH  # year distractor
+    assert statuses["4"] == spn.ON_PATH
+    assert statuses["3"] == spn.ON_PATH
+
+
+def test_implicit_numbers_reported():
+    question = "She sold twice as many and gave away half of them."
+    implicit = spn.extract_implicit_numbers(question)
+    values = {item["text"]: item["value"] for item in implicit}
+    assert values["twice"] == 2.0
+    assert values["half"] == 0.5
+
+
+def test_non_number_span_is_not_a_number():
+    result = spn.classify_chosen_span_solution_path("more", "comparison", "q", "s")
+    assert result["status"] == spn.NOT_A_NUMBER
+
+
+# --------------------------------------------------------------------------- #
+# recovery_drift
+# --------------------------------------------------------------------------- #
+def test_extract_filler_exact_and_rephrased():
+    masked = "Tom has [MASK] candies left."
+    assert rd.extract_filler(masked, "Tom has 12 candies left.", "[MASK]") == "12"
+    # minor rephrase outside slot still recovers filler
+    assert rd.extract_filler(masked, "Tom has several candies left.", "[MASK]") == "several"
+
+
+def test_classify_sample_drift_number():
+    assert rd.classify_sample_drift("12", "number", "12", False) == rd.EXACT
+    assert rd.classify_sample_drift("12", "number", "several", False) == rd.GENERIC
+    assert rd.classify_sample_drift("12", "number", "10", False) == rd.WRONG_NUMERIC
+    assert rd.classify_sample_drift("12", "number", None, True) == rd.UNRECOVERABLE
+
+
+def test_classify_sample_drift_direction():
+    assert rd.classify_sample_drift("more", "comparison", "less", False) == rd.DIRECTION_DRIFT
+    assert rd.classify_sample_drift("more", "comparison", "greater", False) == rd.EXACT
+    assert rd.classify_sample_drift("not", "negation", "indeed", False) == rd.DIRECTION_DRIFT
+
+
+def test_drift_guards_plural_mask_and_rephrase():
+    # singular/plural counts as exact recovery
+    assert rd.classify_sample_drift("sandwich", "object", "sandwiches", False) == rd.EXACT
+    # leftover mask token -> ambiguous, not a hard drift
+    assert rd.classify_sample_drift("books", "object", "[MASK]", False) == rd.AMBIGUOUS
+    # full-question rephrase -> ambiguous
+    long_filler = "Quinn library summer reading challenge for every five books you read a coupon"
+    assert rd.classify_sample_drift("books", "object", long_filler, False) == rd.AMBIGUOUS
+
+
+def test_aggregate_drift_worst_case():
+    # one wrong among mostly exact still flags any_wrong
+    agg = rd.aggregate_drift([rd.EXACT, rd.EXACT, rd.WRONG_NUMERIC])
+    assert agg["any_wrong"] is True
+    assert agg["any_hard_drift"] is True
+    assert agg["num_exact"] == 2
+    assert agg["inconsistency_rate"] > 0
+
+
+# --------------------------------------------------------------------------- #
+# risk_strength_targets
+# --------------------------------------------------------------------------- #
+def test_bucket_hard_drift_is_3():
+    agg = rd.aggregate_drift([rd.EXACT, rd.EXACT, rd.WRONG_NUMERIC])
+    result = rst.assign_fragility_bucket("number", spn.ON_PATH, agg)
+    assert result["bucket"] == rst.BUCKET_DRIFTED
+
+
+def test_bucket_off_path_is_0_regardless_of_drift():
+    # off-path distractor number: bucket 0 whether recovery is stable...
+    stable = rd.aggregate_drift([rd.EXACT, rd.EXACT, rd.EXACT])
+    assert rst.assign_fragility_bucket("number", spn.OFF_PATH, stable)["bucket"] == rst.BUCKET_OFF_PATH
+    # ...or drifts (steering a distractor is wasted budget either way)
+    drifted = rd.aggregate_drift([rd.EXACT, rd.WRONG_NUMERIC, rd.WRONG_NUMERIC])
+    assert rst.assign_fragility_bucket("number", spn.OFF_PATH, drifted)["bucket"] == rst.BUCKET_OFF_PATH
+
+
+def test_bucket_on_path_stable_is_1():
+    agg = rd.aggregate_drift([rd.EXACT, rd.EXACT, rd.EXACT])
+    result = rst.assign_fragility_bucket("number", spn.ON_PATH, agg)
+    assert result["bucket"] == rst.BUCKET_STABLE
+
+
+def test_bucket_generic_is_2():
+    agg = rd.aggregate_drift([rd.GENERIC, rd.GENERIC, rd.EXACT])
+    result = rst.assign_fragility_bucket("number", spn.ON_PATH, agg)
+    assert result["bucket"] == rst.BUCKET_UNDER_RECOVERED
+
+
+def test_ambiguous_number_excluded():
+    agg = rd.aggregate_drift([rd.EXACT])
+    result = rst.assign_fragility_bucket("number", spn.AMBIGUOUS, agg)
+    assert result["bucket"] is None
+    assert result["excluded"] is True
+
+
+def test_risk_strength_preserves_bucket_ordering():
+    agg = rd.aggregate_drift([rd.EXACT, rd.GENERIC])
+    s0 = rst.compute_risk_strength(0, agg)
+    s1 = rst.compute_risk_strength(1, agg)
+    s2 = rst.compute_risk_strength(2, agg)
+    s3 = rst.compute_risk_strength(3, agg)
+    assert s0 < s1 < s2 < s3
+
+
+def test_not_span_type_deterministic_detection():
+    dataset = [
+        {"span_type": "number", "fragility_bucket": 1},
+        {"span_type": "number", "fragility_bucket": 3},
+        {"span_type": "object", "fragility_bucket": 0},
+    ]
+    check = rst.check_not_span_type_deterministic(dataset)
+    assert "number" in check["span_types_with_multiple_buckets"]
+    assert check["is_span_type_deterministic"] is False
+
+
+# --------------------------------------------------------------------------- #
+# model_recovery
+# --------------------------------------------------------------------------- #
+def test_recovery_prompt_hides_span_type():
+    prompt = mr.build_recovery_prompt("Tom has [MASK] candies.", "[MASK]")
+    lowered = prompt.lower()
+    for banned in ["number", "comparison", "negation", "object", "span type"]:
+        assert banned not in lowered
+    assert "uncertain" in lowered
+
+
+def test_sample_recoveries_with_stub_and_temperature_guard():
+    calls = {"n": 0}
+
+    def fake_chat(prompt, **kwargs):
+        calls["n"] += 1
+        return f"Tom has {kwargs['seed']} candies."
+
+    samples = mr.sample_recoveries(
+        "Tom has [MASK] candies.", "[MASK]", num_samples=3, chat_fn=fake_chat
+    )
+    assert len(samples) == 3
+    assert {s["seed"] for s in samples} == {101, 102, 103}
+    assert calls["n"] == 3
+
+    with pytest.raises(ValueError):
+        mr.sample_recoveries("q [MASK]", "[MASK]", temperature=0.0, chat_fn=fake_chat)
+
+
+# --------------------------------------------------------------------------- #
+# fragility_probe_training
+# --------------------------------------------------------------------------- #
+def _synthetic_records(n=60):
+    rng = np.random.default_rng(0)
+    records = []
+    for i in range(n):
+        bucket = i % 4
+        # signal correlated with bucket in the original_masked channel
+        base = bucket + rng.normal(0, 0.3)
+        records.append(
+            {
+                "id": f"q{i}",
+                "source_question_id": f"src{i}",
+                "span_type": "number" if i % 2 == 0 else "comparison",
+                "span_text": "12" if i % 2 == 0 else "more",
+                "question": "Tom has 12 candies and more apples than pears.",
+                "solution_path_status": spn.ON_PATH if i % 2 == 0 else spn.NOT_A_NUMBER,
+                "fragility_bucket": bucket,
+                "risk_strength": bucket / 3.0,
+                "feature_values": {
+                    "span_original_masked_cosine_mean": float(base),
+                    "span_original_recovered_cosine_mean": float(base + 5.0),  # forbidden channel
+                },
+            }
+        )
+    return records
+
+
+def test_feature_matrix_excludes_recovered_channel():
+    records = _synthetic_records()
+    built = fpt.build_feature_matrix(records, "hidden_no_recovered")
+    assert all("recovered" not in name for name in built["feature_names"])
+    fpt.assert_no_recovered_features(built["feature_names"])
+
+    built_all = fpt.build_feature_matrix(records, "hidden_with_recovered")
+    assert any("original_recovered" in name for name in built_all["feature_names"])
+    with pytest.raises(AssertionError):
+        fpt.assert_no_recovered_features(built_all["feature_names"])
+
+
+def test_metrics_helpers():
+    assert fpt.mann_whitney_auc(np.array([3.0, 4.0]), np.array([1.0, 2.0])) == 1.0
+    assert fpt.spearman_corr(np.array([1.0, 2, 3, 4]), np.array([1.0, 2, 3, 4])) == 1.0
+    acc = fpt.pairwise_ordering_accuracy(np.array([0.1, 0.9]), np.array([0, 1]))
+    assert acc == 1.0
+
+
+def test_cv_runner_end_to_end():
+    records = _synthetic_records()
+    buckets = [r["fragility_bucket"] for r in records]
+    strength = [r["risk_strength"] for r in records]
+    result = fpt.run_cv_for_feature_set(
+        records, buckets, strength, "hidden_no_recovered",
+        labels=[0, 1, 2, 3], alpha=1.0, num_folds=5, seed=42,
+    )
+    assert "macro_f1" in result["metrics"]
+    assert len(result["oof_pred_bucket"]) == len(records)
+    # signal is real -> ordinal correlation should be positive
+    assert result["metrics"]["spearman_score_vs_bucket"] > 0

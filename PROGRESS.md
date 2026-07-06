@@ -22,6 +22,22 @@ Token / Span Intervention
 当前阶段：
 
 ```text
+Sprint 2H-B 已完成：Instance-Level Signal Construction（500-case diagnostic）。
+
+在 Sprint 2H（risk_positive 低召回只读审计）确认「2000 规模 weak label 是 span_type 的确定性函数、recovered filler 也是 span_type 的确定性函数」之后，Sprint 2H-B 不再扩大 span_type -> label 映射，而是构造 instance-level supervision（fragility_bucket / risk_strength），并强制主 fragility probe 禁用一切 recovered-channel 特征（否则等价于 2G filler leakage 换皮）。
+
+2H-B 关键结果（500 条，weak-labeled diagnostic）：
+- 结构性成功：fragility_bucket 不再是 span_type 纯函数（number 横跨全部 4 桶 23/5/21/116）；ambiguous number 排除训练；bucket 序关系无违反；解题路径数字 on/off 拆分（on_path=1250, off_path=220, ambiguous=226）；distractor 预算占比仅 0.05；模型生成 recovery（qwen3.5:9b, K=3, temp=0.8, 去 span-type 泄漏 prompt）消除模板 filler leakage。
+- 但 review gate 第 5 项失败：唯一 gate-eligible 的 leakage-free 特征集（*_original_masked_cosine_*）macro_f1=0.318，低于 span_type_only baseline 0.339 与 surface_rule baseline 0.378，且 bootstrap 对 surface_rule 显著更差（delta −0.060, CI95 −0.100..−0.022）。
+- 结论：本轮不能主张 hidden states 已携带 instance-level fragility 信号；可用去泄漏特征过薄，标签多数类仍与 span_type 强相关。ready_for_2000_rerun=False。
+- recovered-channel 泄漏诊断：with_recovered − no_recovered = +0.053（弱泄漏，低于 0.1 强泄漏阈值）。
+
+下一步建议：先构造更丰富的 pre-recovery 表征特征（span 处 per-layer hidden states、attention entropy 等），再判断是否 500→2000 rerun；不要现在扩大规模或只调阈值；不要进入 Sprint 3A。
+
+正式产物：
+- outputs/logs/sprint_2H_risk_positive_audit/*（2H 只读审计）
+- outputs/logs/sprint_2H_instance_signal_500/*（2H-B 全量诊断产物 + review_gate_instance_signal.{json,md}）
+
 Sprint 2G-2000 review gate 已完成：Result Review Gate and Final Stage Summary。
 
 Sprint 2G-2000 工程上成功跑通 2000 条 GSM8K weak-labeled dry-run pipeline：
@@ -146,6 +162,11 @@ sprint_2_stage_summary_v0 已只读汇总 Sprint 2A-real / 2B / 2C / 2D / 2E / 2
 | Sprint 2E | 完成 | Guidance Candidate Manifest Dry Run |
 | Sprint 2F | 完成 | Mini Closed-loop Report |
 | Sprint 2-final-checkpoint | 完成 | Stage Summary and Visualization Summary |
+| Sprint 2G-prep | 完成 | Dataset Source Audit and Import Preparation |
+| Sprint 2G-2000 | 完成 | Full-scale Weak-labeled 2000-case Dry Run |
+| Sprint 2G-2000-gate | 完成 | Result Review Gate and Final Stage Summary |
+| Sprint 2H | 完成 | risk_positive 低召回只读审计 |
+| Sprint 2H-B | 完成 | Instance-Level Signal Construction（gate 第 5 项失败，ready_for_2000_rerun=False） |
 
 详细历史见：
 
@@ -190,6 +211,10 @@ conda run -n recover_attention python -m pytest -q
 最近一次检查结果：
 
 ```text
+pytest（Sprint 2H-B 后最新）: 570 passed, 2 skipped
+2H-B targeted pytest: 24 passed
+2H-B instance signal gate: 6/7 checks passed, ready_for_2000_rerun=False（第 5 项 hidden probe 未击败 baseline）
+以下为 Sprint 2 final checkpoint 历史快照：
 pytest: 515 passed, 2 skipped
 smoke test: passed
 candidate extraction: passed
@@ -323,6 +348,11 @@ targeted stage summary pytest: 7 passed
 - src/recover_attention/guidance_candidates.py
 - src/recover_attention/closed_loop_report.py
 - src/recover_attention/stage_summary.py
+- src/recover_attention/solution_path_numbers.py（Sprint 2H-B：GSM8K 解题路径数字解析）
+- src/recover_attention/model_recovery.py（Sprint 2H-B：去泄漏 prompt 的模型生成 recovery）
+- src/recover_attention/recovery_drift.py（Sprint 2H-B：recovery drift 分类与聚合）
+- src/recover_attention/risk_strength_targets.py（Sprint 2H-B：fragility_bucket / risk_strength 构造）
+- src/recover_attention/fragility_probe_training.py（Sprint 2H-B：leakage-safe 探针 + baseline + 序数指标）
 - scripts/00_smoke_test.py
 - scripts/01_prepare_data.py
 - scripts/02_extract_candidate_spans.py
@@ -346,6 +376,8 @@ targeted stage summary pytest: 7 passed
 - scripts/20_build_guidance_candidate_manifest.py
 - scripts/21_write_sprint_2_closed_loop_report.py
 - scripts/22_write_sprint_2_stage_summary.py
+- scripts/sprint_2H_audit_risk_positive.py（Sprint 2H：risk_positive 只读审计）
+- scripts/sprint_2H_instance_signal.py（Sprint 2H-B：instance-level signal staged pipeline）
 - tests/test_data_io.py
 - tests/test_schemas.py
 - tests/test_prepare_data.py
@@ -371,6 +403,7 @@ targeted stage summary pytest: 7 passed
 - tests/test_guidance_candidates.py
 - tests/test_closed_loop_report.py
 - tests/test_stage_summary.py
+- tests/test_sprint_2h_instance_signal.py（Sprint 2H-B：24 tests）
 - data/processed/candidate_spans.jsonl
 - data/processed/ablation_units.jsonl
 - data/processed/ablated_questions.jsonl
@@ -484,31 +517,39 @@ targeted stage summary pytest: 7 passed
 - `docs/reasoning-aware-attention-guidance/nli_scores_interface.md` 仍有旧阶段文字提到 Sprint 1D 只支持 `stub_v0`；Sprint 1N task card 禁止修改 interface docs，本轮以脚本、schema 和测试为准。
 - 当前没有接入 attention maps / trajectory stability / answer stability / raw attention / attention guidance。
 - 当前没有声称 attention guidance 有效，也没有声称减少 hallucination。
+- Sprint 2H 只读审计确认：2000 规模 gold risk_positive 中 `span_type=number` 为 0 条（规则强制映射为 positive_anchor），recovered filler 是 span_type 的纯函数；human_error_type 全为 sentinel，wrong_numeric_recovery / critical_number 细分本轮无法用数据回答。
+- Sprint 2H-B fragility probe 唯一 gate-eligible 特征集（`*_original_masked_cosine_*`）过薄；2G 大部分表征判别力位于被正确禁用的 recovered channel；需更丰富的 pre-recovery 特征（span per-layer hidden states、attention entropy）才能检验 hidden states 是否携带 instance-level fragility。
+- Sprint 2H-B 的 fragility_bucket 虽非 span_type 纯函数，但多数类仍与 span_type 强相关（number 多为 bucket 3），使 span_type_only baseline 偏强；hidden_no_recovered probe 在所有指标上均未击败 baseline，gate 第 5 项失败，ready_for_2000_rerun=False。
+- Sprint 2H-B recovered-channel 泄漏诊断为弱泄漏（with_recovered − no_recovered = +0.053，低于 0.1 强泄漏阈值）；drift 标签为启发式文本分类的弱标签，非人工校验；per-question top-k 覆盖平凡为 1.0（每题 1 个 chosen span）。
+- Sprint 2H-B 复用 2G-2000 的 original/masked hidden-state 缓存，未重跑 hidden-state cache、未缓存 recovered question hidden states、未覆盖 2A-2G 输出。
 
 ## 6. 下一步
 
 下一步建议：
 
 ```text
-Sprint 2H：Weak Label and Recovery Decoupling Fix。
-- 解耦 recovered question filler 与 span type（统一 neutral filler 或模型生成 recovery）。
-- 降低 recovered_cosine label leakage。
-- 扩展 / 改进 risk_positive weak label 规则。
-- 为 risk_positive 加 class weighting 或 threshold calibration。
-- 先 500 条再 2000 条重跑 diagnostic pipeline。
-- 以 risk_positive recall 与 macro_f1 作为 gate 指标。
+Sprint 2H-C（建议）：Richer Pre-Recovery Representation Features。
+- 2H-B 已证明：instance-level 目标构造成功，但唯一 leakage-free 特征集（original_masked cosine）无法击败 span_type / surface baseline。
+- 因此下一步先加更丰富的 pre-recovery 特征（不依赖 recovery，推理时可得）：
+  - span token 处的 per-layer hidden states（非 cosine 摘要）；
+  - span 处的 attention entropy / attention mass；
+  - masked vs original 的 logit / next-token 分布差异。
+- 在 fragility_bucket / risk_strength 目标上重训 leakage-safe probe，仍以 hidden_no_recovered 优于 span_type_only 与 surface_rule baseline（macro_f1 / balanced_acc / spearman / bucket3v1_AUC）为 gate。
+- 只有该 gate 通过后，才考虑 500 -> 2000 rerun。
 ```
 
 注意：
 
 ```text
-不要自动开始 Sprint 2H / all-train / Sprint 3A；必须先有 task card 或用户明确指令。
-Rerun gate（进入 Sprint 3A implementation 前必须满足，阈值待重跑后确认，现在不硬编码 0.7/0.8）：
-- risk_positive recall 较 0.311 明显提升；
-- risk_positive F1 提升；
-- macro_f1 保持稳定；
-- confusion matrix 不再把多数 risk_positive 预测成 hard_negative / positive_anchor；
-- top features 不再被 recovered filler leakage 主导。
-2G-2000 是 weak-labeled diagnostic evidence，不是 human-reviewed validation；
+不要自动开始 Sprint 2H-C / all-train / Sprint 3A；必须先有 task card 或用户明确指令。
+Instance-signal rerun gate（2H-B 已实现于 review_gate_instance_signal.json，当前 6/7，唯第 5 项失败）：
+- fragility_bucket 目标不是 span_type 的确定性函数；
+- filler 不再由 span_type 决定（模型生成 recovery，去 span-type 泄漏 prompt）；
+- number 拆分为 on-path / off-path；
+- exact / generic / wrong recovery 的 bucket / strength 有序分离；
+- hidden_no_recovered probe 必须优于 span_type_only 与 surface_rule baseline（当前失败，需更丰富特征）；
+- per-question top-k 覆盖解题路径数字（当前每题单 span，平凡为 1）；
+- guidance budget 不被 off-path distractor 消耗（当前 0.05）。
+2G-2000 与 2H-B 均为 weak-labeled diagnostic evidence，不是 human-reviewed validation；
 不得把 weak-labeled metrics 说成 attention guidance 有效 / hallucination 减少 / answer accuracy 提升。
 ```
