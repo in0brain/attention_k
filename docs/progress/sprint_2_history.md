@@ -889,3 +889,228 @@ git status --short
 下一步建议：
 
 - Sprint 2B：Representation Feature Extraction。
+
+---
+
+## Sprint 2G 前置：Dataset Source Audit and Import Preparation
+
+### Goal
+
+在执行 Sprint 2G full-scale weak-labeled run 之前，先补充并审计数据源，
+使后续 500 / 2000 条 weak-labeled k-fold 实验能真正基于同一个 full-scale 数据源构造，
+而不是把 92 行 fan-out 或 20 条 human-reviewed labels 当成主监督数据。
+
+本轮未执行 hidden-state cache、representation feature extraction、probe training、
+guidance candidate generation，也未重跑 scripts 16/17/18/19/20，未覆盖 20-case Sprint 2 outputs。
+
+### 新增文件
+
+- `src/recover_attention/dataset_audit.py`：数据源审计逻辑（文件分类、fan-out 检测、scale check、k-fold 前置条件）。
+- `src/recover_attention/dataset_import.py`：reasoning dataset 导入 / 标准化（GSM8K，本地文件或真实下载，一对一标准化，不复制不增强）。
+- `scripts/23a_audit_dataset_sources.py`：数据源审计 CLI（编号避开 Sprint 2G 已占用的 23/24/25/26）。
+- `scripts/23b_import_reasoning_dataset.py`：数据集导入 / 标准化 CLI。
+- `tests/test_dataset_audit.py`、`tests/test_dataset_import.py`：targeted pytest（共 18 条）。
+
+### 输入
+
+- 本地扫描根：`data`、`outputs/logs`。
+- GSM8K train split 原始来源：`https://raw.githubusercontent.com/openai/grade-school-math/master/grade_school_math/data/train.jsonl`（真实公开数据，7473 条）。
+
+### 输出
+
+- `data/raw/gsm8k_train_normalized.jsonl`：标准化后的 GSM8K train，7473 条。
+- `outputs/logs/sprint_2G_dataset_prep/dataset_source_audit.json`
+- `outputs/logs/sprint_2G_dataset_prep/dataset_source_audit.md`
+- `outputs/logs/sprint_2G_dataset_prep/normalized_dataset_report.json`
+- `outputs/logs/sprint_2G_dataset_prep/normalized_dataset_preview.jsonl`（前 50 条预览）
+
+每条标准化记录字段：`question_id` / `source_dataset` / `source_split` / `question` / `answer` / `metadata`
+（`metadata` 含 `original_id` / `original_answer`（完整 chain-of-thought）/ `normalization_backend`）。
+GSM8K 答案抽取规则：以 `####` 分割，最终答案存入 `answer`，完整推理过程保留在 `metadata.original_answer`。
+
+### 运行命令
+
+```bash
+conda run -n recover_attention python scripts/23b_import_reasoning_dataset.py \
+  --dataset gsm8k --split train \
+  --output data/raw/gsm8k_train_normalized.jsonl \
+  --report-output outputs/logs/sprint_2G_dataset_prep/normalized_dataset_report.json \
+  --preview-output outputs/logs/sprint_2G_dataset_prep/normalized_dataset_preview.jsonl \
+  --preview-limit 50 --backend gsm8k_normalize_v0 --overwrite
+
+conda run -n recover_attention python scripts/23a_audit_dataset_sources.py \
+  --search-roots data outputs/logs \
+  --output-dir outputs/logs/sprint_2G_dataset_prep \
+  --backend dataset_source_audit_v0 --overwrite
+
+conda run -n recover_attention python -m pytest tests/test_dataset_audit.py tests/test_dataset_import.py -q
+conda run -n recover_attention python -m pytest -q
+```
+
+注意：本机 `conda` 未在 PATH 上，实际以 `recover_attention` env 的解释器
+`D:\conda\Miniconda3\envs\recover_attention\python.exe` 串行执行（等价于上述 conda run）。
+
+### 检查结果
+
+- targeted pytest：18 passed。
+- full pytest：533 passed, 2 skipped。
+- 审计扫描 63 个候选数据文件。
+- 之前最大可见 JSONL ≈ 92 行（`*ablated_questions.jsonl` / `*nli_scores.jsonl` / `*semantic_labels.jsonl`），
+  distinct source id 均为 5：这些是 5 条原始 question 的 candidate span / ablation unit / NLI fan-out，不是 92 条独立 question。
+- 导入前仓库唯一的 raw question source 是 5 条玩具样本。
+- 导入后 `available_num_cases = 7473`，`can_run_500 = true`，`can_run_2000 = true`，`can_run_all = true`。
+- 推荐 source path：`data/raw/gsm8k_train_normalized.jsonl`。
+
+### Boundary
+
+- 本轮只做 dataset source audit + dataset import / normalization + scale feasibility + k-fold 前置条件。
+- 未执行 hidden-state cache / representation features / probe training / guidance candidates。
+- 未执行 Sprint 2G 正式 full-scale pipeline，未重跑 16/17/18/19/20，未覆盖 20-case Sprint 2 outputs。
+- 未复制 / 重复采样 / 数据增强凑数；未把 20 条 human-reviewed labels 当成 full-scale 主监督数据。
+- k-fold fold 数现在不可判定：必须等 weak probe labels 生成后按最小类别数决定
+  （5-fold → 3-fold → 2-fold → leave-one-out / holdout），仅当最小类别数 >= 5 才允许 5-fold。
+
+### Next
+
+- source records >= 2000，可执行 Sprint 2G：优先 2000-case scale run，或先 500-case weak-labeled dry run。
+- Sprint 2G 必须以 `data/raw/gsm8k_train_normalized.jsonl` 为单一 full-scale 数据源构造 weak-labeled dataset 与 k-fold。
+
+---
+
+## Sprint 2G-2000：Full-scale Weak-labeled 2000-case Dry Run
+
+### Goal
+
+Scale the Sprint 2 dry-run diagnostic loop from 20 human-reviewed cases to 2000
+weak-labeled real GSM8K cases, using `data/raw/gsm8k_train_normalized.jsonl` as
+the single full-scale source.
+
+This is a weak-labeled 2000-case dry run. It does not execute attention steering.
+It does not validate hallucination reduction. It does not validate answer accuracy
+improvement. It is not a human-reviewed 2000-case validation.
+
+### Source path / cases
+
+- source path: `data/raw/gsm8k_train_normalized.jsonl`
+- requested_num_cases = 2000, available_num_cases = 7473, actual_num_cases = 2000
+- sampling_rule = seeded_sample, seed = 42 (no duplication, no augmentation)
+- source_dataset = gsm8k, source_split = train
+
+### New files
+
+- `src/recover_attention/full_scale_manifest.py`, `scripts/24_build_full_scale_manifest.py`, `tests/test_full_scale_manifest.py`
+- `src/recover_attention/full_scale_weak_labels.py`, `scripts/25_build_full_scale_weak_labels.py`, `tests/test_full_scale_weak_labels.py`
+- `src/recover_attention/weak_probe_dataset.py`, `scripts/26_build_full_scale_weak_probe_dataset.py`, `tests/test_weak_probe_dataset.py`
+- `src/recover_attention/full_scale_summary.py`, `scripts/27_write_full_scale_2000_summary.py`, `tests/test_full_scale_summary.py`
+- Reused scripts 16 / 17 / 19 / 20 with 2G output paths (no modification).
+
+### Output root
+
+`outputs/logs/sprint_2G_full_scale_2000/` (00_manifest, 01_downstream, 02_hidden_state_cache,
+03_representation_features, 04_weak_probe_dataset, 05_probe_training, 06_guidance_candidates,
+07_stage_summary/figures). Smoke run output: `outputs/logs/sprint_2G_full_scale_2000_smoke/`.
+
+### Phase results
+
+1. Manifest: 2000 cases (fs2000_000001..fs2000_002000).
+2. Weak labels (weak_label_mapping_v0, label_source=weak_auto, human_reviewed=false):
+   positive_anchor 1039 / negative 564 / hard_negative_or_weak_positive 323 / risk_positive 74;
+   num_unmapped=0; full_scale_2a_manifest.jsonl = 2000 cases. human_* fields are sentinel
+   placeholders ("weak_auto_not_human_reviewed"), NOT human labels.
+3. Hidden-state cache: real `hf_local_causal_lm_hidden_states_v0` with local
+   `D:/models/Qwen2.5-7B-Instruct` (4-bit, layers 0/8/16/24/27, max_length 512, device_map auto).
+   num_cases=2000, num_inputs_total=6000, num_hidden_state_files=6000, failure_count=0,
+   alignment all ok (alignment_warning_count=0). Smoke (4 cases / 12 inputs) passed first.
+   The cache module has no `--resume`; the full run completed in one pass.
+4. Representation features: num_feature_records=2000, num_skipped_groups=0.
+5. Weak probe dataset: num_probe_records=2000, num_usable_records=2000.
+6. Adaptive k-fold: min usable class count = 74 (>= 5) -> stratified_k_fold, num_folds=5.
+   Decided AFTER weak probe labels were generated (ladder 5 -> 3 -> 2 -> leave-one-out).
+7. Probe training (weak-labeled diagnostic metrics, not human-supervised validation):
+   accuracy=0.9175, macro_f1=0.785, weighted_f1=0.909; majority baseline accuracy=0.5195,
+   macro_f1=0.171.
+8. Guidance candidate dry run (planned-only): candidate_true=1361; actions
+   preserve_original_span_attention 1073 / no_guidance 639 / review_before_guidance 265 /
+   increase_attention_to_original_span 23; confidence high 1656 / medium 267 / low 77.
+   All records dry_run=true, will_modify_attention=false, will_run_model=false, will_change_answer=false.
+9. Summary/figures: full_scale_2000_summary.md, full_scale_2000_audit.json, 7 PNGs (PIL fallback).
+
+### 20-case vs 2000-case
+
+- 20-case (human-reviewed, leave-one-out) accuracy=0.85, macro_f1=0.681.
+- 2000-case (weak-labeled, 5-fold) accuracy=0.9175, macro_f1=0.785.
+- Not directly equivalent; the 2000-case weak-labeled metrics are NOT more reliable than
+  the 20-case human-reviewed baseline. The 2000-case weak target is derived from the chosen
+  span type, so high probe accuracy reflects recoverability of the weak rule, not validation.
+
+### Runtime / failure / skipped
+
+- failure_count=0, skipped groups=0, skipped recovered variants=0.
+- All commands serial (no parallel conda/python). Targeted pytest + full pytest passed
+  (547 passed, 2 skipped).
+
+### Boundary
+
+Weak-labeled dry run only. No attention steering executed; no transformer attention weights
+modified; no CoT re-generation; answer accuracy improvement not validated; hallucination
+reduction not validated; 20-case human-reviewed Sprint 2 outputs not overwritten.
+
+### Next
+
+- Option A: all-train-split (7473) weak-labeled run.
+- Option B: Sprint 3A (Attention Steering Interface Design).
+
+---
+
+## Sprint 2G-2000 Review Gate and Final Stage Summary
+
+### Result
+
+Engineering scale-up passed.
+
+Research signal gate did not pass.
+
+This was a read-only review and stage summary: no pipeline phase was re-run, no
+all-train, no attention steering, and no 2A-2F or existing 2G-2000 phase outputs
+were overwritten. New outputs: `08_review_gate/result_review_gate.{json,md}` and
+`09_final_stage_summary/sprint_2G_2000_final_stage_summary.{md,json}`.
+
+### Key Findings
+
+- 2000 GSM8K cases processed
+- 6000 real Qwen hidden-state inputs cached
+- failure_count = 0
+- alignment_warning_count = 0
+- stratified 5-fold was valid (min_class_count = 74 >= 5)
+- probe accuracy = 0.9175
+- macro_f1 = 0.785
+- risk_positive recall = 0.311
+- risk_positive F1 = 0.474
+- risk_positive predicted/increase_attention_to_original_span = 23 / 74 gold (51 missed)
+- main confusions: risk_positive -> hard_negative_or_weak_positive (28), risk_positive -> positive_anchor (21)
+
+### Interpretation
+
+High overall accuracy is dominated by positive_anchor and negative classes (~80% of data).
+
+risk_positive is under-recalled; precision 1.0 only reflects an overly conservative model.
+
+The current weak label / recovered filler design introduces structural leakage because
+recovered fillers are type-dependent and recovered_cosine features can encode filler
+identity rather than independent recovery difficulty. (No direct metadata leakage: the
+feature matrix is 99 cosine features, 0 non-cosine metadata features.)
+
+### Decision
+
+Do not run all-train split now.
+
+Do not start Sprint 3A implementation now.
+
+Proceed to Sprint 2H: Weak Label and Recovery Decoupling Fix.
+
+### Rerun gate (before Sprint 3A implementation)
+
+risk_positive recall materially improved over 0.311; risk_positive F1 improved; macro_f1
+stable; confusion matrix no longer routes most risk_positive into hard_negative /
+positive_anchor; no recovered-filler leakage dominating top features. Absolute thresholds
+to be confirmed after rerun (not hardcoded to 0.7/0.8 now).

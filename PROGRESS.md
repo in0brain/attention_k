@@ -22,6 +22,61 @@ Token / Span Intervention
 当前阶段：
 
 ```text
+Sprint 2G-2000 review gate 已完成：Result Review Gate and Final Stage Summary。
+
+Sprint 2G-2000 工程上成功跑通 2000 条 GSM8K weak-labeled dry-run pipeline：
+- actual_num_cases = 2000
+- real Qwen hidden-state inputs = 6000
+- hidden-state cache failure_count = 0
+- alignment_warning_count = 0
+- adaptive stratified 5-fold probe training completed（min_class_count = 74 >= 5）
+- full pytest passed（547 passed, 2 skipped）
+
+但 review gate 判定当前结果暂不适合进入 Sprint 3A implementation：
+- risk_positive recall = 0.311，漏检严重（51/74 missed；increase arm 仅 23 条）
+- high accuracy（0.9175）主要由 positive_anchor / negative 两个大类驱动（约 80% 数据）
+- weak label 与 recovered filler 存在结构性 leakage 风险（recovered filler 按 span type 决定）
+- guidance increase arm 只有 23 条，risk-span steering 欠功率
+
+正式产物（只读总结，未重跑 pipeline）：
+- outputs/logs/sprint_2G_full_scale_2000/08_review_gate/result_review_gate.{json,md}
+- outputs/logs/sprint_2G_full_scale_2000/09_final_stage_summary/sprint_2G_2000_final_stage_summary.{md,json}
+
+当前不建议：
+- 不建议现在跑 all-train split（只会放大同一 weak-label leakage 与 risk under-recall 问题）
+- 不建议现在进入 Sprint 3A implementation（risk arm 欠功率且部分泄漏）
+- 不建议声称 hallucination reduction 或 answer accuracy improvement
+
+下一步建议：
+Sprint 2H：Weak Label and Recovery Decoupling Fix（解耦 recovered filler、扩展 risk_positive 规则、加类别权重/阈值校准，先 500 再 2000 重跑，以 risk_positive recall 与 macro_f1 作为 gate）。
+
+Sprint 2G-2000 已完成：Full-scale Weak-labeled 2000-case Dry Run。
+
+source path：data/raw/gsm8k_train_normalized.jsonl
+requested_num_cases = 2000，available_num_cases = 7473，actual_num_cases = 2000（seeded_sample, seed=42，无重复/无增强）。
+输出目录：outputs/logs/sprint_2G_full_scale_2000/（00_manifest..07_stage_summary）。
+
+核心结论：
+- 将 Sprint 2 dry-run diagnostic pipeline 扩展到 2000 条真实 GSM8K question 的 weak-labeled scale，闭环完整：manifest → weak labels → hidden-state cache → representation features → weak probe dataset → probe training → guidance candidate dry run → summary/figures。
+- hidden-state cache 使用真实本地 Qwen2.5-7B-Instruct（4-bit, layers 0/8/16/24/27）：num_cases=2000，num_inputs_total=6000，num_hidden_state_files=6000，failure_count=0，alignment 全部 ok。
+- weak target 分布（weak_auto）：positive_anchor 1039 / negative 564 / hard_negative_or_weak_positive 323 / risk_positive 74；全部 usable，num_unmapped=0。
+- adaptive k-fold：min usable class count=74 ≥ 5 → stratified 5-fold（按 weak probe labels 在生成后决定，不预先固定）。
+- weak-labeled probe metrics（诊断用，非 human-supervised validation）：accuracy=0.9175，macro_f1=0.785，weighted_f1=0.909；majority baseline accuracy=0.5195，macro_f1=0.171。
+- guidance candidate dry run（planned-only）：candidate_true=1361；actions preserve 1073 / no_guidance 639 / review 265 / increase 23；confidence high 1656 / medium 267 / low 77。全部 dry_run=true、will_modify_attention=false、will_run_model=false、will_change_answer=false。
+- 边界：weak-labeled 2000-case dry run，不是 human-reviewed validation；未执行 attention steering；未验证 hallucination reduction；未验证 answer accuracy improvement。20-case human-reviewed Sprint 2 outputs 未被覆盖。
+
+Sprint 2G dataset prep 已完成：Dataset Source Audit and Import Preparation。
+本轮未执行 hidden-state cache、representation feature extraction、probe training 或 guidance candidate generation；只做数据源审计与数据集导入/标准化。
+核心结论：
+- 之前可见最大 JSONL 约 92 行，是 5 条原始 question 的 candidate span / ablation unit / NLI fan-out（distinct source id = 5），不是 92 条独立 source question。
+- 仓库原有真正的 raw question source 仅为 5 条玩具样本（data/processed/questions.jsonl、data/examples/questions_small.jsonl）。
+- 已导入真实 GSM8K train split 7473 条到 data/raw/gsm8k_train_normalized.jsonl（标准化字段 question_id / source_dataset / source_split / question / answer / metadata），未复制、未重复采样、未数据增强。
+- 当前可用 source records = 7473：can_run_500 = true，can_run_2000 = true，can_run_all = true。
+- 推荐 Sprint 2G source path：data/raw/gsm8k_train_normalized.jsonl。
+- k-fold 不在原始 question dataset 上判断；必须等 weak probe labels 生成后，按 num_folds <= 最小类别数自动决定（5-fold → 3-fold → 2-fold → leave-one-out/holdout），现在不固定 5-fold。
+- 不得用 20 条 human-reviewed labels 伪装成 500 / 2000 条 full-scale k-fold 主监督数据。
+正式输出：outputs/logs/sprint_2G_dataset_prep/dataset_source_audit.json、dataset_source_audit.md、normalized_dataset_report.json、normalized_dataset_preview.jsonl；完整数据集 data/raw/gsm8k_train_normalized.jsonl。
+
 Sprint 2 final checkpoint 已完成：Stage Summary and Visualization Summary。
 sprint_2_stage_summary_v0 已只读汇总 Sprint 2A-real / 2B / 2C / 2D / 2E / 2F 的正式产物，生成 Sprint 2 阶段总结、audit JSON 和 6 张 PNG 可视化。
 正式输出为 outputs/logs/sprint_2_stage_summary/sprint_2_stage_summary.md、outputs/logs/sprint_2_stage_summary/sprint_2_stage_summary_audit.json 和 outputs/logs/sprint_2_stage_summary/figures/*.png。
@@ -435,12 +490,25 @@ targeted stage summary pytest: 7 passed
 下一步建议：
 
 ```text
-Sprint 3A：Attention Steering Interface Design
+Sprint 2H：Weak Label and Recovery Decoupling Fix。
+- 解耦 recovered question filler 与 span type（统一 neutral filler 或模型生成 recovery）。
+- 降低 recovered_cosine label leakage。
+- 扩展 / 改进 risk_positive weak label 规则。
+- 为 risk_positive 加 class weighting 或 threshold calibration。
+- 先 500 条再 2000 条重跑 diagnostic pipeline。
+- 以 risk_positive recall 与 macro_f1 作为 gate 指标。
 ```
 
 注意：
 
 ```text
-不要自动开始 Sprint 3A。
-必须先有 Sprint 3A task card 或用户明确指令。
+不要自动开始 Sprint 2H / all-train / Sprint 3A；必须先有 task card 或用户明确指令。
+Rerun gate（进入 Sprint 3A implementation 前必须满足，阈值待重跑后确认，现在不硬编码 0.7/0.8）：
+- risk_positive recall 较 0.311 明显提升；
+- risk_positive F1 提升；
+- macro_f1 保持稳定；
+- confusion matrix 不再把多数 risk_positive 预测成 hard_negative / positive_anchor；
+- top features 不再被 recovered filler leakage 主导。
+2G-2000 是 weak-labeled diagnostic evidence，不是 human-reviewed validation；
+不得把 weak-labeled metrics 说成 attention guidance 有效 / hallucination 减少 / answer accuracy 提升。
 ```
