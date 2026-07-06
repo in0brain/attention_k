@@ -30,7 +30,7 @@ if str(SRC_DIR) not in sys.path:
 from recover_attention.schemas import FORBIDDEN_FIELDS, INTERFACE_DOCS, REQUIRED_FIELDS
 
 
-SKILL_DIR = REPO_ROOT / "docs" / "skill"
+SKILL_DIR = REPO_ROOT / "docs" / "reasoning-aware-attention-guidance"
 LABEL_SCHEMA_PATH = SKILL_DIR / "label_schema.md"
 
 # record_type -> (label_schema heading, interface doc it must reference)

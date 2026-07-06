@@ -131,7 +131,7 @@ Sprint 2D 的目标是：
 ```text id="ttzmyb"
 AGENTS.md
 PROGRESS.md
-docs/skill/SKILL.md
+docs/reasoning-aware-attention-guidance/SKILL.md
 docs/progress/sprint_2_history.md
 docs/codex_tasks/sprint_2C_probe_dataset_construction.md
 src/recover_attention/probe_dataset.py
@@ -237,7 +237,7 @@ pyproject.toml
 ```text id="fej8ia"
 AGENTS.md
 README.md
-docs/skill/SKILL.md
+docs/reasoning-aware-attention-guidance/SKILL.md
 
 data/processed/*
 

@@ -73,12 +73,12 @@ NLI、recoverability、trajectory stability、answer stability 和 raw attention
 AGENTS.md
 README.md
 PROGRESS.md
-docs/skill/SKILL.md
-docs/skill/codex_tasks.md
-docs/skill/experiment_guide.md
-docs/skill/method.md
-docs/skill/label_schema.md
-docs/skill/prompts.md
+docs/reasoning-aware-attention-guidance/SKILL.md
+docs/reasoning-aware-attention-guidance/codex_tasks.md
+docs/reasoning-aware-attention-guidance/experiment_guide.md
+docs/reasoning-aware-attention-guidance/method.md
+docs/reasoning-aware-attention-guidance/label_schema.md
+docs/reasoning-aware-attention-guidance/prompts.md
 ```
 
 如果某个文件不存在，必须在 Preflight 中报告。
@@ -101,12 +101,12 @@ docs/reference/*
 README.md
 AGENTS.md
 PROGRESS.md
-docs/skill/SKILL.md
-docs/skill/codex_tasks.md
-docs/skill/experiment_guide.md
-docs/skill/method.md
-docs/skill/label_schema.md
-docs/skill/prompts.md
+docs/reasoning-aware-attention-guidance/SKILL.md
+docs/reasoning-aware-attention-guidance/codex_tasks.md
+docs/reasoning-aware-attention-guidance/experiment_guide.md
+docs/reasoning-aware-attention-guidance/method.md
+docs/reasoning-aware-attention-guidance/label_schema.md
+docs/reasoning-aware-attention-guidance/prompts.md
 ```
 
 ---
@@ -151,7 +151,7 @@ Preflight 必须包括：
 3. 本次允许修改文件
 4. 本次禁止修改文件
 5. 是否发现旧主线残留
-6. 是否发现路径冲突，例如 docs/prompts.md 与 docs/skill/prompts.md 混用
+6. 是否发现路径冲突，例如 docs/prompts.md 与 docs/reasoning-aware-attention-guidance/prompts.md 混用
 7. 是否需要读取 docs/reference/*
 8. 本次计划运行的检查命令
 ```
@@ -226,12 +226,12 @@ AGENTS.md 应明确：
 AGENTS.md 的文档路径应统一到：
 
 ```text
-docs/skill/SKILL.md
-docs/skill/codex_tasks.md
-docs/skill/experiment_guide.md
-docs/skill/method.md
-docs/skill/label_schema.md
-docs/skill/prompts.md
+docs/reasoning-aware-attention-guidance/SKILL.md
+docs/reasoning-aware-attention-guidance/codex_tasks.md
+docs/reasoning-aware-attention-guidance/experiment_guide.md
+docs/reasoning-aware-attention-guidance/method.md
+docs/reasoning-aware-attention-guidance/label_schema.md
+docs/reasoning-aware-attention-guidance/prompts.md
 docs/codex_tasks/*.md
 docs/reference/*
 ```
@@ -250,36 +250,36 @@ docs/codex_tasks.md
 
 ---
 
-### 7.3 docs/skill/SKILL.md
+### 7.3 docs/reasoning-aware-attention-guidance/SKILL.md
 
-`docs/skill/SKILL.md` 应作为 Skill 总入口和路由器。
+`docs/reasoning-aware-attention-guidance/SKILL.md` 应作为 Skill 总入口和路由器。
 
 它不应重复完整 schema。
 
 它应说明以下子文档职责：
 
 ```text
-docs/skill/codex_tasks.md:
+docs/reasoning-aware-attention-guidance/codex_tasks.md:
 Sprint 路线、task card 规范和执行边界。
 
-docs/skill/experiment_guide.md:
+docs/reasoning-aware-attention-guidance/experiment_guide.md:
 实验流程、阶段输入输出和运行边界。
 
-docs/skill/method.md:
+docs/reasoning-aware-attention-guidance/method.md:
 方法概念、信号关系和常见误解。
 
-docs/skill/label_schema.md:
+docs/reasoning-aware-attention-guidance/label_schema.md:
 jsonl schema、字段、枚举和标签规则。
 
-docs/skill/prompts.md:
+docs/reasoning-aware-attention-guidance/prompts.md:
 可复用 Codex 提示词模板。
 ```
 
 ---
 
-### 7.4 docs/skill/codex_tasks.md
+### 7.4 docs/reasoning-aware-attention-guidance/codex_tasks.md
 
-`docs/skill/codex_tasks.md` 应只负责：
+`docs/reasoning-aware-attention-guidance/codex_tasks.md` 应只负责：
 
 ```text
 Sprint 路线
@@ -310,7 +310,7 @@ Sprint 8：Hallucination Reduction Evaluation
 
 ---
 
-### 7.5 docs/skill/experiment_guide.md
+### 7.5 docs/reasoning-aware-attention-guidance/experiment_guide.md
 
 `experiment_guide.md` 应只负责实验流程，不负责 sprint task card 细节。
 
@@ -343,7 +343,7 @@ question
 
 ---
 
-### 7.6 docs/skill/method.md
+### 7.6 docs/reasoning-aware-attention-guidance/method.md
 
 `method.md` 应只负责方法概念，不负责目录结构、命令、阶段输入输出。
 
@@ -363,7 +363,7 @@ question
 
 ---
 
-### 7.7 docs/skill/label_schema.md
+### 7.7 docs/reasoning-aware-attention-guidance/label_schema.md
 
 `label_schema.md` 应只负责字段、枚举、jsonl schema。
 
@@ -385,14 +385,14 @@ answer_stability_scores.jsonl
 
 ---
 
-### 7.8 docs/skill/prompts.md
+### 7.8 docs/reasoning-aware-attention-guidance/prompts.md
 
 检查并修正路径引用。
 
 统一使用：
 
 ```text
-docs/skill/prompts.md
+docs/reasoning-aware-attention-guidance/prompts.md
 ```
 
 不要混用：
@@ -441,7 +441,7 @@ Sprint 0G：schema 与 Attention Anchor 标签体系对齐。
 已完成内容：
 - 将项目主线对齐为 Reasoning-Aware Attention Guidance。
 - 更新 README.md 和 AGENTS.md 中的项目定位。
-- 更新 docs/skill/* 的职责分工和阶段边界。
+- 更新 docs/reasoning-aware-attention-guidance/* 的职责分工和阶段边界。
 - 确认 NLI、recoverability、trajectory stability、answer stability、raw attention pattern 都只是 attention importance discovery 的信号来源。
 - 确认最终目标是 attention_importance_score、attention_anchor_label、guidance_action、guidance_strength。
 - 确认下一步应进入 Sprint 0G schema 对齐，而不是直接进入旧的 candidate span extraction。
@@ -450,12 +450,12 @@ Sprint 0G：schema 与 Attention Anchor 标签体系对齐。
 - README.md
 - AGENTS.md
 - PROGRESS.md
-- docs/skill/SKILL.md
-- docs/skill/codex_tasks.md
-- docs/skill/experiment_guide.md
-- docs/skill/method.md
-- docs/skill/label_schema.md
-- docs/skill/prompts.md
+- docs/reasoning-aware-attention-guidance/SKILL.md
+- docs/reasoning-aware-attention-guidance/codex_tasks.md
+- docs/reasoning-aware-attention-guidance/experiment_guide.md
+- docs/reasoning-aware-attention-guidance/method.md
+- docs/reasoning-aware-attention-guidance/label_schema.md
+- docs/reasoning-aware-attention-guidance/prompts.md
 
 检查结果：
 - 未修改代码。
@@ -498,12 +498,12 @@ python -c "import sys; print(sys.executable); print(sys.version)"
 ```text
 1. README.md 不再以 Recoverability-Guided Attention Allocation 作为当前主线。
 2. AGENTS.md 不再以 Recoverability-Guided Attention Allocation 作为当前主线。
-3. docs/skill/SKILL.md 是总入口，不重复完整 schema。
-4. docs/skill/codex_tasks.md 包含 Sprint 0F 和 Sprint 0G。
-5. docs/skill/experiment_guide.md 负责实验流程。
-6. docs/skill/method.md 负责方法概念，和 experiment_guide.md 不大段重复。
-7. docs/skill/label_schema.md 包含 object、replace、attention anchor label、guidance action 等新版字段。
-8. docs/skill/prompts.md 不混用 docs/prompts.md 路径。
+3. docs/reasoning-aware-attention-guidance/SKILL.md 是总入口，不重复完整 schema。
+4. docs/reasoning-aware-attention-guidance/codex_tasks.md 包含 Sprint 0F 和 Sprint 0G。
+5. docs/reasoning-aware-attention-guidance/experiment_guide.md 负责实验流程。
+6. docs/reasoning-aware-attention-guidance/method.md 负责方法概念，和 experiment_guide.md 不大段重复。
+7. docs/reasoning-aware-attention-guidance/label_schema.md 包含 object、replace、attention anchor label、guidance action 等新版字段。
+8. docs/reasoning-aware-attention-guidance/prompts.md 不混用 docs/prompts.md 路径。
 9. PROGRESS.md 下一步建议是 Sprint 0G，而不是旧的 Sprint 1A candidate span extraction。
 10. 未修改 src、scripts、tests、configs、data。
 ```

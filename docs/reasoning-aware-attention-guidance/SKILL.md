@@ -44,7 +44,7 @@ Before executing any task, Codex must read these files in order:
 ```text
 AGENTS.md
 PROGRESS.md
-docs/skill/SKILL.md
+docs/reasoning-aware-attention-guidance/SKILL.md
 docs/codex_tasks/<current_task_card>.md
 ```
 
@@ -120,7 +120,7 @@ Do not start a sprint unless the user explicitly asks Codex to execute that spri
 
 ---
 
-### 3.4 docs/skill/codex_tasks.md
+### 3.4 docs/reasoning-aware-attention-guidance/codex_tasks.md
 
 Use for:
 
@@ -138,7 +138,7 @@ If it conflicts with the current task card, follow the current task card and rep
 
 ---
 
-### 3.5 docs/skill/experiment_guide.md
+### 3.5 docs/reasoning-aware-attention-guidance/experiment_guide.md
 
 Use for:
 
@@ -156,7 +156,7 @@ It should not override the current task card.
 
 ---
 
-### 3.6 docs/skill/method.md
+### 3.6 docs/reasoning-aware-attention-guidance/method.md
 
 Use for:
 
@@ -174,7 +174,7 @@ It should not define current implementation scope.
 
 ---
 
-### 3.7 docs/skill/label_schema.md
+### 3.7 docs/reasoning-aware-attention-guidance/label_schema.md
 
 Use for:
 
@@ -193,7 +193,7 @@ Code implementation still follows the current task card.
 
 ---
 
-### 3.8 docs/skill/prompts.md
+### 3.8 docs/reasoning-aware-attention-guidance/prompts.md
 
 Use for:
 
@@ -211,7 +211,7 @@ Do not treat prompt templates as permission to call a model unless the current t
 
 ---
 
-### 3.8.1 docs/skill/ablation_units_interface.md
+### 3.8.1 docs/reasoning-aware-attention-guidance/ablation_units_interface.md
 
 Use for:
 
@@ -221,7 +221,7 @@ Ablation unit 的长期接口文档，说明 ablation_units.jsonl schema、字�
 
 ---
 
-### 3.8.2 docs/skill/ablated_questions_interface.md
+### 3.8.2 docs/reasoning-aware-attention-guidance/ablated_questions_interface.md
 
 Use for:
 
@@ -231,7 +231,7 @@ Ablated question 的长期接口文档，说明 ablated_questions.jsonl schema�
 
 ---
 
-### 3.8.3 docs/skill/nli_scores_interface.md
+### 3.8.3 docs/reasoning-aware-attention-guidance/nli_scores_interface.md
 
 Use for:
 
@@ -241,7 +241,7 @@ NLI score 的长期接口文档，说明 nli_scores.jsonl schema、双向 NLI �
 
 ---
 
-### 3.8.4 docs/skill/semantic_labels_interface.md
+### 3.8.4 docs/reasoning-aware-attention-guidance/semantic_labels_interface.md
 
 Use for:
 
@@ -251,7 +251,7 @@ Semantic label interface for semantic_labels.jsonl, including rule_v0, threshold
 
 ---
 
-### 3.8.5 docs/skill/masked_questions_interface.md
+### 3.8.5 docs/reasoning-aware-attention-guidance/masked_questions_interface.md
 
 Use for:
 
@@ -261,7 +261,7 @@ Masked question 的长期接口文档，说明 masked_questions.jsonl 的 unit-l
 
 ---
 
-### 3.8.6 docs/skill/recover_outputs_interface.md
+### 3.8.6 docs/reasoning-aware-attention-guidance/recover_outputs_interface.md
 
 Use for:
 
@@ -271,7 +271,7 @@ Recover output 的长期接口文档，说明 recover_outputs.jsonl 的 unit-lev
 
 ---
 
-### 3.8.7 docs/skill/recover_scores_interface.md
+### 3.8.7 docs/reasoning-aware-attention-guidance/recover_scores_interface.md
 
 Use for:
 
@@ -281,7 +281,7 @@ Recover score 的长期接口文档，说明 recover_scores.jsonl 的 unit-level
 
 ---
 
-### 3.8.8 docs/skill/unit_evidence_interface.md
+### 3.8.8 docs/reasoning-aware-attention-guidance/unit_evidence_interface.md
 
 Use for:
 
@@ -291,7 +291,7 @@ Unit evidence 的长期接口文档，说明 unit_evidence.jsonl schema、semant
 
 ---
 
-### 3.8.9 docs/skill/attention_anchor_labels_interface.md
+### 3.8.9 docs/reasoning-aware-attention-guidance/attention_anchor_labels_interface.md
 
 Use for:
 
@@ -301,7 +301,7 @@ Attention anchor label 的长期接口文档，说明 attention_anchor_labels.js
 
 ---
 
-### 3.8.10 docs/skill/intervention_manifest_interface.md
+### 3.8.10 docs/reasoning-aware-attention-guidance/intervention_manifest_interface.md
 
 Use for:
 
@@ -352,7 +352,7 @@ Even when reference documents are read, do not implement future-stage content un
 
 ## 6. Subdocument Reading Rule
 
-Do not read all `docs/skill/*.md` files by default.
+Do not read all `docs/reasoning-aware-attention-guidance/*.md` files by default.
 
 Read a skill subdocument only when:
 
@@ -413,7 +413,7 @@ Before modifying files, Codex should use this routing checklist:
 ```text
 1. Read AGENTS.md.
 2. Read PROGRESS.md.
-3. Read docs/skill/SKILL.md.
+3. Read docs/reasoning-aware-attention-guidance/SKILL.md.
 4. Read the current task card.
 5. Read only the additional documents requested by the task card.
 6. Report any missing required documents.

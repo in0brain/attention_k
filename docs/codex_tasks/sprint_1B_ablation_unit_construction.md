@@ -118,9 +118,9 @@ Please run Sprint 1A first.
 ```text
 AGENTS.md
 PROGRESS.md
-docs/skill/SKILL.md
-docs/skill/ablation_units_interface.md
-docs/skill/label_schema.md
+docs/reasoning-aware-attention-guidance/SKILL.md
+docs/reasoning-aware-attention-guidance/ablation_units_interface.md
+docs/reasoning-aware-attention-guidance/label_schema.md
 src/recover_attention/data_io.py
 src/recover_attention/schemas.py
 data/processed/candidate_spans.jsonl
@@ -183,7 +183,7 @@ docs/progress/sprint_1_history.md
 ```text
 README.md
 AGENTS.md
-docs/skill/*
+docs/reasoning-aware-attention-guidance/*
 docs/reference/*
 docs/codex_tasks/*
 configs/*
@@ -326,7 +326,7 @@ validate_ablation_unit_record(record)
 
 ### 9.1 Ablation Unit Interface Contract
 
-Sprint 1B 的输出必须符合 `docs/skill/ablation_units_interface.md`。
+Sprint 1B 的输出必须符合 `docs/reasoning-aware-attention-guidance/ablation_units_interface.md`。
 
 `data/processed/ablation_units.jsonl` 是 Sprint 1C 的稳定输入。
 
@@ -353,8 +353,8 @@ Sprint 1B 的输出必须符合 `docs/skill/ablation_units_interface.md`。
 - start
 - end
 
-如果实现、测试、输出样例与 `docs/skill/ablation_units_interface.md` 冲突，
-以 `docs/skill/ablation_units_interface.md` 为准。
+如果实现、测试、输出样例与 `docs/reasoning-aware-attention-guidance/ablation_units_interface.md` 冲突，
+以 `docs/reasoning-aware-attention-guidance/ablation_units_interface.md` 为准。
 
 ---
 
@@ -1041,8 +1041,8 @@ docs/progress/sprint_1_history.md
 19. 未实现 NLI / mask / recovery / trajectory / attention guidance / probe。
 20. 未新增 baseline CoT 相关模块。
 21. PROGRESS.md 保持短版状态索引。
-22. data/processed/ablation_units.jsonl 符合 docs/skill/ablation_units_interface.md。
-23. validate_ablation_unit_record 与 docs/skill/ablation_units_interface.md 中的 schema 约束一致。
+22. data/processed/ablation_units.jsonl 符合 docs/reasoning-aware-attention-guidance/ablation_units_interface.md。
+23. validate_ablation_unit_record 与 docs/reasoning-aware-attention-guidance/ablation_units_interface.md 中的 schema 约束一致。
 ```
 
 ---

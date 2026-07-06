@@ -237,19 +237,19 @@ outputs/logs/sprint_1N_real_downstream/real_signal_report.md
 ```text id="lwmfs6"
 README.md
 AGENTS.md
-docs/skill/SKILL.md
-docs/skill/codex_tasks.md
-docs/skill/experiment_guide.md
-docs/skill/method.md
-docs/skill/label_schema.md
-docs/skill/nli_scores_interface.md
-docs/skill/semantic_labels_interface.md
-docs/skill/masked_questions_interface.md
-docs/skill/recover_outputs_interface.md
-docs/skill/recover_scores_interface.md
-docs/skill/unit_evidence_interface.md
-docs/skill/attention_anchor_labels_interface.md
-docs/skill/intervention_manifest_interface.md
+docs/reasoning-aware-attention-guidance/SKILL.md
+docs/reasoning-aware-attention-guidance/codex_tasks.md
+docs/reasoning-aware-attention-guidance/experiment_guide.md
+docs/reasoning-aware-attention-guidance/method.md
+docs/reasoning-aware-attention-guidance/label_schema.md
+docs/reasoning-aware-attention-guidance/nli_scores_interface.md
+docs/reasoning-aware-attention-guidance/semantic_labels_interface.md
+docs/reasoning-aware-attention-guidance/masked_questions_interface.md
+docs/reasoning-aware-attention-guidance/recover_outputs_interface.md
+docs/reasoning-aware-attention-guidance/recover_scores_interface.md
+docs/reasoning-aware-attention-guidance/unit_evidence_interface.md
+docs/reasoning-aware-attention-guidance/attention_anchor_labels_interface.md
+docs/reasoning-aware-attention-guidance/intervention_manifest_interface.md
 docs/reference/*
 src/recover_attention/nli_scoring.py
 src/recover_attention/semantic_labels.py
@@ -293,8 +293,8 @@ pyproject.toml
 ```text id="ooav4p"
 AGENTS.md
 PROGRESS.md
-docs/skill/SKILL.md
-docs/skill/codex_tasks.md
+docs/reasoning-aware-attention-guidance/SKILL.md
+docs/reasoning-aware-attention-guidance/codex_tasks.md
 configs/v0_nli_small.yaml
 scripts/05_run_nli_scoring.py
 scripts/06_build_semantic_labels.py
@@ -313,14 +313,14 @@ docs/progress/sprint_1_history.md
 为了理解字段，不需要修改但可以读取：
 
 ```text id="toh5rr"
-docs/skill/nli_scores_interface.md
-docs/skill/semantic_labels_interface.md
-docs/skill/masked_questions_interface.md
-docs/skill/recover_outputs_interface.md
-docs/skill/recover_scores_interface.md
-docs/skill/unit_evidence_interface.md
-docs/skill/attention_anchor_labels_interface.md
-docs/skill/intervention_manifest_interface.md
+docs/reasoning-aware-attention-guidance/nli_scores_interface.md
+docs/reasoning-aware-attention-guidance/semantic_labels_interface.md
+docs/reasoning-aware-attention-guidance/masked_questions_interface.md
+docs/reasoning-aware-attention-guidance/recover_outputs_interface.md
+docs/reasoning-aware-attention-guidance/recover_scores_interface.md
+docs/reasoning-aware-attention-guidance/unit_evidence_interface.md
+docs/reasoning-aware-attention-guidance/attention_anchor_labels_interface.md
+docs/reasoning-aware-attention-guidance/intervention_manifest_interface.md
 ```
 
 不要读取：

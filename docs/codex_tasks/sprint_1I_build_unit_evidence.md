@@ -29,7 +29,7 @@ Sprint 1I-prep-a：Unit Evidence Interface Design
 因此，当前应已有：
 
 ```text id="qjwid9"
-docs/skill/unit_evidence_interface.md
+docs/reasoning-aware-attention-guidance/unit_evidence_interface.md
 src/recover_attention/schemas.py 中的 REQUIRED_FIELDS["unit_evidence"]
 src/recover_attention/schemas.py 中的 FORBIDDEN_FIELDS["unit_evidence"]
 src/recover_attention/schemas.py 中的 validate_unit_evidence_record
@@ -118,9 +118,9 @@ guidance_strength
 本 sprint 必须严格遵守：
 
 ```text id="ph6qni"
-docs/skill/unit_evidence_interface.md
-docs/skill/semantic_labels_interface.md
-docs/skill/recover_scores_interface.md
+docs/reasoning-aware-attention-guidance/unit_evidence_interface.md
+docs/reasoning-aware-attention-guidance/semantic_labels_interface.md
+docs/reasoning-aware-attention-guidance/recover_scores_interface.md
 src/recover_attention/schemas.py
 ```
 
@@ -145,14 +145,14 @@ validate_unit_evidence_record
 ```text id="sc3mvx"
 AGENTS.md
 PROGRESS.md
-docs/skill/SKILL.md
-docs/skill/codex_tasks.md
-docs/skill/experiment_guide.md
-docs/skill/method.md
-docs/skill/label_schema.md
-docs/skill/semantic_labels_interface.md
-docs/skill/recover_scores_interface.md
-docs/skill/unit_evidence_interface.md
+docs/reasoning-aware-attention-guidance/SKILL.md
+docs/reasoning-aware-attention-guidance/codex_tasks.md
+docs/reasoning-aware-attention-guidance/experiment_guide.md
+docs/reasoning-aware-attention-guidance/method.md
+docs/reasoning-aware-attention-guidance/label_schema.md
+docs/reasoning-aware-attention-guidance/semantic_labels_interface.md
+docs/reasoning-aware-attention-guidance/recover_scores_interface.md
+docs/reasoning-aware-attention-guidance/unit_evidence_interface.md
 src/recover_attention/data_io.py
 src/recover_attention/schemas.py
 src/recover_attention/semantic_labels.py
@@ -208,20 +208,20 @@ data/processed/unit_evidence.jsonl
 ```text id="x2xgio"
 README.md
 AGENTS.md
-docs/skill/SKILL.md
-docs/skill/codex_tasks.md
-docs/skill/experiment_guide.md
-docs/skill/method.md
-docs/skill/prompts.md
-docs/skill/label_schema.md
-docs/skill/unit_evidence_interface.md
-docs/skill/semantic_labels_interface.md
-docs/skill/recover_scores_interface.md
-docs/skill/recover_outputs_interface.md
-docs/skill/masked_questions_interface.md
-docs/skill/nli_scores_interface.md
-docs/skill/ablated_questions_interface.md
-docs/skill/ablation_units_interface.md
+docs/reasoning-aware-attention-guidance/SKILL.md
+docs/reasoning-aware-attention-guidance/codex_tasks.md
+docs/reasoning-aware-attention-guidance/experiment_guide.md
+docs/reasoning-aware-attention-guidance/method.md
+docs/reasoning-aware-attention-guidance/prompts.md
+docs/reasoning-aware-attention-guidance/label_schema.md
+docs/reasoning-aware-attention-guidance/unit_evidence_interface.md
+docs/reasoning-aware-attention-guidance/semantic_labels_interface.md
+docs/reasoning-aware-attention-guidance/recover_scores_interface.md
+docs/reasoning-aware-attention-guidance/recover_outputs_interface.md
+docs/reasoning-aware-attention-guidance/masked_questions_interface.md
+docs/reasoning-aware-attention-guidance/nli_scores_interface.md
+docs/reasoning-aware-attention-guidance/ablated_questions_interface.md
+docs/reasoning-aware-attention-guidance/ablation_units_interface.md
 docs/reference/*
 src/recover_attention/schemas.py
 src/recover_attention/semantic_labels.py
@@ -258,7 +258,7 @@ Preflight 必须包含：
 3. 本次禁止修改的文件。
 4. 是否需要读取 docs/reference/*。
 5. 当前 PROGRESS.md 是否显示 Sprint 1I-prep-a 已完成。
-6. 当前 docs/skill/unit_evidence_interface.md 是否存在。
+6. 当前 docs/reasoning-aware-attention-guidance/unit_evidence_interface.md 是否存在。
 7. 当前 schemas.py 是否已有 validate_unit_evidence_record。
 8. 当前 schemas.py 是否已有 REQUIRED_FIELDS["unit_evidence"]。
 9. 当前 schemas.py 是否已有 INTERFACE_DOCS["unit_evidence"]。

@@ -641,19 +641,19 @@ probe-guided attention guidance
 其他 Skill 子文档职责：
 
 ```text
-docs/skill/SKILL.md:
+docs/reasoning-aware-attention-guidance/SKILL.md:
 Skill 总入口和阅读规则。
 
-docs/skill/codex_tasks.md:
+docs/reasoning-aware-attention-guidance/codex_tasks.md:
 Sprint 路线、task card 规范和执行边界。
 
-docs/skill/experiment_guide.md:
+docs/reasoning-aware-attention-guidance/experiment_guide.md:
 实验流程、阶段输入输出和运行边界。
 
-docs/skill/label_schema.md:
+docs/reasoning-aware-attention-guidance/label_schema.md:
 jsonl schema、字段含义和标签枚举。
 
-docs/skill/prompts.md:
+docs/reasoning-aware-attention-guidance/prompts.md:
 可复用 Codex 提示词模板。
 ```
 
@@ -663,8 +663,8 @@ docs/skill/prompts.md:
 当前用户消息
 > 当前 task card
 > AGENTS.md
-> docs/skill/SKILL.md
-> docs/skill/*.md
-> docs/skill/prompts.md
+> docs/reasoning-aware-attention-guidance/SKILL.md
+> docs/reasoning-aware-attention-guidance/*.md
+> docs/reasoning-aware-attention-guidance/prompts.md
 > docs/reference/*
 ```

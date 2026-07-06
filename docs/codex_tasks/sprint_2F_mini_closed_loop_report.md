@@ -241,7 +241,7 @@ Sprint 2F 是报告 sprint，不是实验 sprint。
 ```text
 AGENTS.md
 PROGRESS.md
-docs/skill/SKILL.md
+docs/reasoning-aware-attention-guidance/SKILL.md
 docs/progress/sprint_2_history.md
 
 docs/codex_tasks/sprint_2A_hidden_state_cache_baseline.md
@@ -405,7 +405,7 @@ docs/progress/sprint_2_history.md
 ```text
 AGENTS.md
 README.md
-docs/skill/SKILL.md
+docs/reasoning-aware-attention-guidance/SKILL.md
 
 data/processed/*
 

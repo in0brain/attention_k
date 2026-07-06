@@ -98,7 +98,7 @@ intervention_manifest.jsonl 只是 planned intervention manifest。
 本 sprint 做：
 
 ```text
-1. 新增 docs/skill/intervention_manifest_interface.md。
+1. 新增 docs/reasoning-aware-attention-guidance/intervention_manifest_interface.md。
 2. 新增或对齐 intervention_manifest record schema。
 3. 在 schemas.py 中新增 REQUIRED_FIELDS["intervention_manifest"]。
 4. 在 schemas.py 中新增 FORBIDDEN_FIELDS["intervention_manifest"]。
@@ -199,7 +199,7 @@ spans
 新增 interface 文档：
 
 ```text
-docs/skill/intervention_manifest_interface.md
+docs/reasoning-aware-attention-guidance/intervention_manifest_interface.md
 ```
 
 未来数据文件：
@@ -229,13 +229,13 @@ validate_intervention_manifest_record(record: dict) -> None
 ```text
 AGENTS.md
 PROGRESS.md
-docs/skill/SKILL.md
-docs/skill/codex_tasks.md
-docs/skill/experiment_guide.md
-docs/skill/method.md
-docs/skill/label_schema.md
-docs/skill/attention_anchor_labels_interface.md
-docs/skill/unit_evidence_interface.md
+docs/reasoning-aware-attention-guidance/SKILL.md
+docs/reasoning-aware-attention-guidance/codex_tasks.md
+docs/reasoning-aware-attention-guidance/experiment_guide.md
+docs/reasoning-aware-attention-guidance/method.md
+docs/reasoning-aware-attention-guidance/label_schema.md
+docs/reasoning-aware-attention-guidance/attention_anchor_labels_interface.md
+docs/reasoning-aware-attention-guidance/unit_evidence_interface.md
 src/recover_attention/schemas.py
 scripts/sync_interface_fields.py
 tests/test_interface_consistency.py
@@ -268,9 +268,9 @@ docs/reference/*
 本 sprint 允许修改：
 
 ```text
-docs/skill/intervention_manifest_interface.md
-docs/skill/label_schema.md
-docs/skill/SKILL.md
+docs/reasoning-aware-attention-guidance/intervention_manifest_interface.md
+docs/reasoning-aware-attention-guidance/label_schema.md
+docs/reasoning-aware-attention-guidance/SKILL.md
 src/recover_attention/schemas.py
 tests/test_interface_consistency.py
 tests/test_schemas.py
@@ -281,7 +281,7 @@ docs/progress/sprint_1_history.md
 其中：
 
 ```text
-docs/skill/intervention_manifest_interface.md
+docs/reasoning-aware-attention-guidance/intervention_manifest_interface.md
 ```
 
 如果不存在，可以新建。
@@ -295,19 +295,19 @@ docs/skill/intervention_manifest_interface.md
 ```text
 README.md
 AGENTS.md
-docs/skill/codex_tasks.md
-docs/skill/experiment_guide.md
-docs/skill/method.md
-docs/skill/prompts.md
-docs/skill/unit_evidence_interface.md
-docs/skill/attention_anchor_labels_interface.md
-docs/skill/semantic_labels_interface.md
-docs/skill/recover_scores_interface.md
-docs/skill/recover_outputs_interface.md
-docs/skill/masked_questions_interface.md
-docs/skill/nli_scores_interface.md
-docs/skill/ablated_questions_interface.md
-docs/skill/ablation_units_interface.md
+docs/reasoning-aware-attention-guidance/codex_tasks.md
+docs/reasoning-aware-attention-guidance/experiment_guide.md
+docs/reasoning-aware-attention-guidance/method.md
+docs/reasoning-aware-attention-guidance/prompts.md
+docs/reasoning-aware-attention-guidance/unit_evidence_interface.md
+docs/reasoning-aware-attention-guidance/attention_anchor_labels_interface.md
+docs/reasoning-aware-attention-guidance/semantic_labels_interface.md
+docs/reasoning-aware-attention-guidance/recover_scores_interface.md
+docs/reasoning-aware-attention-guidance/recover_outputs_interface.md
+docs/reasoning-aware-attention-guidance/masked_questions_interface.md
+docs/reasoning-aware-attention-guidance/nli_scores_interface.md
+docs/reasoning-aware-attention-guidance/ablated_questions_interface.md
+docs/reasoning-aware-attention-guidance/ablation_units_interface.md
 docs/reference/*
 src/recover_attention/attention_anchor_labels.py
 src/recover_attention/unit_evidence.py
@@ -348,7 +348,7 @@ Preflight 必须包含：
 7. 当前 schemas.py 是否已有 REQUIRED_FIELDS["intervention_manifest"]。
 8. 当前 schemas.py 是否已有 validate_intervention_manifest_record。
 9. 当前 INTERFACE_DOCS 是否已有 intervention_manifest。
-10. 当前 docs/skill/intervention_manifest_interface.md 是否存在。
+10. 当前 docs/reasoning-aware-attention-guidance/intervention_manifest_interface.md 是否存在。
 11. 当前 label_schema.md 是否仍包含旧 span-level Intervention Manifest Record。
 12. 当前 label_schema.md 是否仍提到 hidden_states_path / attentions_path 作为 manifest 字段。
 13. 本次是否会实现 intervention_manifest builder。
@@ -585,7 +585,7 @@ validate_intervention_manifest_record(record: dict) -> None
 新增：
 
 ```text
-docs/skill/intervention_manifest_interface.md
+docs/reasoning-aware-attention-guidance/intervention_manifest_interface.md
 ```
 
 文档必须包括：
@@ -753,14 +753,14 @@ Example only; builder implementation belongs to a later sprint.
 更新：
 
 ```text
-docs/skill/label_schema.md
+docs/reasoning-aware-attention-guidance/label_schema.md
 ```
 
 要求：
 
 ```text
 1. 更新 Intervention Manifest Record 小节。
-2. 明确当前稳定接口以 docs/skill/intervention_manifest_interface.md 为准。
+2. 明确当前稳定接口以 docs/reasoning-aware-attention-guidance/intervention_manifest_interface.md 为准。
 3. 明确旧版 span-level intervention manifest schema 已废弃。
 4. 明确新接口是 unit-level，绑定 attention_anchor_label_id + id + unit_id。
 5. 明确顶层不再使用 span_id / span_text / span_type。
@@ -780,13 +780,13 @@ docs/skill/label_schema.md
 更新：
 
 ```text
-docs/skill/SKILL.md
+docs/reasoning-aware-attention-guidance/SKILL.md
 ```
 
 要求在 Document Router 中增加：
 
 ```text
-docs/skill/intervention_manifest_interface.md
+docs/reasoning-aware-attention-guidance/intervention_manifest_interface.md
 ```
 
 用途说明：
@@ -896,7 +896,7 @@ PROGRESS.md
    intervention manifest interface alignment: passed
    sync_interface_fields --check: all in sync
 5. 当前关键文件状态中新增：
-   docs/skill/intervention_manifest_interface.md
+   docs/reasoning-aware-attention-guidance/intervention_manifest_interface.md
 6. 下一阶段可能新增或修改：
    src/recover_attention/intervention_manifest.py
    scripts/12_build_intervention_manifest.py
@@ -977,7 +977,7 @@ python -m pytest -q
 本 sprint 完成后必须满足：
 
 ```text
-1. docs/skill/intervention_manifest_interface.md 已新增。
+1. docs/reasoning-aware-attention-guidance/intervention_manifest_interface.md 已新增。
 2. intervention_manifest_interface.md 有 required_fields:intervention_manifest marker。
 3. marker 后字段块由 sync_interface_fields.py 生成。
 4. schemas.py 中 REQUIRED_FIELDS["intervention_manifest"] 已存在。

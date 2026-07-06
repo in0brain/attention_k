@@ -3,14 +3,14 @@
 本文件提供项目 jsonl 数据格式的总览、枚举值索引、record 示例和标签规则。
 
 完整顶层字段不在本文件维护，以 `src/recover_attention/schemas.py` 的 `REQUIRED_FIELDS`
-和各 `docs/skill/*_interface.md` 为准（见第 0 节）。
+和各 `docs/reasoning-aware-attention-guidance/*_interface.md` 为准（见第 0 节）。
 
 本文件只负责数据格式，不负责实验流程和 sprint 拆分。
 
 实验流程由：
 
 ```text
-docs/skill/experiment_guide.md
+docs/reasoning-aware-attention-guidance/experiment_guide.md
 ```
 
 负责。
@@ -18,7 +18,7 @@ docs/skill/experiment_guide.md
 Sprint 拆分由：
 
 ```text
-docs/skill/codex_tasks.md
+docs/reasoning-aware-attention-guidance/codex_tasks.md
 ```
 
 负责。
@@ -26,7 +26,7 @@ docs/skill/codex_tasks.md
 方法概念由：
 
 ```text
-docs/skill/method.md
+docs/reasoning-aware-attention-guidance/method.md
 ```
 
 负责。
@@ -49,7 +49,7 @@ src/recover_attention/schemas.py
 src/recover_attention/schemas.py 的 REQUIRED_FIELDS / FORBIDDEN_FIELDS
 ```
 
-各 `docs/skill/*_interface.md` 中，`<!-- required_fields:<type> -->` 标记之后的代码块是
+各 `docs/reasoning-aware-attention-guidance/*_interface.md` 中，`<!-- required_fields:<type> -->` 标记之后的代码块是
 **生成产物**，由脚本从 `REQUIRED_FIELDS` 写入：
 
 ```text
@@ -594,7 +594,7 @@ data/processed/ablated_questions.jsonl
 当前稳定接口以：
 
 ```text
-docs/skill/ablated_questions_interface.md
+docs/reasoning-aware-attention-guidance/ablated_questions_interface.md
 ```
 
 为准。
@@ -626,7 +626,7 @@ docs/skill/ablated_questions_interface.md
 }
 ```
 
-字段：本文件不再罗列完整字段表。顶层字段以 `docs/skill/ablated_questions_interface.md` 和 `src/recover_attention/schemas.py` 的 `REQUIRED_FIELDS["ablated_question"]` 为准。
+字段：本文件不再罗列完整字段表。顶层字段以 `docs/reasoning-aware-attention-guidance/ablated_questions_interface.md` 和 `src/recover_attention/schemas.py` 的 `REQUIRED_FIELDS["ablated_question"]` 为准。
 
 `spans` 中每个元素必须包含：
 
@@ -671,7 +671,7 @@ data/processed/nli_scores.jsonl
 当前稳定接口以：
 
 ```text
-docs/skill/nli_scores_interface.md
+docs/reasoning-aware-attention-guidance/nli_scores_interface.md
 ```
 
 为准。
@@ -735,7 +735,7 @@ data/processed/semantic_labels.jsonl
 }
 ```
 
-字段：本文件不再罗列完整字段表。顶层字段以 `docs/skill/nli_scores_interface.md` 和 `src/recover_attention/schemas.py` 的 `REQUIRED_FIELDS["nli_score"]` 为准。
+字段：本文件不再罗列完整字段表。顶层字段以 `docs/reasoning-aware-attention-guidance/nli_scores_interface.md` 和 `src/recover_attention/schemas.py` 的 `REQUIRED_FIELDS["nli_score"]` 为准。
 
 `forward` 和 `backward` 字段：
 
@@ -768,7 +768,7 @@ scores: dict with entailment / neutral / contradiction
 Current stable interface:
 
 ```text
-docs/skill/semantic_labels_interface.md
+docs/reasoning-aware-attention-guidance/semantic_labels_interface.md
 ```
 
 File:
@@ -785,7 +785,7 @@ nli_scores.jsonl remains score-only and does not contain semantic_necessity_labe
 semantic_labels.jsonl is the first current pipeline artifact that contains semantic_necessity_label.
 ```
 
-Required fields: see `docs/skill/semantic_labels_interface.md` and
+Required fields: see `docs/reasoning-aware-attention-guidance/semantic_labels_interface.md` and
 `REQUIRED_FIELDS["semantic_label"]` in `src/recover_attention/schemas.py`. This
 file no longer duplicates the full field list.
 
@@ -810,7 +810,7 @@ Notes:
 1. semantic_label_id = f"{nli_id}__sem_{semantic_label_backend}".
 2. is_semantically_necessary = semantic_necessity_label != "Equivalent".
 3. semantic_necessity_score = round(max(1 - bidirectional_entailment_score, contradiction_score), 10).
-4. The full stable schema is defined in docs/skill/semantic_labels_interface.md.
+4. The full stable schema is defined in docs/reasoning-aware-attention-guidance/semantic_labels_interface.md.
 ```
 
 ---
@@ -820,7 +820,7 @@ Notes:
 当前稳定接口以：
 
 ```text
-docs/skill/masked_questions_interface.md
+docs/reasoning-aware-attention-guidance/masked_questions_interface.md
 ```
 
 为准。旧版 span-level masked question schema 已废弃。
@@ -839,7 +839,7 @@ data/processed/masked_questions.jsonl
 masked_questions.jsonl 按 id + unit_id 聚合 semantic label records。
 ```
 
-字段：本文件不再罗列完整字段表。顶层字段以 `docs/skill/masked_questions_interface.md` 和 `src/recover_attention/schemas.py` 的 `REQUIRED_FIELDS["masked_question"]` 为准。
+字段：本文件不再罗列完整字段表。顶层字段以 `docs/reasoning-aware-attention-guidance/masked_questions_interface.md` 和 `src/recover_attention/schemas.py` 的 `REQUIRED_FIELDS["masked_question"]` 为准。
 
 示例：
 
@@ -925,7 +925,7 @@ masked_questions.jsonl 按 id + unit_id 聚合 semantic label records。
 当前稳定接口以：
 
 ```text
-docs/skill/recover_outputs_interface.md
+docs/reasoning-aware-attention-guidance/recover_outputs_interface.md
 ```
 
 为准。旧版 span-level recover output schema 已废弃。
@@ -947,7 +947,7 @@ recover_outputs.jsonl 保留后续 recoverability scoring 所需的 masked quest
 元数据，避免评分阶段必须再 join 回 masked_questions.jsonl。
 ```
 
-字段：本文件不再罗列完整字段表。顶层字段以 `docs/skill/recover_outputs_interface.md`
+字段：本文件不再罗列完整字段表。顶层字段以 `docs/reasoning-aware-attention-guidance/recover_outputs_interface.md`
 和 `src/recover_attention/schemas.py` 的 `REQUIRED_FIELDS["recover_output"]` 为准。
 
 约束：
@@ -971,7 +971,7 @@ recover_outputs.jsonl 保留后续 recoverability scoring 所需的 masked quest
 当前稳定接口以：
 
 ```text
-docs/skill/recover_scores_interface.md
+docs/reasoning-aware-attention-guidance/recover_scores_interface.md
 ```
 
 为准。旧版 span-level recover score schema 已废弃。
@@ -990,7 +990,7 @@ data/processed/recover_scores.jsonl
 recover_scores.jsonl 保留后续 attention label building 所需的 unit 元数据和 scoring evidence。
 ```
 
-字段：本文件不再罗列完整字段表。顶层字段以 `docs/skill/recover_scores_interface.md`
+字段：本文件不再罗列完整字段表。顶层字段以 `docs/reasoning-aware-attention-guidance/recover_scores_interface.md`
 和 `src/recover_attention/schemas.py` 的 `REQUIRED_FIELDS["recover_score"]` 为准。
 
 约束：
@@ -1012,7 +1012,7 @@ recover_scores.jsonl 保留后续 attention label building 所需的 unit 元数
 当前稳定接口以：
 
 ```text
-docs/skill/unit_evidence_interface.md
+docs/reasoning-aware-attention-guidance/unit_evidence_interface.md
 ```
 
 为准。
@@ -1030,7 +1030,7 @@ data/processed/unit_evidence.jsonl
 当前设计只聚合 semantic necessity evidence 与 recoverability evidence。
 ```
 
-字段：本文件不罗列完整字段表。顶层字段以 `docs/skill/unit_evidence_interface.md`
+字段：本文件不罗列完整字段表。顶层字段以 `docs/reasoning-aware-attention-guidance/unit_evidence_interface.md`
 和 `src/recover_attention/schemas.py` 的 `REQUIRED_FIELDS["unit_evidence"]` 为准。
 
 约束：
@@ -1052,7 +1052,7 @@ data/processed/unit_evidence.jsonl
 当前稳定接口以：
 
 ```text
-docs/skill/intervention_manifest_interface.md
+docs/reasoning-aware-attention-guidance/intervention_manifest_interface.md
 ```
 
 为准。旧版 span-level intervention manifest schema 已废弃。
@@ -1202,7 +1202,7 @@ evidence: dict or list
 当前稳定接口以：
 
 ```text
-docs/skill/attention_anchor_labels_interface.md
+docs/reasoning-aware-attention-guidance/attention_anchor_labels_interface.md
 ```
 
 为准。旧版 span-level attention anchor label schema 已废弃。

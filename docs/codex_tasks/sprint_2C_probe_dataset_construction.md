@@ -143,7 +143,7 @@ representation_features.jsonl
 ```text id="ddscuy"
 AGENTS.md
 PROGRESS.md
-docs/skill/SKILL.md
+docs/reasoning-aware-attention-guidance/SKILL.md
 docs/progress/sprint_2_history.md
 docs/codex_tasks/sprint_2B_representation_feature_extraction.md
 src/recover_attention/representation_features.py
@@ -284,7 +284,7 @@ src/recover_attention/schemas.py
 ```text id="gw1zyk"
 AGENTS.md
 README.md
-docs/skill/SKILL.md
+docs/reasoning-aware-attention-guidance/SKILL.md
 
 data/processed/*
 

@@ -692,7 +692,7 @@ fs500_000001::unit_000::recover_000
 ```text id="zuc7rs"
 AGENTS.md
 PROGRESS.md
-docs/skill/SKILL.md
+docs/reasoning-aware-attention-guidance/SKILL.md
 docs/progress/sprint_2_history.md
 
 docs/codex_tasks/sprint_2F_mini_closed_loop_report.md
@@ -782,7 +782,7 @@ scripts/20_build_guidance_candidate_manifest.py
 ```text id="vb8yuy"
 AGENTS.md
 README.md
-docs/skill/SKILL.md
+docs/reasoning-aware-attention-guidance/SKILL.md
 
 outputs/logs/sprint_2A_real_hidden_state_cache/*
 outputs/logs/sprint_2B_representation_features/*

@@ -204,10 +204,10 @@ Baseline CoT / trajectory 相关模块后移到 reasoning-risk 或 trajectory-aw
 ```text
 AGENTS.md
 PROGRESS.md
-docs/skill/SKILL.md
-docs/skill/experiment_guide.md
-docs/skill/method.md
-docs/skill/label_schema.md
+docs/reasoning-aware-attention-guidance/SKILL.md
+docs/reasoning-aware-attention-guidance/experiment_guide.md
+docs/reasoning-aware-attention-guidance/method.md
+docs/reasoning-aware-attention-guidance/label_schema.md
 src/recover_attention/data_io.py
 src/recover_attention/schemas.py
 src/recover_attention/candidate_extraction.py
@@ -255,7 +255,7 @@ docs/progress/sprint_1_history.md
 ```text
 README.md
 AGENTS.md
-docs/skill/*
+docs/reasoning-aware-attention-guidance/*
 docs/reference/*
 docs/codex_tasks/*
 configs/*

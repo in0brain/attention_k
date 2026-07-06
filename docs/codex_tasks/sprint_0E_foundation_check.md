@@ -46,7 +46,7 @@ outputs/logs/smoke_test_questions.jsonl
 ```text id="c7c9i0"
 README.md
 AGENTS.md
-docs/skill/SKILL.md
+docs/reasoning-aware-attention-guidance/SKILL.md
 docs/prompts.md
 docs/reference/*
 docs/codex_tasks/*
@@ -258,7 +258,7 @@ git diff --name-only
 [OK] 未修改 src/recover_attention/*.py
 [OK] 未修改 scripts/*.py
 [OK] 未修改 tests/*.py
-[OK] 未修改 README.md / AGENTS.md / docs/skill/SKILL.md / docs/prompts.md / docs/reference/*
+[OK] 未修改 README.md / AGENTS.md / docs/reasoning-aware-attention-guidance/SKILL.md / docs/prompts.md / docs/reference/*
 [OK] PROGRESS.md 已更新
 ```
 

@@ -19,7 +19,7 @@ data/processed/ablation_units.jsonl
 The input contract is defined in:
 
 ```text
-docs/skill/ablation_units_interface.md
+docs/reasoning-aware-attention-guidance/ablation_units_interface.md
 ```
 
 ---

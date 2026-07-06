@@ -177,7 +177,7 @@ smoke test
 ```text
 AGENTS.md
 PROGRESS.md
-docs/skill/SKILL.md
+docs/reasoning-aware-attention-guidance/SKILL.md
 当前 task card
 ```
 
@@ -190,11 +190,11 @@ docs/codex_tasks/*.md
 是否阅读以下文件，由当前 task card 指定：
 
 ```text
-docs/skill/codex_tasks.md
-docs/skill/experiment_guide.md
-docs/skill/method.md
-docs/skill/label_schema.md
-docs/skill/prompts.md
+docs/reasoning-aware-attention-guidance/codex_tasks.md
+docs/reasoning-aware-attention-guidance/experiment_guide.md
+docs/reasoning-aware-attention-guidance/method.md
+docs/reasoning-aware-attention-guidance/label_schema.md
+docs/reasoning-aware-attention-guidance/prompts.md
 ```
 
 不要默认读取全部 skill 子文档。
@@ -218,9 +218,9 @@ docs/reference/*
 > 当前 task card
 > AGENTS.md
 > PROGRESS.md
-> docs/skill/SKILL.md
-> docs/skill/*.md
-> docs/skill/prompts.md
+> docs/reasoning-aware-attention-guidance/SKILL.md
+> docs/reasoning-aware-attention-guidance/*.md
+> docs/reasoning-aware-attention-guidance/prompts.md
 > docs/reference/*
 ```
 
@@ -256,31 +256,31 @@ Codex 不应主动重写 AGENTS.md。
 
 ---
 
-### 5.3 docs/skill/*
+### 5.3 docs/reasoning-aware-attention-guidance/*
 
-`docs/skill/*` 是 Skill 框架文档，由研究者维护。
+`docs/reasoning-aware-attention-guidance/*` 是 Skill 框架文档，由研究者维护。
 
 Codex 只有在当前 task card 明确允许时才能修改。
 
 其中：
 
 ```text
-docs/skill/SKILL.md:
+docs/reasoning-aware-attention-guidance/SKILL.md:
 Skill 总入口和路由规则。
 
-docs/skill/codex_tasks.md:
+docs/reasoning-aware-attention-guidance/codex_tasks.md:
 task card 写法规范、拆分原则和验收格式。
 
-docs/skill/experiment_guide.md:
+docs/reasoning-aware-attention-guidance/experiment_guide.md:
 实验流程、阶段输入输出和运行边界。
 
-docs/skill/method.md:
+docs/reasoning-aware-attention-guidance/method.md:
 方法概念、信号关系和常见误解。
 
-docs/skill/label_schema.md:
+docs/reasoning-aware-attention-guidance/label_schema.md:
 jsonl schema、字段、枚举和标签规则。
 
-docs/skill/prompts.md:
+docs/reasoning-aware-attention-guidance/prompts.md:
 可复用 Codex 提示词模板。
 ```
 

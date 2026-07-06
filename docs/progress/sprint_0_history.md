@@ -33,7 +33,7 @@ Sprint 0G：schema 与 Attention Anchor 标签体系对齐。
 - docs/method.md
 - docs/experiment_guide.md
 - docs/label_schema.md
-- docs/skill/prompts.md
+- docs/reasoning-aware-attention-guidance/prompts.md
 - docs/codex_tasks.md
 - src/recover_attention/__init__.py
 - src/recover_attention/data_io.py
@@ -56,14 +56,14 @@ Sprint 0G：schema 与 Attention Anchor 标签体系对齐。
 
 已完成内容：
 
-- 建立 docs/skill、docs/reference、docs/codex_tasks 三层文档结构。
+- 建立 docs/reasoning-aware-attention-guidance、docs/reference、docs/codex_tasks 三层文档结构。
 - 创建短版 SKILL.md，作为后续 Codex 执行契约。
 - 创建 reference 目录，用于保存完整实验指导书和项目方案。
 - 创建 sprint_0B_data_io.md，作为下一步任务卡。
 
 新增或修改文件：
 
-- docs/skill/SKILL.md
+- docs/reasoning-aware-attention-guidance/SKILL.md
 - docs/reference/README.md
 - docs/reference/experiment_guide_full.md
 - docs/reference/project_plan_full.md
@@ -76,7 +76,7 @@ Sprint 0G：schema 与 Attention Anchor 标签体系对齐。
 
 - 文档目录已建立。
 - 根目录未发现完整参考文档源文件，已在 docs/reference/ 创建占位参考文件，未删除任何原文件。
-- 后续 Codex 执行入口明确为 docs/skill/SKILL.md + 当前 task card + PROGRESS.md。
+- 后续 Codex 执行入口明确为 docs/reasoning-aware-attention-guidance/SKILL.md + 当前 task card + PROGRESS.md。
 
 下一步：
 
@@ -112,7 +112,7 @@ Sprint 0G：schema 与 Attention Anchor 标签体系对齐。
 - pytest 已通过，结果为 `4 passed`。
 - data/examples/questions_small.jsonl 已创建，包含 5 条样例数据。
 - configs/v0_nli_small.yaml 已创建。
-- 未修改 README.md、AGENTS.md、docs/skill/SKILL.md 或 docs/reference/*。
+- 未修改 README.md、AGENTS.md、docs/reasoning-aware-attention-guidance/SKILL.md 或 docs/reference/*。
 - 未开始 Sprint 0C。
 - 当前验收环境已确认切换为 conda recover_attention。
 - Python 路径：D:\conda\Miniconda3\envs\recover_attention\python.exe
@@ -155,7 +155,7 @@ Sprint 0G：schema 与 Attention Anchor 标签体系对齐。
 - python -m pytest -q 已通过，结果为 `19 passed`。
 - src/recover_attention/schemas.py 已实现 task card 要求的校验函数。
 - tests/test_schemas.py 已覆盖 task card 要求的基础有效与失败场景。
-- 未修改 README.md、AGENTS.md、docs/skill/SKILL.md、docs/reference/* 或 docs/codex_tasks/*。
+- 未修改 README.md、AGENTS.md、docs/reasoning-aware-attention-guidance/SKILL.md、docs/reference/* 或 docs/codex_tasks/*。
 - 未实现 Sprint 0D，未实现 prepare_data.py。
 
 遗留问题：
@@ -196,7 +196,7 @@ Sprint 0G：schema 与 Attention Anchor 标签体系对齐。
 - smoke test 已通过，输出 `[OK] Sprint 0B smoke test passed.`。
 - python -m pytest -q 已通过，结果为 `27 passed`。
 - data/processed/questions.jsonl 已生成。
-- 未修改 README.md、AGENTS.md、docs/skill/SKILL.md、docs/skill/prompts.md、docs/reference/* 或 docs/codex_tasks/*。
+- 未修改 README.md、AGENTS.md、docs/reasoning-aware-attention-guidance/SKILL.md、docs/reasoning-aware-attention-guidance/prompts.md、docs/reference/* 或 docs/codex_tasks/*。
 - 未修改 data_io.py 和 schemas.py。
 - 未实现 Sprint 1A，未实现 candidate span extraction、ablation、NLI 或 recover 逻辑。
 
@@ -250,12 +250,12 @@ Sprint 0G：schema 与 Attention Anchor 标签体系对齐。
 - Sprint 0D prepare_data 已通过，生成 5 条标准 question records。
 - python -m pytest -q 已通过，结果为 `27 passed`。
 - 未修改 src/recover_attention/*.py、scripts/*.py、tests/*.py。
-- 未修改 README.md、AGENTS.md、docs/skill/SKILL.md、docs/skill/prompts.md 或 docs/reference/*。
+- 未修改 README.md、AGENTS.md、docs/reasoning-aware-attention-guidance/SKILL.md、docs/reasoning-aware-attention-guidance/prompts.md 或 docs/reference/*。
 - 未开始 Sprint 1A。
 
 遗留问题：
 
-- 当前 git 工作区存在此前已有的 docs/codex_tasks/*、docs/skill/prompts.md、src/recover_attention/schemas.py、.idea/recover_attention_project.iml 等改动，本 sprint 未处理这些文件。
+- 当前 git 工作区存在此前已有的 docs/codex_tasks/*、docs/reasoning-aware-attention-guidance/prompts.md、src/recover_attention/schemas.py、.idea/recover_attention_project.iml 等改动，本 sprint 未处理这些文件。
 
 Sprint 0 总结：
 
@@ -274,7 +274,7 @@ Sprint 0 总结：
 已完成内容：
 
 - 将项目主线对齐为 Reasoning-Aware Attention Guidance。
-- 更新 docs/skill/* 的职责分工和阶段边界。
+- 更新 docs/reasoning-aware-attention-guidance/* 的职责分工和阶段边界。
 - 确认 NLI、recoverability、trajectory stability、answer stability、raw attention pattern 都只是 attention importance discovery 的信号来源。
 - 确认最终目标是 attention_importance_score、attention_anchor_label、guidance_action、guidance_strength。
 - 确认下一步应进入 Sprint 0G schema 对齐，而不是直接进入旧的 candidate span extraction。
@@ -282,17 +282,17 @@ Sprint 0 总结：
 新增、移动或修改文件：
 
 - PROGRESS.md
-- docs/skill/codex_tasks.md
-- docs/skill/experiment_guide.md
-- docs/skill/method.md
-- docs/skill/label_schema.md
-- docs/skill/prompts.md
+- docs/reasoning-aware-attention-guidance/codex_tasks.md
+- docs/reasoning-aware-attention-guidance/experiment_guide.md
+- docs/reasoning-aware-attention-guidance/method.md
+- docs/reasoning-aware-attention-guidance/label_schema.md
+- docs/reasoning-aware-attention-guidance/prompts.md
 
 已检查并确认符合当前主线的文件：
 
 - README.md
 - AGENTS.md
-- docs/skill/SKILL.md
+- docs/reasoning-aware-attention-guidance/SKILL.md
 
 检查结果：
 
@@ -344,7 +344,7 @@ Sprint 0 总结：
 - python -m pytest -q 已通过，结果为 `38 passed`。
 - smoke test 已通过，输出 `[OK] Sprint 0B smoke test passed.`。
 - prepare_data 已通过，输出 `[OK] Prepared 5 question records: data/processed/questions.jsonl`。
-- 未修改 README.md、AGENTS.md、docs/skill/*、docs/reference/* 或 docs/codex_tasks/*。
+- 未修改 README.md、AGENTS.md、docs/reasoning-aware-attention-guidance/*、docs/reference/* 或 docs/codex_tasks/*。
 - 未实现任何实验模块。
 
 遗留问题：

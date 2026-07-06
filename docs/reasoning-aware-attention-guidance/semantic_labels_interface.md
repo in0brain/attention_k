@@ -15,7 +15,7 @@ data/processed/nli_scores.jsonl
 The input contract is defined in:
 
 ```text
-docs/skill/nli_scores_interface.md
+docs/reasoning-aware-attention-guidance/nli_scores_interface.md
 ```
 
 ---
@@ -294,7 +294,7 @@ masked questions.
 The masked question schema is defined in:
 
 ```text
-docs/skill/masked_questions_interface.md
+docs/reasoning-aware-attention-guidance/masked_questions_interface.md
 ```
 
 This file does not define or contain:

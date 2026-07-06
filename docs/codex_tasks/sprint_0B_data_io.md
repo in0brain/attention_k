@@ -37,7 +37,7 @@ PROGRESS.md
 ```text
 README.md
 AGENTS.md
-docs/skill/SKILL.md
+docs/reasoning-aware-attention-guidance/SKILL.md
 docs/reference/*
 src/recover_attention/candidate_extraction.py
 src/recover_attention/question_ablations.py
@@ -219,7 +219,7 @@ python -m pytest -q
 不要做大规模实验。
 不要修改 README.md。
 不要修改 AGENTS.md。
-不要修改 docs/skill/SKILL.md。
+不要修改 docs/reasoning-aware-attention-guidance/SKILL.md。
 ```
 
 ---

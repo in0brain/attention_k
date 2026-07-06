@@ -230,7 +230,7 @@ ablation_types: ['delete', 'generalize']
 
 新增或修改文件：
 
-- docs/skill/SKILL.md
+- docs/reasoning-aware-attention-guidance/SKILL.md
 - src/recover_attention/nli_scoring.py
 - scripts/05_run_nli_scoring.py
 - src/recover_attention/schemas.py
@@ -281,7 +281,7 @@ group_type_counts: {'number_set': 10, 'repeated_surface': 10, 'single': 72}
 遗留问题：
 
 - 裸 `python` 当前指向 base conda：`D:\conda\Miniconda3\python.exe`；本轮使用 `conda run -n recover_attention python ...`。
-- `docs/skill/label_schema.md` 中仍保留旧版 NLI score 示例，包含 `semantic_necessity_label`；本轮按 Sprint 1D task card 和 `docs/skill/nli_scores_interface.md` 执行 score-only 接口。
+- `docs/reasoning-aware-attention-guidance/label_schema.md` 中仍保留旧版 NLI score 示例，包含 `semantic_necessity_label`；本轮按 Sprint 1D task card 和 `docs/reasoning-aware-attention-guidance/nli_scores_interface.md` 执行 score-only 接口。
 - 本轮只生成 NLI scores，没有生成 semantic necessity labels。
 - 本轮未实现 masked question construction、recovery、trajectory、attention guidance 或 probe。
 
@@ -297,16 +297,16 @@ group_type_counts: {'number_set': 10, 'repeated_surface': 10, 'single': 72}
 - 新增 `validate_semantic_label_record`，校验 1D 复制字段、forward/backward 方向、rule_v0、label enum、rule parameters、boolean consistency 和 semantic_necessity_score。
 - 新增 `src/recover_attention/semantic_labels.py`，提供单条和批量 semantic label 构造函数。
 - 新增 `scripts/06_build_semantic_labels.py` CLI。
-- 新增 `docs/skill/semantic_labels_interface.md` 并在 `docs/skill/SKILL.md` 中索引。
-- 更新 `docs/skill/label_schema.md` 的 Semantic Label Record 摘要。
+- 新增 `docs/reasoning-aware-attention-guidance/semantic_labels_interface.md` 并在 `docs/reasoning-aware-attention-guidance/SKILL.md` 中索引。
+- 更新 `docs/reasoning-aware-attention-guidance/label_schema.md` 的 Semantic Label Record 摘要。
 - 生成 `data/processed/semantic_labels.jsonl`。
 - 新增 semantic label pytest，并补充 schema validator pytest。
 
 新增或修改文件：
 
-- docs/skill/semantic_labels_interface.md
-- docs/skill/SKILL.md
-- docs/skill/label_schema.md
+- docs/reasoning-aware-attention-guidance/semantic_labels_interface.md
+- docs/reasoning-aware-attention-guidance/SKILL.md
+- docs/reasoning-aware-attention-guidance/label_schema.md
 - src/recover_attention/schemas.py
 - src/recover_attention/semantic_labels.py
 - scripts/06_build_semantic_labels.py
@@ -453,17 +453,17 @@ source_count_distribution: {2: 46}
 已完成内容：
 
 - 将 `recover_outputs.jsonl` 接口从旧 span-level schema 对齐为 unit-level / masked_id-driven schema。
-- 新增 `docs/skill/recover_outputs_interface.md`。
+- 新增 `docs/reasoning-aware-attention-guidance/recover_outputs_interface.md`。
 - 将 `REQUIRED_FIELDS["recover_output"]` 更新为 unit-level / masked_id-driven 字段集合；后续补丁已进一步扩展为 self-contained 15 字段接口。
 - 更新 `validate_recover_output_record`，校验 `masked_id`、unit span metadata、`sample_id >= 0`，并拒绝旧字段 `span_id / span_text / span_type / recoverable / confidence / reason / recoverability_label`。
-- 更新 `docs/skill/SKILL.md` 路由和 `docs/skill/label_schema.md` 第 11 节，使 recover output 指向 interface 文档。
+- 更新 `docs/reasoning-aware-attention-guidance/SKILL.md` 路由和 `docs/reasoning-aware-attention-guidance/label_schema.md` 第 11 节，使 recover output 指向 interface 文档。
 - 更新接口一致性测试和 schema 测试。
 
 新增或修改文件：
 
-- docs/skill/recover_outputs_interface.md
-- docs/skill/SKILL.md
-- docs/skill/label_schema.md
+- docs/reasoning-aware-attention-guidance/recover_outputs_interface.md
+- docs/reasoning-aware-attention-guidance/SKILL.md
+- docs/reasoning-aware-attention-guidance/label_schema.md
 - src/recover_attention/schemas.py
 - tests/test_schemas.py
 - tests/test_interface_consistency.py
@@ -499,8 +499,8 @@ conda run -n recover_attention python -m pytest -q
 发现并处理的不一致：
 
 - `src/recover_attention/schemas.py` 中 `recover_output` 仍使用旧 `span_id / recoverable / confidence / reason` 字段，已修正。
-- `docs/skill/label_schema.md` 第 11 节仍是旧 span-level recover output 字段表，已改为指向 `recover_outputs_interface.md`。
-- `docs/skill/SKILL.md` 未索引 recover output interface，已补充。
+- `docs/reasoning-aware-attention-guidance/label_schema.md` 第 11 节仍是旧 span-level recover output 字段表，已改为指向 `recover_outputs_interface.md`。
+- `docs/reasoning-aware-attention-guidance/SKILL.md` 未索引 recover output interface，已补充。
 - `tests/test_schemas.py` 仍使用旧 span-level recover output fixture，已改为 unit-level fixture。
 
 保留并报告的不一致：
@@ -527,13 +527,13 @@ conda run -n recover_attention python -m pytest -q
   `unit_scope / group_type / original_question / mask_token / mask_backend / mask_strategy`。
 - 新增 `ALLOWED_RECOVERY_BACKENDS = {"oracle_stub_v0"}`，并将 `recovery_backend` 收紧为枚举。
 - `validate_recover_output_record` 现在校验 unit metadata、mask backend、mask strategy、recovery backend，并检查 `masked_question` 正好为每个 span 新增一个 `mask_token`。
-- 更新 `docs/skill/recover_outputs_interface.md` 和 `docs/skill/label_schema.md`，明确 recover output 保留后续 recoverability scoring 所需元数据，避免评分阶段必须 join 回 `masked_questions.jsonl`。
+- 更新 `docs/reasoning-aware-attention-guidance/recover_outputs_interface.md` 和 `docs/reasoning-aware-attention-guidance/label_schema.md`，明确 recover output 保留后续 recoverability scoring 所需元数据，避免评分阶段必须 join 回 `masked_questions.jsonl`。
 - 更新 schema 测试，新增非法 `recovery_backend` 回归测试。
 
 新增或修改文件：
 
-- docs/skill/recover_outputs_interface.md
-- docs/skill/label_schema.md
+- docs/reasoning-aware-attention-guidance/recover_outputs_interface.md
+- docs/reasoning-aware-attention-guidance/label_schema.md
 - src/recover_attention/schemas.py
 - tests/test_schemas.py
 - PROGRESS.md
@@ -662,22 +662,22 @@ recovery_backend_counts: {'oracle_stub_v0': 46}
 已完成内容：
 
 - 将 `recover_score` 从旧 span-level schema 迁移为 unit-level / masked_id-driven schema。
-- 新增 `docs/skill/recover_scores_interface.md`。
+- 新增 `docs/reasoning-aware-attention-guidance/recover_scores_interface.md`。
 - 将 `recover_score` 加入 `schemas.INTERFACE_DOCS`，纳入 `scripts/sync_interface_fields.py` 与 `tests/test_interface_consistency.py` 的接口治理。
 - 新增 `ALLOWED_RECOVER_SCORE_BACKENDS = {"stub_rule_v0"}`。
 - 更新 `REQUIRED_FIELDS["recover_score"]`，使 recover score 保留 recover_outputs 聚合所需的 unit metadata、sample evidence 和 score 字段。
 - 更新 `FORBIDDEN_FIELDS["recover_score"]`，显式拒绝旧 span-level 顶层字段、sample-level 字段和 attention/guidance 字段。
 - 更新 `validate_recover_score_record`，校验 `recover_score_id`、`masked_id`、unit span metadata、sample 聚合字段、score 范围、backend enum 和 evidence。
-- 更新 `docs/skill/label_schema.md` 第 12 节，使其只指向 `recover_scores_interface.md`，不再复制完整字段表。
-- 更新 `docs/skill/SKILL.md` 路由和 `scripts/sync_interface_fields.py` 注释。
+- 更新 `docs/reasoning-aware-attention-guidance/label_schema.md` 第 12 节，使其只指向 `recover_scores_interface.md`，不再复制完整字段表。
+- 更新 `docs/reasoning-aware-attention-guidance/SKILL.md` 路由和 `scripts/sync_interface_fields.py` 注释。
 - 更新 `tests/test_schemas.py` 和 `tests/test_interface_consistency.py`。
 
 新增或修改文件：
 
 - src/recover_attention/schemas.py
-- docs/skill/recover_scores_interface.md
-- docs/skill/label_schema.md
-- docs/skill/SKILL.md
+- docs/reasoning-aware-attention-guidance/recover_scores_interface.md
+- docs/reasoning-aware-attention-guidance/label_schema.md
+- docs/reasoning-aware-attention-guidance/SKILL.md
 - scripts/sync_interface_fields.py
 - tests/test_schemas.py
 - tests/test_interface_consistency.py
@@ -825,18 +825,18 @@ recoverability label 分布：
 已完成内容：
 
 - 新增 `unit_evidence` record type，用作 unit-level evidence aggregation 中间层。
-- 新增 `docs/skill/unit_evidence_interface.md`，说明 `unit_evidence.jsonl` 的用途、pipeline 位置、字段来源、ID 规则、signal boundary、禁止内容、validator 和示例。
+- 新增 `docs/reasoning-aware-attention-guidance/unit_evidence_interface.md`，说明 `unit_evidence.jsonl` 的用途、pipeline 位置、字段来源、ID 规则、signal boundary、禁止内容、validator 和示例。
 - 在 `src/recover_attention/schemas.py` 中新增 `REQUIRED_FIELDS["unit_evidence"]`、`FORBIDDEN_FIELDS["unit_evidence"]`、`INTERFACE_DOCS["unit_evidence"]`、`ALLOWED_UNIT_EVIDENCE_BACKENDS`、`ALLOWED_UNIT_EVIDENCE_STATUSES`、`ALLOWED_EVIDENCE_SIGNAL_TYPES` 和 `validate_unit_evidence_record`。
-- 更新 `docs/skill/label_schema.md`，新增 Unit Evidence Record 小节并指向 `unit_evidence_interface.md`，不复制完整字段表。
-- 更新 `docs/skill/SKILL.md` 文档路由，加入 `unit_evidence_interface.md`。
+- 更新 `docs/reasoning-aware-attention-guidance/label_schema.md`，新增 Unit Evidence Record 小节并指向 `unit_evidence_interface.md`，不复制完整字段表。
+- 更新 `docs/reasoning-aware-attention-guidance/SKILL.md` 文档路由，加入 `unit_evidence_interface.md`。
 - 更新 `tests/test_interface_consistency.py`，使 unit evidence interface 纳入 marker / label_schema 一致性检查。
 - 更新 `tests/test_schemas.py`，覆盖 valid record、缺字段、禁用字段、ID 规则、backend/status/signal enum、single/group span 约束和 span 顺序。
 
 新增或修改文件：
 
-- docs/skill/unit_evidence_interface.md
-- docs/skill/label_schema.md
-- docs/skill/SKILL.md
+- docs/reasoning-aware-attention-guidance/unit_evidence_interface.md
+- docs/reasoning-aware-attention-guidance/label_schema.md
+- docs/reasoning-aware-attention-guidance/SKILL.md
 - src/recover_attention/schemas.py
 - tests/test_interface_consistency.py
 - tests/test_schemas.py
@@ -979,14 +979,14 @@ recoverability_label 分布：
 
 已完成内容：
 
-- 修正 `docs/skill/label_schema.md` 第 0 节生成边界说明：从“不受 interface doc 管理”的例子中移除 `recover_score`（它已有 interface 文档并登记于 `schemas.INTERFACE_DOCS`），保留 `question / candidate_span / attention_anchor_label`。
+- 修正 `docs/reasoning-aware-attention-guidance/label_schema.md` 第 0 节生成边界说明：从“不受 interface doc 管理”的例子中移除 `recover_score`（它已有 interface 文档并登记于 `schemas.INTERFACE_DOCS`），保留 `question / candidate_span / attention_anchor_label`。
 - 保持第 0 节三条原则不变：REQUIRED_FIELDS / FORBIDDEN_FIELDS 是顶层字段唯一来源；interface 的 required_fields block 由 `scripts/sync_interface_fields.py` 生成；label_schema.md 是索引/总览，不复制完整字段表。
 - 未改动第 12 节 Recover Score Record 的 unit-level / masked_id-driven 方向。
 - 在 `tests/test_interface_consistency.py` 新增轻量回归测试 `test_label_schema_out_of_scope_examples_do_not_include_managed_interface_types`：断言 §0 “没有 interface 文档的 record（…）”枚举中，不出现任何已登记在 `schemas.INTERFACE_DOCS` 的 record type。
 
 新增或修改文件：
 
-- docs/skill/label_schema.md
+- docs/reasoning-aware-attention-guidance/label_schema.md
 - tests/test_interface_consistency.py
 - PROGRESS.md
 - docs/progress/sprint_1_history.md
@@ -1026,7 +1026,7 @@ D:\conda\Miniconda3\envs\recover_attention\python.exe -m pytest -q
 
 已完成内容：
 
-- 修正 `docs/skill/unit_evidence_interface.md` 中 Sprint 1I-prep-a 阶段的过时表述（builder 已在 Sprint 1I 实现）：
+- 修正 `docs/reasoning-aware-attention-guidance/unit_evidence_interface.md` 中 Sprint 1I-prep-a 阶段的过时表述（builder 已在 Sprint 1I 实现）：
   - §2 Pipeline Position 的 “This sprint only defines the interface. It does not implement aggregation.” 改为说明 build 阶段已聚合 `semantic_labels.jsonl` + `recover_scores.jsonl` 生成 `unit_evidence.jsonl`，由 `src/recover_attention/unit_evidence.py` 实现、`scripts/10_build_unit_evidence.py` 运行。
   - §4 Field Sources 的 “This sprint only designs the interface. It does not implement the aggregation stage.” 改为说明这些字段由 build 阶段产出且遵循本接口。
   - §9 Example 的 notes “Example only; builder implementation belongs to a later sprint.” 改为 “Example only; concrete records are produced by scripts/10_build_unit_evidence.py.”
@@ -1035,7 +1035,7 @@ D:\conda\Miniconda3\envs\recover_attention\python.exe -m pytest -q
 
 修改文件：
 
-- docs/skill/unit_evidence_interface.md
+- docs/reasoning-aware-attention-guidance/unit_evidence_interface.md
 - PROGRESS.md
 - docs/progress/sprint_1_history.md
 
@@ -1081,17 +1081,17 @@ D:\conda\Miniconda3\envs\recover_attention\python.exe -m pytest -q
   - 新增 `FORBIDDEN_FIELDS["attention_anchor_label"]`，拒绝旧 span-level 顶层字段、sample-level recovery 字段、`guidance_action` / `guidance_strength`、hidden states / attention maps / trajectory / answer stability / raw attention / probe 字段。
   - `INTERFACE_DOCS` 新增 `"attention_anchor_label": "attention_anchor_labels_interface.md"`。
   - 重写 `validate_attention_anchor_label_record` 为 unit-level（复用 unit_evidence 的 span/unit/signal 校验；校验 `attention_anchor_label_id == f"{unit_evidence_id}__anchor_{label_backend}"`；enum/range/signal type 校验）。
-- 新增 `docs/skill/attention_anchor_labels_interface.md`（含 `<!-- required_fields:attention_anchor_label -->` 生成块，由 `sync_interface_fields.py --write` 写入 18 字段；Purpose / Pipeline / Field Sources / ID Rule / Unit-level & Label Boundary / Not Included / Validator / Example）。
+- 新增 `docs/reasoning-aware-attention-guidance/attention_anchor_labels_interface.md`（含 `<!-- required_fields:attention_anchor_label -->` 生成块，由 `sync_interface_fields.py --write` 写入 18 字段；Purpose / Pipeline / Field Sources / ID Rule / Unit-level & Label Boundary / Not Included / Validator / Example）。
 - `label_schema.md`：§17 降级为指向新 interface 的要点说明（声明旧 span-level 废弃、unit-level、不含 guidance）；§0 out-of-scope 移除 `attention_anchor_label`。
 - `SKILL.md`：Document Router 新增 §3.8.9 attention_anchor_labels_interface.md。
 - 测试：`test_interface_consistency.py` 的 `LABEL_SCHEMA_SECTIONS` 新增 attention_anchor_label（marker/forbidden 测试经 INTERFACE_DOCS 自动覆盖）；`test_schemas.py` 改写 fixture 为 unit-level 并新增 group fixture + 15 项 unit-level validator 用例。
 
 新增或修改文件：
 
-- docs/skill/attention_anchor_labels_interface.md（新增）
+- docs/reasoning-aware-attention-guidance/attention_anchor_labels_interface.md（新增）
 - src/recover_attention/schemas.py
-- docs/skill/label_schema.md
-- docs/skill/SKILL.md
+- docs/reasoning-aware-attention-guidance/label_schema.md
+- docs/reasoning-aware-attention-guidance/SKILL.md
 - tests/test_interface_consistency.py
 - tests/test_schemas.py
 - PROGRESS.md
@@ -1214,17 +1214,17 @@ score min / max / mean：
   - 新增 `FORBIDDEN_FIELDS["intervention_manifest"]`，拒绝旧 span-level 顶层字段、guidance 字段、baseline/guided/intervened answer、trajectory/answer stability score、raw_attention_score、hidden states/attention maps 及 `hidden_states_path`/`attentions_path`、probe 字段。
   - `INTERFACE_DOCS` 注册 intervention_manifest。
   - 新增 `validate_intervention_manifest_record`（unit-level + single/group + span 顺序；ID = `f"{attention_anchor_label_id}__intervention_{intervention_type}_{intervention_backend}"`；enum/range/planned_operation dict 校验）。
-- 新增 `docs/skill/intervention_manifest_interface.md`（含 `<!-- required_fields:intervention_manifest -->` 生成块，由 sync 写入 20 字段；Purpose / Pipeline / Field Sources / ID Rule / Planned-only & Unit-level Boundary / Not Included / Validator / Example）。
+- 新增 `docs/reasoning-aware-attention-guidance/intervention_manifest_interface.md`（含 `<!-- required_fields:intervention_manifest -->` 生成块，由 sync 写入 20 字段；Purpose / Pipeline / Field Sources / ID Rule / Planned-only & Unit-level Boundary / Not Included / Validator / Example）。
 - `label_schema.md`：§14 降级为指向新 interface 的要点（旧 span-level 废弃、unit-level、planned-only、不含 hidden/attention path 与 guidance）。§0 无需改（原本未列 intervention_manifest）。
 - `SKILL.md`：Document Router 新增 §3.8.10。
 - 测试：`test_interface_consistency.py` 的 `LABEL_SCHEMA_SECTIONS` 新增 intervention_manifest（marker/forbidden 经 INTERFACE_DOCS 自动覆盖）；`test_schemas.py` 新增 unit-level + group fixture 与 18 项 validator 用例。
 
 新增或修改文件：
 
-- docs/skill/intervention_manifest_interface.md（新增）
+- docs/reasoning-aware-attention-guidance/intervention_manifest_interface.md（新增）
 - src/recover_attention/schemas.py
-- docs/skill/label_schema.md
-- docs/skill/SKILL.md
+- docs/reasoning-aware-attention-guidance/label_schema.md
+- docs/reasoning-aware-attention-guidance/SKILL.md
 - tests/test_interface_consistency.py
 - tests/test_schemas.py
 - PROGRESS.md
@@ -1476,7 +1476,7 @@ conda run -n recover_attention python scripts/05_run_nli_scoring.py --input data
 - scripts/08_run_recovery.py
 - tests/test_recover_generation.py
 - src/recover_attention/schemas.py
-- docs/skill/recover_outputs_interface.md
+- docs/reasoning-aware-attention-guidance/recover_outputs_interface.md
 - configs/v0_nli_small.yaml
 - requirements.txt
 - PROGRESS.md
@@ -1554,7 +1554,7 @@ conda run -n recover_attention python -m pytest -q
 - 当前没有用真实 recovery 全量重建 `recover_scores.jsonl` / `unit_evidence.jsonl` / `attention_anchor_labels.jsonl` / `intervention_manifest.jsonl`。
 - 当前没有接入 hidden states / attention maps / trajectory stability / attention guidance。
 - qwen3.5:9b smoke 只验证本地调用和 schema 产物，不代表恢复质量；模型可能产生猜测或解题式补全。
-- `docs/skill/label_schema.md` 仍有旧摘要提到 `recovery_backend` 只允许 `oracle_stub_v0`；本 sprint task card 禁止修改该文件，当前以 `schemas.py` 与 `recover_outputs_interface.md` 为权威来源。
+- `docs/reasoning-aware-attention-guidance/label_schema.md` 仍有旧摘要提到 `recovery_backend` 只允许 `oracle_stub_v0`；本 sprint task card 禁止修改该文件，当前以 `schemas.py` 与 `recover_outputs_interface.md` 为权威来源。
 - 本轮未自动运行 `ollama pull`，未新增 HuggingFace causal LM backend，未新增 OpenAI / Claude / Gemini API backend。
 
 下一步建议：
@@ -1667,7 +1667,7 @@ real_signal_report.json 关键统计：
 - `recover_scores_real.jsonl` 仍使用 `stub_rule_v0` exact normalized match；real LLM recovery 可能语义正确但 exact match 失败。
 - 当前 `data/processed/ablated_questions.jsonl` 没有中文样本；full run 实际 `language_counts={en: 92}`。
 - `intervention_manifest_real.jsonl` 仍是 `planned_only`，不代表 intervention 已执行或 attention guidance 已实现。
-- `docs/skill/nli_scores_interface.md` 仍有旧阶段文字提到 Sprint 1D 只支持 `stub_v0`；本 sprint task card 禁止修改 interface docs，当前未改。
+- `docs/reasoning-aware-attention-guidance/nli_scores_interface.md` 仍有旧阶段文字提到 Sprint 1D 只支持 `stub_v0`；本 sprint task card 禁止修改 interface docs，当前未改。
 - 未接入 hidden states / attention maps / trajectory stability / answer stability / raw attention / attention guidance / probe。
 - 未声称 attention guidance 有效，未声称减少 hallucination。
 
@@ -1693,7 +1693,7 @@ real_signal_report.json 关键统计：
 - scripts/09_score_recovery.py
 - tests/test_recover_scoring.py
 - src/recover_attention/schemas.py
-- docs/skill/recover_scores_interface.md
+- docs/reasoning-aware-attention-guidance/recover_scores_interface.md
 - configs/v0_nli_small.yaml
 - PROGRESS.md
 - docs/progress/sprint_1_history.md

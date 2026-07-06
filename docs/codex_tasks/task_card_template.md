@@ -15,7 +15,7 @@ xxx
 ```text
 README.md
 AGENTS.md
-docs/skill/SKILL.md
+docs/reasoning-aware-attention-guidance/SKILL.md
 docs/reference/*
 ```
 

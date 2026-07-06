@@ -79,7 +79,7 @@ docs/codex_tasks/*.md
 
 1. `AGENTS.md`
 2. `PROGRESS.md`
-3. `docs/skill/SKILL.md`
+3. `docs/reasoning-aware-attention-guidance/SKILL.md`
 4. `docs/codex_tasks/<TASK_CARD>.md`
 
 本轮不要主动阅读或使用：
@@ -102,7 +102,7 @@ Preflight 必须包括：
 6. 是否发现 task card 与当前提示词冲突
 
 如果当前用户消息、task card、AGENTS.md、SKILL.md 发生冲突，优先级为：
-当前用户消息 > 当前 task card > AGENTS.md > docs/skill/SKILL.md > docs/prompts.md > docs/reference/*
+当前用户消息 > 当前 task card > AGENTS.md > docs/reasoning-aware-attention-guidance/SKILL.md > docs/prompts.md > docs/reference/*
 如发现冲突，必须在最终回复的“遗留问题”中报告冲突内容和采用的优先级依据。
 如果发现需要修改允许列表之外的文件，先停止并询问用户。
 
@@ -128,7 +128,7 @@ Preflight 输出后必须暂停，等待用户确认后再修改文件。
 - 不要重构项目。
 - 不要修改 README.md。
 - 不要修改 AGENTS.md。
-- 不要修改 docs/skill/SKILL.md。
+- 不要修改 docs/reasoning-aware-attention-guidance/SKILL.md。
 - 不要修改 docs/reference/*。
 - 不要自动开始下一 sprint。
 
@@ -265,7 +265,7 @@ Preflight 输出后必须暂停，等待用户确认后再修改文件。
 
 - `README.md`
 - `AGENTS.md`
-- `docs/skill/SKILL.md`
+- `docs/reasoning-aware-attention-guidance/SKILL.md`
 - `docs/reference/*`
 - `docs/codex_tasks/*`
 - `src/recover_attention/*.py`
@@ -353,7 +353,7 @@ Preflight 输出后必须暂停，等待用户确认后再修改文件。
 
 1. `AGENTS.md`
 2. `PROGRESS.md`
-3. `docs/skill/SKILL.md`
+3. `docs/reasoning-aware-attention-guidance/SKILL.md`
 
 不要阅读或扩展：
 
@@ -363,7 +363,7 @@ Preflight 输出后必须暂停，等待用户确认后再修改文件。
 
 - `README.md`
 - `AGENTS.md`
-- `docs/skill/SKILL.md`
+- `docs/reasoning-aware-attention-guidance/SKILL.md`
 - `docs/reference/*`
 - `docs/codex_tasks/*`
 - `src/*`
@@ -407,7 +407,7 @@ Preflight 输出后必须暂停，等待用户确认后再修改文件。
 
 1. `AGENTS.md`
 2. `PROGRESS.md`
-3. `docs/skill/SKILL.md`
+3. `docs/reasoning-aware-attention-guidance/SKILL.md`
 4. `docs/codex_tasks/task_card_template.md`
 
 不要阅读或扩展：

@@ -104,7 +104,7 @@ sprint_2_stage_summary_v0 已只读汇总 Sprint 2A-real / 2B / 2C / 2D / 2E / 2
 | Sprint | 状态 | 摘要 |
 |---|---|---|
 | Sprint 0A | 完成 | 项目骨架与文档约束 |
-| Sprint 0A-docs | 完成 | docs/skill、docs/reference、docs/codex_tasks 结构 |
+| Sprint 0A-docs | 完成 | docs/reasoning-aware-attention-guidance、docs/reference、docs/codex_tasks 结构 |
 | Sprint 0B | 完成 | jsonl 读写、样例数据、smoke test |
 | Sprint 0C | 完成 | 基础 schema 校验 |
 | Sprint 0D | 完成 | prepare_data |
@@ -438,13 +438,13 @@ targeted stage summary pytest: 7 passed
 - outputs/logs/sprint_2_stage_summary/sprint_2_stage_summary.md
 - outputs/logs/sprint_2_stage_summary/sprint_2_stage_summary_audit.json
 - outputs/logs/sprint_2_stage_summary/figures/*.png
-- docs/skill/semantic_labels_interface.md
-- docs/skill/recover_outputs_interface.md
-- docs/skill/recover_scores_interface.md
-- docs/skill/unit_evidence_interface.md
-- docs/skill/attention_anchor_labels_interface.md
-- docs/skill/intervention_manifest_interface.md
-- docs/skill/*
+- docs/reasoning-aware-attention-guidance/semantic_labels_interface.md
+- docs/reasoning-aware-attention-guidance/recover_outputs_interface.md
+- docs/reasoning-aware-attention-guidance/recover_scores_interface.md
+- docs/reasoning-aware-attention-guidance/unit_evidence_interface.md
+- docs/reasoning-aware-attention-guidance/attention_anchor_labels_interface.md
+- docs/reasoning-aware-attention-guidance/intervention_manifest_interface.md
+- docs/reasoning-aware-attention-guidance/*
 - README.md
 - AGENTS.md
 
@@ -481,7 +481,7 @@ targeted stage summary pytest: 7 passed
 - Sprint 2F 保留并记录了本轮前已有的 `docs/codex_tasks/sprint_2E_guidance_candidate_manifest_dry_run.md` 和 `docs/codex_tasks/sprint_2F_mini_closed_loop_report.md` 的 AM 状态；未重写 task card。
 - Sprint 2F 保留并记录了本轮前已有的 untracked Sprint 2E 文件：`src/recover_attention/guidance_candidates.py`、`scripts/20_build_guidance_candidate_manifest.py`、`tests/test_guidance_candidates.py`。
 - Sprint 2 final checkpoint 保留并记录了本轮前已有的 `docs/codex_tasks/sprint_2_final_checkpoint_visualization_summary.md` AM 状态；未重写 task card。
-- `docs/skill/nli_scores_interface.md` 仍有旧阶段文字提到 Sprint 1D 只支持 `stub_v0`；Sprint 1N task card 禁止修改 interface docs，本轮以脚本、schema 和测试为准。
+- `docs/reasoning-aware-attention-guidance/nli_scores_interface.md` 仍有旧阶段文字提到 Sprint 1D 只支持 `stub_v0`；Sprint 1N task card 禁止修改 interface docs，本轮以脚本、schema 和测试为准。
 - 当前没有接入 attention maps / trajectory stability / answer stability / raw attention / attention guidance。
 - 当前没有声称 attention guidance 有效，也没有声称减少 hallucination。
 

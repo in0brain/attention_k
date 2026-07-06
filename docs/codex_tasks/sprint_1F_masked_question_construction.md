@@ -54,15 +54,15 @@ masked_questions.jsonl
 本 sprint 的稳定接口以下列文件为准，且这些文件已迁移为 unit-level：
 
 ```text
-docs/skill/masked_questions_interface.md   （权威 schema）
-docs/skill/label_schema.md §10             （短 schema 总览，与上面一致）
+docs/reasoning-aware-attention-guidance/masked_questions_interface.md   （权威 schema）
+docs/reasoning-aware-attention-guidance/label_schema.md §10             （短 schema 总览，与上面一致）
 src/recover_attention/schemas.py           （validate_masked_question_record 已就位）
 ```
 
 顶层字段：本 task card 不复制完整字段表（避免成为第 4 份 schema）。
 
 ```text
-输出必须符合 docs/skill/masked_questions_interface.md
+输出必须符合 docs/reasoning-aware-attention-guidance/masked_questions_interface.md
 字段来源以 src/recover_attention/schemas.py 的 REQUIRED_FIELDS["masked_question"] 为准
 必须通过 validate_masked_question_record
 不得重抄完整字段表
@@ -118,8 +118,8 @@ validate_masked_question_record 会显式拒绝这三个字段。
 ```text
 Sprint 1E 已完成。
 data/processed/semantic_labels.jsonl 已存在。
-docs/skill/semantic_labels_interface.md 已存在。
-docs/skill/masked_questions_interface.md 已存在。
+docs/reasoning-aware-attention-guidance/semantic_labels_interface.md 已存在。
+docs/reasoning-aware-attention-guidance/masked_questions_interface.md 已存在。
 src/recover_attention/schemas.py 中 validate_masked_question_record 已是 unit-level。
 ```
 
@@ -177,11 +177,11 @@ conda run -n recover_attention python ...
 ```text
 AGENTS.md
 PROGRESS.md
-docs/skill/SKILL.md
-docs/skill/label_schema.md
-docs/skill/experiment_guide.md
-docs/skill/semantic_labels_interface.md
-docs/skill/masked_questions_interface.md
+docs/reasoning-aware-attention-guidance/SKILL.md
+docs/reasoning-aware-attention-guidance/label_schema.md
+docs/reasoning-aware-attention-guidance/experiment_guide.md
+docs/reasoning-aware-attention-guidance/semantic_labels_interface.md
+docs/reasoning-aware-attention-guidance/masked_questions_interface.md
 src/recover_attention/data_io.py
 src/recover_attention/schemas.py
 src/recover_attention/semantic_labels.py
@@ -214,11 +214,11 @@ docs/reference/*
 本 sprint 开始前必须回顾并确认以下文件互相一致：
 
 ```text
-docs/skill/masked_questions_interface.md
-docs/skill/label_schema.md §10
+docs/reasoning-aware-attention-guidance/masked_questions_interface.md
+docs/reasoning-aware-attention-guidance/label_schema.md §10
 src/recover_attention/schemas.py（validate_masked_question_record）
-docs/skill/SKILL.md（masked_questions_interface 索引）
-docs/skill/experiment_guide.md（pipeline 含 masked_questions.jsonl）
+docs/reasoning-aware-attention-guidance/SKILL.md（masked_questions_interface 索引）
+docs/reasoning-aware-attention-guidance/experiment_guide.md（pipeline 含 masked_questions.jsonl）
 ```
 
 必须确认：
@@ -284,7 +284,7 @@ docs/progress/sprint_1_history.md
 才允许在报告后做最小修正，并补充 tests/test_schemas.py 回归测试。
 ```
 
-`docs/skill/*`：
+`docs/reasoning-aware-attention-guidance/*`：
 
 ```text
 默认不修改。interface / label_schema / SKILL / experiment_guide 已对齐。
@@ -300,13 +300,13 @@ docs/progress/sprint_1_history.md
 ```text
 README.md
 AGENTS.md
-docs/skill/masked_questions_interface.md（默认）
-docs/skill/ablation_units_interface.md
-docs/skill/ablated_questions_interface.md
-docs/skill/nli_scores_interface.md
-docs/skill/semantic_labels_interface.md
-docs/skill/method.md
-docs/skill/prompts.md
+docs/reasoning-aware-attention-guidance/masked_questions_interface.md（默认）
+docs/reasoning-aware-attention-guidance/ablation_units_interface.md
+docs/reasoning-aware-attention-guidance/ablated_questions_interface.md
+docs/reasoning-aware-attention-guidance/nli_scores_interface.md
+docs/reasoning-aware-attention-guidance/semantic_labels_interface.md
+docs/reasoning-aware-attention-guidance/method.md
+docs/reasoning-aware-attention-guidance/prompts.md
 docs/reference/*
 docs/codex_tasks/*
 configs/*
@@ -383,7 +383,7 @@ data/processed/semantic_labels.jsonl
 输入必须符合：
 
 ```text
-docs/skill/semantic_labels_interface.md
+docs/reasoning-aware-attention-guidance/semantic_labels_interface.md
 ```
 
 每条输入 record 至少包含：
@@ -426,7 +426,7 @@ data/processed/masked_questions.jsonl
 输出必须符合：
 
 ```text
-docs/skill/masked_questions_interface.md
+docs/reasoning-aware-attention-guidance/masked_questions_interface.md
 ```
 
 聚合规则：
@@ -552,7 +552,7 @@ validate_masked_question_record 会强制以上长度相等与索引对齐，构
 
 ```text
 src/recover_attention/schemas.py 的 REQUIRED_FIELDS["masked_question"]
-docs/skill/masked_questions_interface.md
+docs/reasoning-aware-attention-guidance/masked_questions_interface.md
 ```
 
 字段来源（provenance，仅说明语义，不复制字段表）：
@@ -571,7 +571,7 @@ docs/skill/masked_questions_interface.md
 完整 single / group 示例见：
 
 ```text
-docs/skill/masked_questions_interface.md 第 14 节（14.1 single、14.2 group）
+docs/reasoning-aware-attention-guidance/masked_questions_interface.md 第 14 节（14.1 single、14.2 group）
 ```
 
 本 task card 不再复制完整示例 JSON（示例不是 schema 权威）。
@@ -590,7 +590,7 @@ validate_masked_question_record(record: dict) -> None
 
 ```text
 1. 本 sprint 默认不重写该 validator，只需让模块与 CLI 的每条输出都通过它。
-2. 完整校验规则以 docs/skill/masked_questions_interface.md 第 9 节与 schemas.py 实现为准。
+2. 完整校验规则以 docs/reasoning-aware-attention-guidance/masked_questions_interface.md 第 9 节与 schemas.py 实现为准。
 3. 不要在 task card 中重抄校验清单或字段表。
 ```
 
@@ -835,10 +835,10 @@ source_count_distribution
 仅需确认：
 
 ```text
-1. docs/skill/masked_questions_interface.md 与实现一致。
-2. docs/skill/label_schema.md §10 字段列表与实现一致。
-3. docs/skill/SKILL.md 已索引 masked_questions_interface.md。
-4. docs/skill/experiment_guide.md pipeline 含 semantic_labels.jsonl → masked_questions.jsonl。
+1. docs/reasoning-aware-attention-guidance/masked_questions_interface.md 与实现一致。
+2. docs/reasoning-aware-attention-guidance/label_schema.md §10 字段列表与实现一致。
+3. docs/reasoning-aware-attention-guidance/SKILL.md 已索引 masked_questions_interface.md。
+4. docs/reasoning-aware-attention-guidance/experiment_guide.md pipeline 含 semantic_labels.jsonl → masked_questions.jsonl。
 ```
 
 如发现文档与实现不一致，先报告，再做最小修正。

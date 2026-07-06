@@ -4,7 +4,7 @@
 
 它不是 task card，不规定每个 sprint 的具体改动范围；具体 sprint 以 `docs/codex_tasks/*.md` 为准。
 
-它也不是 schema 文档；字段、枚举和标签规则统一放在 `docs/skill/label_schema.md`。
+它也不是 schema 文档；字段、枚举和标签规则统一放在 `docs/reasoning-aware-attention-guidance/label_schema.md`。
 
 ---
 
@@ -78,7 +78,7 @@ cache/attentions/
 src/recover_attention/
 scripts/
 tests/
-docs/skill/
+docs/reasoning-aware-attention-guidance/
 docs/codex_tasks/
 docs/reference/
 ```
@@ -203,21 +203,21 @@ PROGRESS.md 已更新
 ## 8. 文档分工
 
 ```text
-docs/skill/SKILL.md:
+docs/reasoning-aware-attention-guidance/SKILL.md:
 总入口和路由规则。
 
-docs/skill/codex_tasks.md:
+docs/reasoning-aware-attention-guidance/codex_tasks.md:
 Sprint 路线、task card 规范和执行边界。
 
-docs/skill/experiment_guide.md:
+docs/reasoning-aware-attention-guidance/experiment_guide.md:
 实验流程、阶段输入输出和运行边界。
 
-docs/skill/method.md:
+docs/reasoning-aware-attention-guidance/method.md:
 方法概念、信号关系和常见误解。
 
-docs/skill/label_schema.md:
+docs/reasoning-aware-attention-guidance/label_schema.md:
 jsonl schema、字段、枚举和标签规则。
 
-docs/skill/prompts.md:
+docs/reasoning-aware-attention-guidance/prompts.md:
 可复用 Codex 提示词模板。
 ```

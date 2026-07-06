@@ -119,7 +119,7 @@ Sprint 3 才考虑真正 attention steering。
 ```text id="zrqrq4"
 AGENTS.md
 PROGRESS.md
-docs/skill/SKILL.md
+docs/reasoning-aware-attention-guidance/SKILL.md
 docs/progress/sprint_2_history.md
 
 docs/codex_tasks/sprint_2D_probe_training_baseline.md
@@ -276,7 +276,7 @@ src/recover_attention/schemas.py
 ```text id="g8wswr"
 AGENTS.md
 README.md
-docs/skill/SKILL.md
+docs/reasoning-aware-attention-guidance/SKILL.md
 
 data/processed/*
 

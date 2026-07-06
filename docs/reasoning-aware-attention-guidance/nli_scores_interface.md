@@ -1,4 +1,4 @@
-# docs/skill/nli_scores_interface.md
+# docs/reasoning-aware-attention-guidance/nli_scores_interface.md
 
 # NLI Scores Interface
 

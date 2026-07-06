@@ -54,7 +54,7 @@ recover_outputs.jsonl
 本 sprint 必须严格遵守：
 
 ```text
-docs/skill/recover_outputs_interface.md
+docs/reasoning-aware-attention-guidance/recover_outputs_interface.md
 src/recover_attention/schemas.py 的 REQUIRED_FIELDS["recover_output"]
 src/recover_attention/schemas.py 的 validate_recover_output_record
 ```
@@ -62,7 +62,7 @@ src/recover_attention/schemas.py 的 validate_recover_output_record
 输入 masked question 必须符合：
 
 ```text
-docs/skill/masked_questions_interface.md
+docs/reasoning-aware-attention-guidance/masked_questions_interface.md
 src/recover_attention/schemas.py 的 validate_masked_question_record
 ```
 
@@ -105,8 +105,8 @@ src/recover_attention/schemas.py 的 validate_masked_question_record
 ```text
 Sprint 1F 已完成。
 data/processed/masked_questions.jsonl 已存在。
-docs/skill/masked_questions_interface.md 已存在。
-docs/skill/recover_outputs_interface.md 已存在。
+docs/reasoning-aware-attention-guidance/masked_questions_interface.md 已存在。
+docs/reasoning-aware-attention-guidance/recover_outputs_interface.md 已存在。
 validate_masked_question_record 已是 unit-level。
 validate_recover_output_record 已是 unit-level / masked_id-driven。
 ```
@@ -151,11 +151,11 @@ python -c "import sys; print(sys.executable); print(sys.version)"
 ```text
 AGENTS.md
 PROGRESS.md
-docs/skill/SKILL.md
-docs/skill/label_schema.md
-docs/skill/experiment_guide.md
-docs/skill/masked_questions_interface.md
-docs/skill/recover_outputs_interface.md
+docs/reasoning-aware-attention-guidance/SKILL.md
+docs/reasoning-aware-attention-guidance/label_schema.md
+docs/reasoning-aware-attention-guidance/experiment_guide.md
+docs/reasoning-aware-attention-guidance/masked_questions_interface.md
+docs/reasoning-aware-attention-guidance/recover_outputs_interface.md
 src/recover_attention/data_io.py
 src/recover_attention/schemas.py
 src/recover_attention/masked_questions.py
@@ -236,9 +236,9 @@ docs/progress/sprint_1_history.md
 
 `src/recover_attention/schemas.py` 默认不修改。
 
-只有当发现 `validate_recover_output_record` 与 `docs/skill/recover_outputs_interface.md` 存在确凿冲突时，才允许在报告后做最小修正，并补充 schema 回归测试。
+只有当发现 `validate_recover_output_record` 与 `docs/reasoning-aware-attention-guidance/recover_outputs_interface.md` 存在确凿冲突时，才允许在报告后做最小修正，并补充 schema 回归测试。
 
-`docs/skill/*` 默认不修改。
+`docs/reasoning-aware-attention-guidance/*` 默认不修改。
 
 只有当发现 interface 文档与当前实现接口不一致时，先报告，再做最小修正。
 
@@ -252,14 +252,14 @@ docs/progress/sprint_1_history.md
 README.md
 AGENTS.md
 docs/reference/*
-docs/skill/masked_questions_interface.md（默认）
-docs/skill/recover_outputs_interface.md（默认）
-docs/skill/ablation_units_interface.md
-docs/skill/ablated_questions_interface.md
-docs/skill/nli_scores_interface.md
-docs/skill/semantic_labels_interface.md
-docs/skill/method.md
-docs/skill/prompts.md
+docs/reasoning-aware-attention-guidance/masked_questions_interface.md（默认）
+docs/reasoning-aware-attention-guidance/recover_outputs_interface.md（默认）
+docs/reasoning-aware-attention-guidance/ablation_units_interface.md
+docs/reasoning-aware-attention-guidance/ablated_questions_interface.md
+docs/reasoning-aware-attention-guidance/nli_scores_interface.md
+docs/reasoning-aware-attention-guidance/semantic_labels_interface.md
+docs/reasoning-aware-attention-guidance/method.md
+docs/reasoning-aware-attention-guidance/prompts.md
 configs/*
 requirements.txt
 pyproject.toml
@@ -345,7 +345,7 @@ data/processed/masked_questions.jsonl
 输入必须符合：
 
 ```text
-docs/skill/masked_questions_interface.md
+docs/reasoning-aware-attention-guidance/masked_questions_interface.md
 validate_masked_question_record
 ```
 
@@ -370,7 +370,7 @@ data/processed/recover_outputs.jsonl
 输出必须符合：
 
 ```text
-docs/skill/recover_outputs_interface.md
+docs/reasoning-aware-attention-guidance/recover_outputs_interface.md
 validate_recover_output_record
 ```
 

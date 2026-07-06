@@ -725,7 +725,7 @@ docs/codex_tasks/sprint_2B_fix_representation_feature_scope_alignment.md
 ```text
 AGENTS.md
 README.md
-docs/skill/SKILL.md
+docs/reasoning-aware-attention-guidance/SKILL.md
 
 data/processed/*
 

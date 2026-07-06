@@ -23,7 +23,7 @@ blocks, the marker line itself, any comment lines before the fence) is
 hand-written and is NEVER touched by this script.
 
 Out of scope (intentionally NOT managed here):
-    - docs/skill/label_schema.md
+    - docs/reasoning-aware-attention-guidance/label_schema.md
         It is an index/overview. It must only POINT to the interface docs and
         must not duplicate field lists. That rule is enforced by
         tests/test_interface_consistency.py, not by this generator.
@@ -58,7 +58,7 @@ if str(SRC_DIR) not in sys.path:
 
 from recover_attention.schemas import INTERFACE_DOCS, REQUIRED_FIELDS  # noqa: E402
 
-SKILL_DIR = REPO_ROOT / "docs" / "skill"
+SKILL_DIR = REPO_ROOT / "docs" / "reasoning-aware-attention-guidance"
 
 
 def _marker(record_type: str) -> str:
@@ -137,7 +137,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(
         description=(
             "Generate (--write) or verify (--check, default) the required_fields "
-            "blocks in docs/skill/*_interface.md from schemas.REQUIRED_FIELDS."
+            "blocks in docs/reasoning-aware-attention-guidance/*_interface.md from schemas.REQUIRED_FIELDS."
         )
     )
     mode = parser.add_mutually_exclusive_group()

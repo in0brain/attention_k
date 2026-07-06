@@ -44,7 +44,7 @@ probe_dataset_report.json
 ```text
 AGENTS.md
 PROGRESS.md
-docs/skill/SKILL.md
+docs/reasoning-aware-attention-guidance/SKILL.md
 docs/codex_tasks/sprint_2B_representation_feature_extraction.md
 docs/progress/sprint_2_history.md
 docs/codex_tasks/sprint_2A_hidden_state_cache_baseline.md
@@ -451,7 +451,7 @@ docs/codex_tasks/sprint_2B_representation_feature_extraction.md
 ```text
 AGENTS.md
 README.md
-docs/skill/SKILL.md
+docs/reasoning-aware-attention-guidance/SKILL.md
 data/processed/*
 outputs/logs/sprint_1Q_*
 outputs/logs/sprint_1R_*

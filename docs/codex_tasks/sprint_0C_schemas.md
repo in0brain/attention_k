@@ -33,7 +33,7 @@ PROGRESS.md
 ```text
 README.md
 AGENTS.md
-docs/skill/SKILL.md
+docs/reasoning-aware-attention-guidance/SKILL.md
 docs/reference/*
 docs/codex_tasks/*
 src/recover_attention/data_io.py
@@ -486,7 +486,7 @@ python scripts/00_smoke_test.py --config configs/v0_nli_small.yaml
 [OK] tests/test_schemas.py 存在
 [OK] pytest -q 可以通过
 [OK] schema 函数校验失败时会抛出 ValueError
-[OK] 没有修改 README.md / AGENTS.md / docs/skill/SKILL.md / docs/reference/*
+[OK] 没有修改 README.md / AGENTS.md / docs/reasoning-aware-attention-guidance/SKILL.md / docs/reference/*
 [OK] 没有实现 Sprint 0D
 [OK] PROGRESS.md 已更新
 ```
@@ -513,7 +513,7 @@ python scripts/00_smoke_test.py --config configs/v0_nli_small.yaml
 不要做大规模实验。
 不要修改 README.md。
 不要修改 AGENTS.md。
-不要修改 docs/skill/SKILL.md。
+不要修改 docs/reasoning-aware-attention-guidance/SKILL.md。
 不要修改 docs/reference/*。
 ```
 

@@ -50,7 +50,7 @@ Codex 执行前必须阅读：
 ```text
 AGENTS.md
 PROGRESS.md
-docs/skill/SKILL.md
+docs/reasoning-aware-attention-guidance/SKILL.md
 docs/codex_tasks/sprint_2A_hidden_state_cache_baseline.md
 ```
 
@@ -169,7 +169,7 @@ tests/test_schemas.py
 ```text
 AGENTS.md
 README.md
-docs/skill/*
+docs/reasoning-aware-attention-guidance/*
 docs/reference/*
 data/processed/*
 outputs/logs/sprint_1N_real_downstream/*

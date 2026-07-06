@@ -30,7 +30,7 @@ Sprint 0F：文档主线对齐
 也就是说：
 
 ```text
-README.md、AGENTS.md、docs/skill/*、PROGRESS.md 已经对齐为 Reasoning-Aware Attention Guidance 主线。
+README.md、AGENTS.md、docs/reasoning-aware-attention-guidance/*、PROGRESS.md 已经对齐为 Reasoning-Aware Attention Guidance 主线。
 ```
 
 如果 PROGRESS.md 没有 Sprint 0F 记录，停止并报告，不要继续执行本 sprint。
@@ -44,9 +44,9 @@ README.md、AGENTS.md、docs/skill/*、PROGRESS.md 已经对齐为 Reasoning-Awa
 ```text
 AGENTS.md
 PROGRESS.md
-docs/skill/SKILL.md
-docs/skill/label_schema.md
-docs/skill/method.md
+docs/reasoning-aware-attention-guidance/SKILL.md
+docs/reasoning-aware-attention-guidance/label_schema.md
+docs/reasoning-aware-attention-guidance/method.md
 src/recover_attention/schemas.py
 tests/test_schemas.py
 ```
@@ -80,7 +80,7 @@ PROGRESS.md
 ```text
 README.md
 AGENTS.md
-docs/skill/*
+docs/reasoning-aware-attention-guidance/*
 docs/reference/*
 docs/codex_tasks/*
 configs/*
@@ -349,7 +349,7 @@ Sprint 1A：candidate span extraction
 7. python -m pytest -q 通过。
 8. smoke test 通过。
 9. prepare_data 通过。
-10. 未修改 docs/skill/*、README.md、AGENTS.md。
+10. 未修改 docs/reasoning-aware-attention-guidance/*、README.md、AGENTS.md。
 11. 未实现任何实验模块。
 ```
 

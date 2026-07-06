@@ -78,7 +78,7 @@ semantic_labels.jsonl
 ```text
 Sprint 1D 已完成。
 data/processed/nli_scores.jsonl 已存在。
-docs/skill/nli_scores_interface.md 已存在。
+docs/reasoning-aware-attention-guidance/nli_scores_interface.md 已存在。
 ```
 
 如果输入文件不存在，停止并报告：
@@ -135,12 +135,12 @@ conda run -n recover_attention python ...
 ```text
 AGENTS.md
 PROGRESS.md
-docs/skill/SKILL.md
-docs/skill/label_schema.md
-docs/skill/experiment_guide.md
-docs/skill/ablation_units_interface.md
-docs/skill/ablated_questions_interface.md
-docs/skill/nli_scores_interface.md
+docs/reasoning-aware-attention-guidance/SKILL.md
+docs/reasoning-aware-attention-guidance/label_schema.md
+docs/reasoning-aware-attention-guidance/experiment_guide.md
+docs/reasoning-aware-attention-guidance/ablation_units_interface.md
+docs/reasoning-aware-attention-guidance/ablated_questions_interface.md
+docs/reasoning-aware-attention-guidance/nli_scores_interface.md
 src/recover_attention/data_io.py
 src/recover_attention/schemas.py
 src/recover_attention/nli_scoring.py
@@ -150,7 +150,7 @@ data/processed/nli_scores.jsonl
 如果以下文件存在，也读取：
 
 ```text
-docs/skill/semantic_labels_interface.md
+docs/reasoning-aware-attention-guidance/semantic_labels_interface.md
 src/recover_attention/semantic_labels.py
 scripts/06_build_semantic_labels.py
 tests/test_semantic_labels.py
@@ -173,12 +173,12 @@ docs/reference/*
 本 sprint 开始前必须回顾并检查以下接口文档之间是否冲突：
 
 ```text
-docs/skill/ablation_units_interface.md
-docs/skill/ablated_questions_interface.md
-docs/skill/nli_scores_interface.md
-docs/skill/label_schema.md
-docs/skill/experiment_guide.md
-docs/skill/SKILL.md
+docs/reasoning-aware-attention-guidance/ablation_units_interface.md
+docs/reasoning-aware-attention-guidance/ablated_questions_interface.md
+docs/reasoning-aware-attention-guidance/nli_scores_interface.md
+docs/reasoning-aware-attention-guidance/label_schema.md
+docs/reasoning-aware-attention-guidance/experiment_guide.md
+docs/reasoning-aware-attention-guidance/SKILL.md
 ```
 
 必须检查以下问题：
@@ -225,10 +225,10 @@ Interface conflict detected.
 本 sprint 允许修改：
 
 ```text
-docs/skill/semantic_labels_interface.md
-docs/skill/SKILL.md
-docs/skill/label_schema.md
-docs/skill/experiment_guide.md
+docs/reasoning-aware-attention-guidance/semantic_labels_interface.md
+docs/reasoning-aware-attention-guidance/SKILL.md
+docs/reasoning-aware-attention-guidance/label_schema.md
+docs/reasoning-aware-attention-guidance/experiment_guide.md
 src/recover_attention/schemas.py
 src/recover_attention/semantic_labels.py
 scripts/06_build_semantic_labels.py
@@ -242,7 +242,7 @@ docs/progress/sprint_1_history.md
 如果以下文件不存在，可以创建：
 
 ```text
-docs/skill/semantic_labels_interface.md
+docs/reasoning-aware-attention-guidance/semantic_labels_interface.md
 src/recover_attention/semantic_labels.py
 scripts/06_build_semantic_labels.py
 tests/test_semantic_labels.py
@@ -252,13 +252,13 @@ docs/progress/sprint_1_history.md
 限制：
 
 ```text
-docs/skill/SKILL.md:
+docs/reasoning-aware-attention-guidance/SKILL.md:
   只允许增加 semantic_labels_interface.md 的文档索引行。
 
-docs/skill/label_schema.md:
+docs/reasoning-aware-attention-guidance/label_schema.md:
   只允许增加或修正 Semantic Label Record 相关内容，以及删除已经过时且与当前接口冲突的旧说明。
 
-docs/skill/experiment_guide.md:
+docs/reasoning-aware-attention-guidance/experiment_guide.md:
   只允许修正 pipeline 或阶段边界中与 1E 相关的内容。
 
 PROGRESS.md:
@@ -274,9 +274,9 @@ PROGRESS.md:
 ```text
 README.md
 AGENTS.md
-docs/skill/ablation_units_interface.md
-docs/skill/ablated_questions_interface.md
-docs/skill/nli_scores_interface.md
+docs/reasoning-aware-attention-guidance/ablation_units_interface.md
+docs/reasoning-aware-attention-guidance/ablated_questions_interface.md
+docs/reasoning-aware-attention-guidance/nli_scores_interface.md
 docs/reference/*
 docs/codex_tasks/*
 configs/*
@@ -326,8 +326,8 @@ data/processed/attention_anchor_labels.jsonl
 6. unit_scope 分布。
 7. group_type 分布。
 8. language 分布。
-9. docs/skill/semantic_labels_interface.md 是否存在。
-10. docs/skill/nli_scores_interface.md 是否为 score-only。
+9. docs/reasoning-aware-attention-guidance/semantic_labels_interface.md 是否存在。
+10. docs/reasoning-aware-attention-guidance/nli_scores_interface.md 是否为 score-only。
 11. label_schema.md 是否仍把 semantic_necessity_label 放进 nli_scores.jsonl。
 12. experiment_guide.md pipeline 是否包含 semantic_labels.jsonl。
 13. SKILL.md 是否已索引 semantic_labels_interface.md。
@@ -356,7 +356,7 @@ data/processed/nli_scores.jsonl
 输入必须符合：
 
 ```text
-docs/skill/nli_scores_interface.md
+docs/reasoning-aware-attention-guidance/nli_scores_interface.md
 ```
 
 每条输入 record 至少包含：
@@ -830,7 +830,7 @@ contradiction_threshold
 新增或更新：
 
 ```text
-docs/skill/semantic_labels_interface.md
+docs/reasoning-aware-attention-guidance/semantic_labels_interface.md
 ```
 
 该文件必须说明：
@@ -852,13 +852,13 @@ docs/skill/semantic_labels_interface.md
 同时在：
 
 ```text
-docs/skill/SKILL.md
+docs/reasoning-aware-attention-guidance/SKILL.md
 ```
 
 的文档路由或接口文档区域增加一行：
 
 ```text
-docs/skill/semantic_labels_interface.md
+docs/reasoning-aware-attention-guidance/semantic_labels_interface.md
   Semantic label 的长期接口文档，说明 semantic_labels.jsonl schema、字段含义、rule_v0、阈值、标签枚举和后续 mask/recovery 消费方式。
 ```
 
@@ -871,7 +871,7 @@ docs/skill/semantic_labels_interface.md
 更新：
 
 ```text
-docs/skill/label_schema.md
+docs/reasoning-aware-attention-guidance/label_schema.md
 ```
 
 要求：
@@ -890,7 +890,7 @@ docs/skill/label_schema.md
    semantic_labels.jsonl 才包含 semantic_necessity_label。
 
 4. 不要复制过长实现细节。
-   具体稳定接口以 docs/skill/semantic_labels_interface.md 为准。
+   具体稳定接口以 docs/reasoning-aware-attention-guidance/semantic_labels_interface.md 为准。
 ```
 
 如果 `label_schema.md` 中仍有过时说明：
@@ -908,7 +908,7 @@ docs/skill/label_schema.md
 检查：
 
 ```text
-docs/skill/experiment_guide.md
+docs/reasoning-aware-attention-guidance/experiment_guide.md
 ```
 
 必须确保 pipeline 包含：
@@ -1549,7 +1549,7 @@ semantic label rule: passed
 
 ```text
 已完成：
-- docs/skill/semantic_labels_interface.md
+- docs/reasoning-aware-attention-guidance/semantic_labels_interface.md
 - src/recover_attention/semantic_labels.py
 - scripts/06_build_semantic_labels.py
 - tests/test_semantic_labels.py
@@ -1568,7 +1568,7 @@ semantic label rule: passed
 如果 `PROGRESS.md` 仍包含已经过时的遗留问题，例如：
 
 ```text
-docs/skill/label_schema.md 中的旧 NLI score 示例仍包含 semantic necessity label
+docs/reasoning-aware-attention-guidance/label_schema.md 中的旧 NLI score 示例仍包含 semantic necessity label
 ```
 
 并且当前已经修复，应删除该遗留项。
@@ -1590,10 +1590,10 @@ docs/progress/sprint_1_history.md
 ```text
 1. 开始前已回顾 1B / 1C / 1D 接口文档。
 2. 已报告是否存在接口冲突。
-3. docs/skill/semantic_labels_interface.md 存在。
-4. docs/skill/SKILL.md 已增加 semantic_labels_interface.md 索引行。
-5. docs/skill/label_schema.md 已包含当前 Semantic Label Record 短 schema 总览。
-6. docs/skill/experiment_guide.md pipeline 仍正确包含 semantic_labels.jsonl。
+3. docs/reasoning-aware-attention-guidance/semantic_labels_interface.md 存在。
+4. docs/reasoning-aware-attention-guidance/SKILL.md 已增加 semantic_labels_interface.md 索引行。
+5. docs/reasoning-aware-attention-guidance/label_schema.md 已包含当前 Semantic Label Record 短 schema 总览。
+6. docs/reasoning-aware-attention-guidance/experiment_guide.md pipeline 仍正确包含 semantic_labels.jsonl。
 7. src/recover_attention/semantic_labels.py 存在。
 8. scripts/06_build_semantic_labels.py 存在。
 9. tests/test_semantic_labels.py 存在。

@@ -492,7 +492,7 @@ src/recover_attention/recover_scoring.py
 scripts/09_score_recovery.py
 tests/test_recover_scoring.py
 src/recover_attention/schemas.py
-docs/skill/recover_scores_interface.md
+docs/reasoning-aware-attention-guidance/recover_scores_interface.md
 configs/v0_nli_small.yaml
 PROGRESS.md
 docs/progress/sprint_1_history.md
@@ -516,18 +516,18 @@ outputs/logs/sprint_1O_recovery_scoring/recover_scores_stub_check.jsonl
 ```text id="n8ft34"
 README.md
 AGENTS.md
-docs/skill/SKILL.md
-docs/skill/codex_tasks.md
-docs/skill/experiment_guide.md
-docs/skill/method.md
-docs/skill/label_schema.md
-docs/skill/nli_scores_interface.md
-docs/skill/semantic_labels_interface.md
-docs/skill/masked_questions_interface.md
-docs/skill/recover_outputs_interface.md
-docs/skill/unit_evidence_interface.md
-docs/skill/attention_anchor_labels_interface.md
-docs/skill/intervention_manifest_interface.md
+docs/reasoning-aware-attention-guidance/SKILL.md
+docs/reasoning-aware-attention-guidance/codex_tasks.md
+docs/reasoning-aware-attention-guidance/experiment_guide.md
+docs/reasoning-aware-attention-guidance/method.md
+docs/reasoning-aware-attention-guidance/label_schema.md
+docs/reasoning-aware-attention-guidance/nli_scores_interface.md
+docs/reasoning-aware-attention-guidance/semantic_labels_interface.md
+docs/reasoning-aware-attention-guidance/masked_questions_interface.md
+docs/reasoning-aware-attention-guidance/recover_outputs_interface.md
+docs/reasoning-aware-attention-guidance/unit_evidence_interface.md
+docs/reasoning-aware-attention-guidance/attention_anchor_labels_interface.md
+docs/reasoning-aware-attention-guidance/intervention_manifest_interface.md
 docs/reference/*
 src/recover_attention/nli_scoring.py
 src/recover_attention/semantic_labels.py
@@ -570,9 +570,9 @@ pyproject.toml
 ```text id="skkgc3"
 AGENTS.md
 PROGRESS.md
-docs/skill/SKILL.md
-docs/skill/codex_tasks.md
-docs/skill/recover_scores_interface.md
+docs/reasoning-aware-attention-guidance/SKILL.md
+docs/reasoning-aware-attention-guidance/codex_tasks.md
+docs/reasoning-aware-attention-guidance/recover_scores_interface.md
 src/recover_attention/schemas.py
 src/recover_attention/recover_scoring.py
 src/recover_attention/nli_scoring.py
@@ -718,7 +718,7 @@ ALLOWED_RECOVERABLE_VALUES
 更新：
 
 ```text id="pntq3l"
-docs/skill/recover_scores_interface.md
+docs/reasoning-aware-attention-guidance/recover_scores_interface.md
 ```
 
 要求：

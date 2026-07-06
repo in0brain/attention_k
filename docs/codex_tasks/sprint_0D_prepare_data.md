@@ -46,7 +46,7 @@ data/processed/questions.jsonl
 ```text id="o5uiff"
 README.md
 AGENTS.md
-docs/skill/SKILL.md
+docs/reasoning-aware-attention-guidance/SKILL.md
 docs/prompts.md
 docs/reference/*
 docs/codex_tasks/*
@@ -246,7 +246,7 @@ python scripts/00_smoke_test.py --config configs/v0_nli_small.yaml
 [OK] data/processed/questions.jsonl 为标准 question record jsonl
 [OK] python -m pytest -q 可以通过
 [OK] smoke test 可以通过
-[OK] 没有修改 README.md / AGENTS.md / docs/skill/SKILL.md / docs/prompts.md / docs/reference/*
+[OK] 没有修改 README.md / AGENTS.md / docs/reasoning-aware-attention-guidance/SKILL.md / docs/prompts.md / docs/reference/*
 [OK] 没有修改 data_io.py 和 schemas.py
 [OK] 没有实现 Sprint 1A
 [OK] PROGRESS.md 已更新

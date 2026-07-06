@@ -144,7 +144,7 @@ SVG 可选。
 ```text id="ufwvtp"
 AGENTS.md
 PROGRESS.md
-docs/skill/SKILL.md
+docs/reasoning-aware-attention-guidance/SKILL.md
 docs/progress/sprint_2_history.md
 
 docs/codex_tasks/sprint_2F_mini_closed_loop_report.md
@@ -314,7 +314,7 @@ docs/progress/sprint_2_history.md
 ```text id="wud6h6"
 AGENTS.md
 README.md
-docs/skill/SKILL.md
+docs/reasoning-aware-attention-guidance/SKILL.md
 
 data/processed/*
 

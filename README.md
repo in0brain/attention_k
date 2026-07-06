@@ -384,18 +384,18 @@ python -m pytest -q
 本项目的 Skill 文档位于：
 
 ```text
-docs/skill/
+docs/reasoning-aware-attention-guidance/
 ```
 
 核心文件包括：
 
 ```text
-docs/skill/SKILL.md
-docs/skill/codex_tasks.md
-docs/skill/experiment_guide.md
-docs/skill/method.md
-docs/skill/label_schema.md
-docs/skill/prompts.md
+docs/reasoning-aware-attention-guidance/SKILL.md
+docs/reasoning-aware-attention-guidance/codex_tasks.md
+docs/reasoning-aware-attention-guidance/experiment_guide.md
+docs/reasoning-aware-attention-guidance/method.md
+docs/reasoning-aware-attention-guidance/label_schema.md
+docs/reasoning-aware-attention-guidance/prompts.md
 ```
 
 其中：
@@ -437,7 +437,7 @@ docs/reference/
 3. 不提前实现后续阶段。
 4. 所有实验结果必须可复现、可检查、可回滚。
 5. Codex 负责代码实现和 PROGRESS.md 更新。
-6. README.md、AGENTS.md 和 docs/skill/* 通常由研究者维护。
+6. README.md、AGENTS.md 和 docs/reasoning-aware-attention-guidance/* 通常由研究者维护。
 7. 当前阶段优先保证数据格式、脚本接口和 pipeline 稳定，不追求模型性能。
 8. 每一步都必须有明确输入、输出、运行命令和验收标准。
 9. 不调用真实模型，除非当前 sprint 明确要求。
