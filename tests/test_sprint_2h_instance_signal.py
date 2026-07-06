@@ -264,3 +264,60 @@ def test_cv_runner_end_to_end():
     assert len(result["oof_pred_bucket"]) == len(records)
     # signal is real -> ordinal correlation should be positive
     assert result["metrics"]["spearman_score_vs_bucket"] > 0
+
+
+# --------------------------------------------------------------------------- #
+# Sprint 2H-C: pre-recovery feature enrichment
+# --------------------------------------------------------------------------- #
+from recover_attention import pre_recovery_features as prf  # noqa: E402
+
+
+def test_enriched_feature_names_have_no_banned_substrings():
+    # task 4: gate-eligible enriched features must not contain any label-leaking token
+    prf.assert_no_banned_feature_names(["pre_delta_span_l2_layer_0", "pre_stability_span_layershift_orig"])
+    for banned in ["recovered", "solution_path", "drift", "bucket", "risk_strength", "gold"]:
+        with pytest.raises(AssertionError):
+            prf.assert_no_banned_feature_names([f"pre_feature_{banned}_x"])
+
+
+def test_enriched_matrix_build_and_leakage_guard():
+    records = [
+        {"pre_recovery_features": {"pre_delta_span_l2_layer_0": 1.0, "pre_stability_span_layervar_orig": 0.2}},
+        {"pre_recovery_features": {"pre_delta_span_l2_layer_0": 2.0, "pre_stability_span_layervar_orig": 0.4}},
+    ]
+    built = fpt.build_feature_matrix(records, "hidden_pre_recovery_enriched")
+    assert built["matrix"].shape == (2, 2)
+    assert all("recovered" not in n for n in built["feature_names"])
+    prf.assert_no_banned_feature_names(built["feature_names"])
+
+
+def test_extract_pre_recovery_features_leakage_free_with_stub_tensors():
+    torch = pytest.importorskip("torch")
+
+    def fake_loader(path):
+        # [layers=3, seq=3, hidden=8]; deterministic per path so orig != masked
+        gen = torch.Generator().manual_seed(1 if "orig" in str(path) else 2)
+        return torch.randn(3, 3, 8, generator=gen)
+
+    original = {
+        "input_type": "original",
+        "input_text": "Tom has 12 apples",
+        "hidden_state_path": "orig.pt",
+        "token_char_ranges": [[0, 3], [4, 6], [7, 9]],
+        "masked_original_spans": [{"original_char_range": [7, 9], "text": "12"}],
+    }
+    masked = {
+        "input_type": "masked",
+        "input_text": "Tom has [MASK] apples",
+        "hidden_state_path": "mask.pt",
+        "token_char_ranges": [[0, 3], [4, 6], [7, 13]],
+        "mask_char_ranges": [[7, 13]],
+    }
+    result = prf.extract_pre_recovery_features(original, masked, tensor_loader=fake_loader)
+    assert result["span_available"] is True
+    names = list(result["features"].keys())
+    prf.assert_no_banned_feature_names(names)
+    # all three families present
+    assert any(n.startswith("pre_delta_span_") for n in names)
+    assert any(n.startswith("pre_saliency_span_to_question_") for n in names)
+    assert any(n.startswith("pre_stability_span_") for n in names)

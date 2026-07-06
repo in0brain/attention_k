@@ -42,10 +42,15 @@ FEATURE_SETS = [
     "span_type_only",
     "surface_rule",
     "hidden_no_recovered",
+    "hidden_pre_recovery_enriched",
     "hidden_with_recovered",
 ]
-GATE_ELIGIBLE = "hidden_no_recovered"
+# 2H-C: the enriched pre-recovery set is the new gate candidate; hidden_no_recovered
+# is kept for continuity, hidden_with_recovered stays a leakage diagnostic only.
+GATE_ELIGIBLE = "hidden_pre_recovery_enriched"
+GATE_ELIGIBLE_SETS = {"hidden_no_recovered", "hidden_pre_recovery_enriched"}
 BASELINE_SETS = ["span_type_only", "surface_rule"]
+ENRICHED_FEATURE_KEY = "pre_recovery_features"
 
 
 # --------------------------------------------------------------------------- #
@@ -103,6 +108,9 @@ def build_feature_matrix(records: list[dict[str, Any]], feature_set: str) -> dic
             "feature_names": onehot_names + stats_names,
         }
 
+    if feature_set == "hidden_pre_recovery_enriched":
+        return _build_enriched_matrix(records)
+
     exclude = feature_set == "hidden_no_recovered"
     base_names = _hidden_base_names(records, exclude_recovered=exclude)
     matrix = np.zeros((len(records), len(base_names)), dtype=float)
@@ -111,6 +119,21 @@ def build_feature_matrix(records: list[dict[str, Any]], feature_set: str) -> dic
         for col, name in enumerate(base_names):
             matrix[row, col] = values[name]
     return {"matrix": matrix, "feature_names": base_names}
+
+
+def _build_enriched_matrix(records: list[dict[str, Any]]) -> dict[str, Any]:
+    names: set[str] = set()
+    for record in records:
+        names.update((record.get(ENRICHED_FEATURE_KEY) or {}).keys())
+    feature_names = sorted(names)
+    matrix = np.zeros((len(records), len(feature_names)), dtype=float)
+    for row, record in enumerate(records):
+        feats = record.get(ENRICHED_FEATURE_KEY) or {}
+        for col, name in enumerate(feature_names):
+            value = feats.get(name)
+            if value is not None and math.isfinite(float(value)):
+                matrix[row, col] = float(value)
+    return {"matrix": matrix, "feature_names": feature_names}
 
 
 def assert_no_recovered_features(feature_names: list[str]) -> None:
@@ -266,8 +289,12 @@ def run_cv_for_feature_set(
     built = build_feature_matrix(records, feature_set)
     matrix = built["matrix"]
     feature_names = built["feature_names"]
-    if feature_set == GATE_ELIGIBLE:
+    if feature_set in GATE_ELIGIBLE_SETS:
         assert_no_recovered_features(feature_names)
+    if feature_set == "hidden_pre_recovery_enriched":
+        from recover_attention.pre_recovery_features import assert_no_banned_feature_names
+
+        assert_no_banned_feature_names(feature_names)
 
     bucket_array = np.array(buckets, dtype=int)
     strength_array = np.array(risk_strength, dtype=float)

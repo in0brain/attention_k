@@ -1233,3 +1233,87 @@ conda run -n recover_attention python -m pytest -q
 - fragility_bucket 虽非 span_type 纯函数，但多数类仍与 span_type 强相关（number 多为 bucket 3），使 span_type_only baseline 偏强。
 - per-question top-k 覆盖为平凡 1.0（每题 1 个 chosen span）；要做有意义的 top-k / budget 评估需每题多 span。
 - `human_error_type` 仍为 sentinel，drift 标签为启发式文本分类的弱标签，非人工校验。
+
+## Sprint 2H-C：Pre-Recovery Feature Enrichment
+
+目标：不改 label、不调 threshold，而是从 2G 已缓存的原始 hidden-state 张量重新构造更丰富的 pre-recovery 特征，判断模型内部状态是否真的存在 instance-level fragility signal。核心边界：主 gate candidate（`hidden_pre_recovery_enriched`）只用 original + masked 两个 channel，禁止 recovered / solution_path / drift / bucket / risk_strength / gold 任意子串出现在 feature name。
+
+已完成内容：
+
+- 关键发现：2G 的 `.pt` 缓存存储的是完整 `[layers, tokens, hidden]=(5, seq, 3584)` 逐 token 逐层 hidden states（layers 0/8/16/24/27），且 manifest 含 token_char_ranges 与 span/mask char range，可复用 `representation_features.py` 的 `locate_span_token_indices` / `pool_span` / `pool_question` 重新 pooling。2H-B 特征薄的根因：2G 中 span pooling 与 mask_position pooling 完全相同，且只保留了 angle-only cosine 摘要。
+- 实现 `src/recover_attention/pre_recovery_features.py`：从 original/masked 张量构造 3 类特征——A. layer-wise original→masked delta（cosine / L2 / relative_norm / slope / range / var / max_layer）；B. within-channel span saliency（span-to-question、span-to-number-context，逐层 + 摘要）；C. cross-layer stability（layer variance、early→late cosine、layer shift norm）。跨层「drift」字段改名为 `layer_shift` 以避开禁用子串。
+- 在 `fragility_probe_training.py` 新增 gate candidate feature set `hidden_pre_recovery_enriched`，保留 span_type_only / surface_rule / hidden_no_recovered / hidden_with_recovered；对 gate-eligible 集合断言无 recovered，对 enriched 集合断言无全部禁用子串。
+- 新增防泄漏测试（任务 4）：enriched feature_names 不含 recovered / solution_path / drift / bucket / risk_strength / gold，任一出现即测试失败；另加 stub-tensor 抽取测试。
+- 实现 `scripts/sprint_2H_feature_enrichment.py`（audit / extract / probe / gate / analyze / all）；复用 2H-B 的 `risk_strength_dataset.jsonl`，不重跑 recovery、不重跑 hidden-state cache、不扩大规模。
+
+关键数据（500 条，复用 2H-B fragility 数据集）：
+
+- audit：hidden_no_recovered 仅 33 个特征，全部为 `*_original_masked_cosine_*`（cosine-only，无 recovered 泄漏）；确认信号薄是 2H-B 未过 gate 的直接原因。
+- extract：500 条全部 span_available；enriched 特征 79 个（A/B/C 三族），leakage_free=True；仅 numctx 缺失 14 条（单数字题）。attention 特征在当前 cache 不可用（2G 只缓存 hidden states，无 attention maps），本轮不重跑模型。
+- 探针（macro_f1 / balanced_acc / bucket3_recall / spearman / bucket3v1_AUC / pairwise）：
+  - hidden_pre_recovery_enriched（gate candidate）：0.426 / 0.434 / 0.786 / 0.353 / 0.807 / 0.665
+  - hidden_no_recovered：0.318 / 0.355 / 0.771 / 0.256 / 0.690 / 0.620
+  - span_type_only baseline：0.339 / 0.402 / 0.979 / 0.374 / 0.858 / 0.672
+  - surface_rule baseline：0.378 / 0.406 / 0.958 / 0.387 / 0.849 / 0.680
+  - hidden_with_recovered（仅泄漏诊断）：0.371 / 0.388 / 0.812 / 0.279 / 0.725 / 0.629
+  - bootstrap：enriched vs surface_rule macro_f1 delta=+0.048（CI95 +0.008..+0.084，显著）；vs span_type_only delta=+0.087（CI95 +0.047..+0.124，显著）。
+- review gate：8 项通过 5 项，ready_for_2000_rerun=False。
+  - 通过：#1 macro_f1>surface、#2 balanced_acc>surface、#3 bootstrap CI95 low>0 vs surface、#6 top-k coverage 不下降（1.0=1.0）、#8 feature leakage test。
+  - 失败：#4 bucket_3_recall（enriched 0.786 < surface 0.958）——surface baseline 靠「number→bucket3 泛滥」拿到高 bucket3 recall 但拉低 macro，属退化基线 artifact，与最大化 macro_f1 相冲突；#5 排序指标（spearman 0.353<0.387、pairwise 0.665<0.680）——真实但幅度小的排序劣势；#7 off-path budget（enriched 0.054 vs no_recovered 0.050）——+0.004 边际打平。
+
+核心结论：
+
+- 本轮推翻了 2H-B 的负面结论：更丰富的 pre-recovery hidden-state 特征在 macro_f1 与 balanced_accuracy 上显著优于 surface baseline（bootstrap CI95 均 >0），说明模型内部状态确实携带 span_type/surface 之外的 instance-level fragility signal，且其判别力主要来自 delta magnitude（L2/relative norm）与 cross-layer stability，而非 2H-B 的 angle-only cosine。
+- 但 enriched probe 并未在所有轴上压制 surface baseline：排序指标（spearman/pairwise）仍略逊，bucket_3 recall 因退化基线而偏低，off-path budget 边际打平。因此按本轮 gate（8 项全过才 ready）判定：不进入 2000-case rerun，不进入 Sprint 3A。
+- 下一步方向明确：ordinal-calibrated 探针（用 expected-bucket 排序或序数回归改善 spearman/pairwise）+ 少量针对 bucket-3-vs-rest 的判别特征；attention 级特征需先补一个 targeted attention cache（本轮 boundary 内不重跑模型）。
+
+输出文件（均在 `outputs/logs/sprint_2H_feature_enrichment_500/`）：
+
+```text
+current_feature_audit.json / current_feature_audit.md
+pre_recovery_feature_dataset.jsonl / pre_recovery_feature_report.json
+fragility_probe_enriched_eval_report.json / fragility_probe_enriched_predictions.jsonl
+review_gate_feature_enrichment.json / review_gate_feature_enrichment.md
+```
+
+新增或修改文件：
+
+- src/recover_attention/pre_recovery_features.py（新增）
+- src/recover_attention/fragility_probe_training.py（新增 hidden_pre_recovery_enriched feature set + 禁用子串断言）
+- scripts/sprint_2H_feature_enrichment.py（新增）
+- tests/test_sprint_2h_instance_signal.py（新增 2H-C 防泄漏与抽取测试）
+- outputs/logs/sprint_2H_feature_enrichment_500/*
+
+运行命令：
+
+```bash
+conda run -n recover_attention python -m pytest tests/test_sprint_2h_instance_signal.py -q
+conda run -n recover_attention python scripts/sprint_2H_feature_enrichment.py --stage audit
+conda run -n recover_attention python scripts/sprint_2H_feature_enrichment.py --stage extract
+conda run -n recover_attention python scripts/sprint_2H_feature_enrichment.py --stage probe
+conda run -n recover_attention python scripts/sprint_2H_feature_enrichment.py --stage gate
+conda run -n recover_attention python -m pytest -q
+```
+
+检查结果：
+
+- 2H-C targeted pytest：26 passed（2H + 2H-C 共用测试文件）。
+- full pytest：573 passed, 2 skipped。
+- audit：hidden_no_recovered=33 features，only_original_masked=True，cosine_only=True。
+- extract：500 records，79 enriched features，span_available=500，leakage_free=True，numctx missing=14。
+- probe：enriched macro_f1=0.426 > surface_rule 0.378 > span_type_only 0.339 > hidden_no_recovered 0.318；bootstrap 对两个 baseline 均显著。
+- gate：5/8 通过，ready_for_2000_rerun=False（#4 退化基线 artifact、#5 排序小幅劣势、#7 边际打平）。
+
+边界：
+
+- 复用 2G 的 `.pt` hidden-state cache 与 2H-B 的 `risk_strength_dataset.jsonl`；未重跑 recovery、未重跑 hidden-state cache、未扩大规模。
+- 主 probe 仅用 original + masked channel；未使用 recovered channel / recovery outputs / gold solution path / fragility label 作为输入特征。
+- 未覆盖 2G / 2H-B 任何输出；未 all-train；未进入 Sprint 3A；未执行 attention steering。
+- 2H-C 仍为 weak-labeled instance-signal diagnostic，非 human-reviewed validation。
+
+遗留问题：
+
+- enriched probe 的排序指标（spearman/pairwise）仍略逊于 surface baseline；分类（macro_f1/balanced_acc）已显著更优，说明需要 ordinal-calibrated 目标或排序损失。
+- bucket_3_recall gate 项与「最大化 macro_f1」内在冲突（surface baseline 靠退化的 number→bucket3 预测拿高 bucket3 recall）；后续 gate 设计应改用 macro/ordinal 综合项，而非单类 recall 对齐退化基线。
+- attention-level 特征（span attention mass / entropy / mask-to-span attention）在当前 cache 不可得；如需检验必须先补 targeted attention cache（不在本轮 boundary 内）。
+- fragility label 仍为 2H-B 的 weak instance labels（模型 recovery + 启发式 drift 分类），非人工校验。
