@@ -1618,3 +1618,89 @@ Remaining issue:
 
 Next recommendation:
 - Run a formula validation or reasoning-signal sprint before any 2000 rerun or Sprint 3A steering implementation.
+
+## Sprint 2J-Fix + 2K：Slot Alignment Repair 与 Leakage-Safe Answer-Effect Keyness
+
+目标：修复 2J-B 的 slot alignment bug 与 gate/bootstrap 弱检查，并新增 leakage-safe self-output-effect（keyness/causal-effect proxy），验证 keyness 是否能从模型自身输出变化中恢复。复用 2J-A 的 multi-span matrix；不重跑 recovery，不做 CoT/trajectory/NLA/patching，不进入 2000/3A。
+
+任务卡审查（执行前）：确认与我上一轮的提议一致（AUC-first、真实 grouped bootstrap、leakage-safe self-output shift 而非 gold、复用 forwards、非数字 keyness diagnostic），且任务卡补上了我漏掉的关键点——**slot alignment bug**。三个我补充的细化点：output-effect 测点在 prompt 末 token（弱 proxy，需 answer-eliciting 位置）、阈值须 label-free、keyness_score 是近随机 surface proxy。
+
+**确认 bug 真实存在**（`multi_span_reasoning_scoring.py` L174-183 + `build_feature_record` 用 `original["slot_indices"]`）：original forward 按 question 缓存，但缓存里带着 **第一个 span** 的 slot_indices；同题后续所有 span 复用该缓存 → original 侧 hidden/attention/delta 全部按第一个 span 的 token 位置错位（约 90% 的 span 受影响）。这正是 2J-B 得到 anti-keyness（AUC<0.5）的原因。
+
+已完成内容：
+
+- 实现 `src/recover_attention/answer_effect_features.py`：从 original/masked 末 token logits 计算 leakage-safe self-output shift（self_output_kl / js / top1_changed / topk_overlap / entropy_delta / margin_delta / logprob_delta）；只用模型自身分布，绝不用 gold answer；特征名规避全部禁用子串（含 answer/oracle/cot/nla）。
+- 实现 `scripts/sprint_2J_fix_2K_scoring.py`：**修复 slot alignment**（original forward 按 question 缓存，original slot indices 按 span 逐个重算），并在同一次 forward 捕获末 token logits 计算 output-effect；复用 2J-B 模块的纯函数（compute_hidden_features / build_attention_features / build_score_matrix / formula_metrics / grouped_bootstrap_delta）；新增公式 J–N（output-effect）；AUC-first 报告 + 真实 question-grouped bootstrap（N=1000，ci95 方向判定）。不覆盖 2J-B 输出（新目录）。
+- 新增测试：output-effect leakage/compute；slot indices 按 span 重算（同题两 span 的 original slot 不同）。
+
+关键数据（4935 spans，232 题含 on/off-path number pair；grouped bootstrap vs surface，ci95_low>0=stable）：
+
+- 修复后 same-question on/off-path AUC（越高越能区分 on-path vs off-path number）：
+  - A_surface_only：0.512（随机，未变）
+  - B_hidden_only：0.468（仍弱 anti-keyness）
+  - **C_attention_only：0.588**（best gate-eligible；delta +0.103，CI [+0.062,+0.146]，stable）
+  - D_hidden_plus_attention：0.564（+0.075，CI [+0.032,+0.118]，stable）
+  - E_keyness×fragility：0.570（+0.081，stable）
+  - I_oracle：0.9995（上界）
+- **核心纠正**：2J-B 的 anti-keyness 结论是 slot alignment bug artifact。修复后 attention_only 与 hidden+attention 在 within-question keyness 上 **显著优于 surface**（bootstrap-stable）。即 attention 确实携带 within-question keyness signal；hidden 单独仍弱 anti-keyness（0.468），靠 attention 拉回。
+- 2K output-effect：
+  - J_output_effect_only：0.554（+0.033，CI [−0.003,+0.070]，**not stable**）——单独用 output-effect 仅边际、不稳健。
+  - L_output_gate_then_fragility：0.586（+0.089，stable）；M_output_effect×fragility：0.580（stable）；N：0.581（stable）。
+  - 即 output-effect 单独弱，但作为 keyness gate 与 fragility 组合后稳定且具竞争力。J-alone 偏弱与测点（prompt 末 token，非 answer-eliciting 位置）一致——是测量限制而非信号无效。
+- 非数字 model-causal keyness（self-output-shift 均值按 span_type）：question_target 0.97 > comparison 0.80 > number_unit/number 0.77-0.79 > condition/object 0.74 > operation 0.68 > negation 0.62(n=12 欠功率)。为无 solution-path 标签的非数字 span 提供了 keyness 信号，且排序符合直觉（question target / comparison 最关键）。
+- oracle gap 仍大（0.99 vs best 0.59）：keyness 信号真实存在（显著>surface），但离上界仍远。
+
+gate 结果：
+
+- 2J-Fix gate：**PASSED 7/7**（same-question ranking 可算、slot per-span 重算、AUC-first、真实 grouped bootstrap、best gate-eligible ci95_low>0）；ready_for_2000_rerun=False，do_not_enter_3A=True。
+- 2K gate：output_effect_beats_surface_stable=**False**（J-alone 不稳健），但组合公式（L/M/N）稳定；ready_for_2000_rerun=False。
+
+核心结论：
+
+- **slot alignment bug 的修复推翻了 2J-B（以及我上一轮基于其数据的）「hidden/attention anti-keyness」结论**：attention（尤其 attention_only）在 within-question keyness 上显著优于 surface，bootstrap-stable。hidden/attention 这条线并未死。
+- output-effect 作为 keyness 信号：单独边际（受 prompt 末 token 测点限制），组合后稳定。下一步应把测点改到 answer-eliciting 位置（append 中性后缀或短 greedy 生成）再复核 J-alone。
+- 仍不进入 2000/3A：oracle gap 大，且需先确认更强测点下 output-effect 的独立贡献 + 做 formula validation。
+
+我上一轮 review 的三个细化点落地情况：测点 caveat（已记录，解释 J-alone 偏弱，建议下一步）；阈值 label-free（L 用 within-question median gate）；keyness_score 弱 proxy（已注明）。
+
+输出文件：
+
+```text
+outputs/logs/sprint_2J_fix_slot_alignment_scoring_500/：multi_span_feature_matrix.jsonl、multi_span_score_matrix.jsonl、same_question_ranking_report.json、grouped_bootstrap_report.json、slot_alignment_audit.json、review_gate_multi_span_scoring_fixed.md
+outputs/logs/sprint_2K_answer_effect_keyness_500/：same_question_output_effect_ranking_report.json、output_effect_grouped_bootstrap_report.json、output_effect_feature_audit.json、non_number_model_causal_keyness_report.json、reasoning_signal_gap_report.json、review_gate_answer_effect_keyness.md
+```
+
+新增或修改文件：
+
+- src/recover_attention/answer_effect_features.py（新增）
+- scripts/sprint_2J_fix_2K_scoring.py（新增；复用 multi_span_reasoning_scoring 纯函数）
+- tests/test_sprint_2h_instance_signal.py（新增 2K/2J-fix 测试）
+- outputs/logs/sprint_2J_fix_slot_alignment_scoring_500/*、outputs/logs/sprint_2K_answer_effect_keyness_500/*
+
+运行命令：
+
+```bash
+conda run -n recover_attention python -m pytest tests/test_sprint_2h_instance_signal.py -q
+conda run -n recover_attention python scripts/sprint_2J_fix_2K_scoring.py --stage forward
+conda run -n recover_attention python scripts/sprint_2J_fix_2K_scoring.py --stage report
+conda run -n recover_attention python -m pytest -q
+```
+
+检查结果：
+
+- targeted pytest：37 passed；full pytest：594 passed, 2 skipped。
+- forward：4935 spans（~8.8/s），original 按 question 缓存、original slot 按 span 重算；smoke 验证同题 8 span 的 original slot 全部不同。
+- 2J-Fix gate PASSED 7/7；2K gate output-effect-only 不稳健、组合稳定。
+- 修复后 AUC：surface 0.512 / hidden 0.468 / attention 0.588 / hidden+attention 0.564 / oracle 0.9995。
+
+边界：
+
+- 未覆盖 2J-B 输出（新目录）；复用 2J-A multi-span matrix；只对 original+masked 做 forward（绝不 recovered）；output-effect 只用模型自身分布，gold-answer diagnostic 本轮跳过（可选）。
+- 未做 CoT/trajectory/NLA/causal patching；未扩大到 2000；未进入 Sprint 3A；未执行 attention steering；未手动改标签。
+
+遗留问题：
+
+- output-effect 测点在 prompt 末 token，是 next-token-after-prompt 而非 final-answer 的弱 proxy；J-alone 不稳健很可能由此导致，下一步应改 answer-eliciting 测点。
+- hidden_only 单独仍弱 anti-keyness（0.468）；within-question keyness 的信号主要来自 attention。
+- oracle gap 仍大（0.99 vs 0.59）；离可用的 first-layer keyness gate 仍有距离。
+- negation(n=12)/comparison(n=62) 等非数字类欠功率；GSM8K 数字主导，comparison/negation（项目最初 risk_positive 关注点）样本稀少，可能需更合适的数据集。

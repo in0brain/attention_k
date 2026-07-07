@@ -22,6 +22,22 @@ Token / Span Intervention
 当前阶段：
 
 ```text
+Sprint 2J-Fix + 2K 已完成：Slot Alignment Repair 与 Leakage-Safe Answer-Effect Keyness（500-case，4935 spans）。
+
+修复 2J-B 的 slot alignment bug（cached original forward 复用第一个 span 的 slot_indices → 约 90% span 的 original 侧 hidden/attention/delta 特征错位），并新增 leakage-safe self-output-effect（模型自身末 token 分布 shift，非 gold）作为 keyness proxy；改用真实 question-grouped bootstrap、AUC-first。
+
+核心纠正：2J-B 的「hidden/attention anti-keyness（AUC<0.5）」结论是 slot alignment bug artifact。修复后 same-question on/off-path AUC（grouped bootstrap vs surface，ci95_low>0=stable）：
+- surface 0.512 / hidden_only 0.468 / attention_only 0.588（best，+0.103 CI[+0.062,+0.146] stable）/ hidden+attention 0.564（+0.075 stable）/ oracle 0.9995。
+- 即 attention 确实携带 within-question keyness signal，显著优于 surface；hidden/attention 这条线未死。
+2K output-effect：J（单独）0.554（+0.033 not stable，受 prompt 末 token 测点限制）；L/M/N（与 fragility 组合）0.58 且 stable。非数字 model-causal keyness：question_target(0.97)>comparison(0.80)>numbers(~0.78)>...>negation(0.62,n=12)。
+gate：2J-Fix PASSED 7/7；2K output-effect-only 不稳健、组合稳定。ready_for_2000_rerun=False、do_not_enter_3A=True（oracle gap 0.99 vs 0.59 仍大）。
+
+下一步建议：output-effect 测点改到 answer-eliciting 位置复核 J-alone；做 attention+output-effect 的 formula-validation sprint；仍不进入 2000/3A。
+
+正式产物：outputs/logs/sprint_2J_fix_slot_alignment_scoring_500/*、outputs/logs/sprint_2K_answer_effect_keyness_500/*
+
+---
+
 Sprint 2I-R 已完成：Score Matrix Decomposition and Root-Cause Audit（500-case read-only audit）。
 
 本轮只读 2H-B / 2H-C / 2H-D / 2I 的 500-case 正式产物，构造 score matrix，拆分 keyness / fragility / budget priority，并做 feature leakage audit、公式模拟、bootstrap、top-k failure/success cases 和 root-cause decision table。未重跑 recovery、hidden-state cache、attention cache、probe training 或 2000-scale pipeline；未执行 attention steering，未进入 Sprint 3A。
@@ -291,7 +307,11 @@ conda run -n recover_attention python -m pytest -q
 最近一次检查结果：
 
 ```text
-pytest（Sprint 2I 后最新）: 582 passed, 2 skipped
+pytest（Sprint 2J-Fix + 2K 后最新）: 594 passed, 2 skipped
+2J-Fix/2K targeted pytest: 37 passed（2H/2H-C/2H-D/2I/2K 共用测试文件）
+2J-Fix gate: PASSED 7/7（slot alignment 修复后 attention_only AUC 0.588 显著>surface 0.512，bootstrap stable）；2K output-effect-only 不稳健、组合稳定
+新增：src/recover_attention/answer_effect_features.py、scripts/sprint_2J_fix_2K_scoring.py
+pytest（Sprint 2I 后）: 582 passed, 2 skipped
 2I targeted pytest: 35 passed（2H/2H-C/2H-D/2I 共用测试文件）
 2I attention-features gate: 6/7 checks passed, ready_for_2000_rerun=False（唯 #7 未满足 ≥2 打分方法同向）
 2I hidden_plus_attention macro_f1=0.437（最佳）> hidden_only 0.426 > attention_only 0.397 > surface 0.378；但排序 vs hidden_only 仅 +0.003（不显著）

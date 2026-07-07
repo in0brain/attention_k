@@ -377,6 +377,48 @@ def test_bootstrap_ranking_delta_positive_when_a_better():
 
 
 # --------------------------------------------------------------------------- #
+# Sprint 2K: output-effect features + 2J slot-alignment fix
+# --------------------------------------------------------------------------- #
+from recover_attention import answer_effect_features as oe_feat  # noqa: E402
+from recover_attention import multi_span_reasoning_scoring as msrs  # noqa: E402
+
+
+def test_output_effect_names_leakage_free_and_compute():
+    torch = pytest.importorskip("torch")
+    # names must avoid every banned substring (incl. answer/target/oracle/cot/nla)
+    for banned in ["recovered", "solution_path", "drift", "bucket", "gold", "answer",
+                   "label", "target", "trajectory", "cot", "nla", "oracle"]:
+        with pytest.raises(AssertionError):
+            oe_feat.assert_no_banned_output_effect_names([f"self_{banned}_x"])
+    orig = torch.tensor([2.0, 1.0, 0.0, 0.0, 0.0])
+    masked_same = orig.clone()
+    masked_diff = torch.tensor([0.0, 0.0, 0.0, 1.0, 2.0])
+    f_same = oe_feat.compute_output_effect(orig, masked_same)
+    f_diff = oe_feat.compute_output_effect(orig, masked_diff)
+    oe_feat.assert_no_banned_output_effect_names(list(f_diff.keys()))
+    # identical distributions -> ~zero shift, no top1 change
+    assert f_same["self_output_kl"] < 1e-5
+    assert f_same["self_output_top1_changed"] == 0.0
+    # flipped distribution -> large shift + top1 change
+    assert f_diff["self_output_kl"] > f_same["self_output_kl"]
+    assert f_diff["self_output_top1_changed"] == 1.0
+    # shift score monotone
+    assert oe_feat.output_effect_shift_score(f_diff) > oe_feat.output_effect_shift_score(f_same)
+
+
+def test_slot_indices_recomputed_per_span():
+    # regression for the 2J-B bug: two different spans in the same question must map to
+    # different original slot token indices (not the first span's cached indices).
+    # offsets emulate: "Alice bought 3 apples for 2 dollars each."
+    offsets = [[0, 5], [6, 12], [13, 14], [15, 21], [22, 25], [26, 27], [28, 35], [36, 40]]
+    span_a = msrs.token_indices_for_char_ranges(offsets, [[13, 14]], exclude=set())  # "3"
+    span_b = msrs.token_indices_for_char_ranges(offsets, [[26, 27]], exclude=set())  # "2"
+    assert span_a == [2]
+    assert span_b == [5]
+    assert span_a != span_b
+
+
+# --------------------------------------------------------------------------- #
 # Sprint 2I: attention features
 # --------------------------------------------------------------------------- #
 from recover_attention import attention_features as afeat  # noqa: E402
