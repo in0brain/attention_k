@@ -374,3 +374,58 @@ def test_bootstrap_ranking_delta_positive_when_a_better():
     res = oc.bootstrap_ranking_delta(good.astype(float), bad, buckets, num_boot=200, seed=3)
     assert res["ci95_low"] > 0
     assert res["meaningfully_above_noise"] is True
+
+
+# --------------------------------------------------------------------------- #
+# Sprint 2I: attention features
+# --------------------------------------------------------------------------- #
+from recover_attention import attention_features as afeat  # noqa: E402
+
+
+def _stub_attention(seq, layers=2, seed=0):
+    rng = np.random.default_rng(seed)
+    stack = []
+    for _ in range(layers):
+        m = np.tril(rng.random((seq, seq)) + 0.01)  # causal-ish
+        m = m / m.sum(axis=1, keepdims=True)
+        stack.append(m)
+    return np.stack(stack, axis=0)
+
+
+def test_attention_feature_names_have_no_banned_substrings():
+    # includes the newly banned answer/label/target
+    afeat.assert_no_banned_attention_names(["attn_orig_slot_in_mass", "attn_delta_slot_entropy",
+                                            "attn_orig_qfocus_to_slot"])
+    for banned in ["recovered", "solution_path", "drift", "bucket", "risk_strength", "gold", "answer", "label", "target"]:
+        with pytest.raises(AssertionError):
+            afeat.assert_no_banned_attention_names([f"attn_{banned}_x"])
+
+
+def test_build_attention_features_leakage_free_and_families():
+    orig = _stub_attention(10, seed=1)
+    masked = _stub_attention(11, seed=2)
+    ctx = {"qfocus": [7, 8], "operation": [3], "numctx": [1, 2]}
+    out = afeat.build_attention_features(orig, [4, 5], masked, [4, 5], [0, 8], context_orig=ctx)
+    names = list(out["features"].keys())
+    afeat.assert_no_banned_attention_names(names)
+    assert any(n.startswith("attn_orig_slot_") for n in names)
+    assert any(n.startswith("attn_masked_slot_") for n in names)
+    assert any(n.startswith("attn_delta_slot_") for n in names)
+    assert any(n.endswith("_to_slot") for n in names)
+    # question-focus feature must NOT use the banned word "target"
+    assert not any("target" in n for n in names)
+
+
+def test_attention_and_fusion_feature_sets_build():
+    records = [
+        {"pre_recovery_features": {"pre_delta_span_l2_layer_0": 1.0},
+         "attention_features": {"attn_orig_slot_in_mass": 0.3, "attn_delta_slot_entropy": -0.1}},
+        {"pre_recovery_features": {"pre_delta_span_l2_layer_0": 2.0},
+         "attention_features": {"attn_orig_slot_in_mass": 0.5, "attn_delta_slot_entropy": 0.2}},
+    ]
+    attn = fpt.build_feature_matrix(records, "attention_pre_recovery")
+    assert attn["matrix"].shape == (2, 2)
+    afeat.assert_no_banned_attention_names(attn["feature_names"])
+    fused = fpt.build_feature_matrix(records, "hidden_plus_attention_pre_recovery")
+    assert fused["matrix"].shape == (2, 3)  # 1 hidden + 2 attention
+    afeat.assert_no_banned_attention_names(fused["feature_names"])

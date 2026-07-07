@@ -1399,3 +1399,85 @@ conda run -n recover_attention python -m pytest -q
 - budget-aware bucket-3 在 top-10% 预算下 enriched 未稳定优于 surface；bucket_3_vs_1 AUC 在 primary 方法下仍输 surface。
 - per-question top-k 覆盖仍为平凡 1.0（每题单 span）；有意义的 top-k / budget 评估需每题多 span。
 - fragility label 仍为 weak instance labels（模型 recovery + 启发式 drift），非人工校验。
+
+## Sprint 2I：Targeted Attention-Map Feature Cache and Probe
+
+目标：引入 attention-level pre-recovery 特征，判断 attention maps 是否比 hidden-state-only 提供更稳健的 instance-level fragility ranking / budget-aware signal。只在 500-case subset 上运行；新 gate candidate 为 `hidden_plus_attention_pre_recovery`，同时单独报告 `attention_pre_recovery`。复用 2H-C/2H-D 的同一 subset 与 labels。
+
+可行性核验（开工前）：GPU=RTX 5070 Ti Laptop 12.8GB；模型 D:/models/Qwen2.5-7B-Instruct 在盘；2G 用 4-bit（bitsandbytes）+ device_map=auto 装载（bf16 全量 15GB 放不下 12.8GB VRAM，故必须 4-bit）。smoke 确认：4-bit + `attn_implementation="eager"` + `output_attentions=True` 可返回 28 层 [1,28,seq,seq] 且行和为 1，单次 forward ~0.55s。
+
+任务卡审查：发现一个真实漏洞——任务 3C 建议特征名 `question_target_to_span_attention`，但任务 5 禁用子串 `target`（还新增 `answer`/`label`）；直译会导致 leakage test 失败。已改名为 `question_focus`（qfocus）避开禁用词。其余方法学合理，且任务 7 条件 #7「至少两个 scoring method 同向」正好针对 2H-D 的不稳健问题。
+
+已完成内容：
+
+- 实现 `src/recover_attention/attention_features.py`：从 original/masked（绝不 recovered）的 head-averaged attention 计算 4 类 leakage-free 摘要——A. slot mass（in/out/self/rank/in_rel）；B. shape（entropy/top1-3-5 mass/effective edge count）；C. context-to-slot（qfocus / operation / numctx → slot）；E. original→masked delta（含逐层 in_mass/entropy delta）。特征名规避全部禁用子串（含 answer/label/target）。
+- 实现 `scripts/sprint_2I_attention_cache.py`：4-bit eager 重跑 original+masked forward（不缓存完整 tensor，只存摘要），用 tokenizer 自身 offset mapping 定位 slot（与 attention seq 维自洽），可续跑。
+- 实现 `scripts/sprint_2I_attention_probe.py`：复用 2H-D 的 `run_ordinal_cv`（per-fold 校准、4 种打分、budget-aware bucket-3、bootstrap）评估 5 个特征集，gate 候选与 surface 及 hidden-only enriched 双向比较。
+- 在 `fragility_probe_training.py` 注册 `attention_pre_recovery` / `hidden_plus_attention_pre_recovery` 两个 feature set（含扩展禁用子串断言）；新增 3 个 2I 测试。
+
+关键实现修复：最终层（layer 27）在 4-bit eager 下 attention 全为 NaN（layers 0/8/16/24 正常，行和 1.0）；故 attention 层集合改为 [0,8,16,24] 并加 `nan_to_num` 兜底。
+
+关键数据（477 trainable，attention 来自 4-bit 量化模型；context 缺失 qfocus 73 / operation 63 / numctx 14）：
+
+- 分类（macro_f1 / balanced_acc）：hidden_plus_attention 0.437/0.438（最佳）> hidden_only 0.426/0.434 > attention_only 0.397/0.407 > surface 0.378/0.406 > span_type 0.339/0.402。attention 单独已优于 surface；hidden+attention 比 hidden-only 提升 +0.011，bootstrap 显著（macro_f1 delta vs surface +0.060，CI95 [+0.008,+0.117]）。
+- 排序（primary=expected_bucket 的 Spearman）：hidden_plus_attention 0.389 vs hidden_only 0.386 = +0.003，bootstrap 不显著（CI95 [−0.046,+0.054]）；即 attention 对排序几乎无增益。cand vs surface Spearman +0.079（CI95 [+0.002,+0.168] 显著），但这基本是 hidden 的贡献。
+- 跨方法稳健性：cand 的 Spearman 仅在 expected_bucket 一种打分下 > surface（4 种里 1 种）；任务 7 条件 #7 要求 ≥2 种同向，故失败。
+- budget-aware bucket-3：top-10% precision hidden_only 0.729 最优、cand 0.708、surface 0.667；top-20% hidden_only 0.747 > cand 0.663 > surface 0.484。即 attention 未改善预算内 bucket-3 选择，hidden-only 反而最好。
+- attention family 有用性（|Spearman| vs bucket）：C_context_to_slot 0.164、E_delta 0.134 最有用；B_shape/A_mass ≈0.079。即「问题上下文/数字对 slot 的注意力」与「masked 后 attention 的重排」信号最强。
+- off-path budget：cand 0.056 ≈ hidden 0.057（未恶化）；coverage 1.0（平凡）。
+
+review gate（7 项，primary=expected_bucket）：通过 6 项（#1 Spearman 显著>surface、#2 >hidden_only、#3 top-budget bucket-3>surface、#4 budget 未恶化、#5 coverage 未降、#6 leakage 通过）；失败 #7（≥2 打分方法同向，仅 expected_bucket 一种）。ready_for_2000_rerun=False。
+
+核心结论：
+
+- attention 特征确有真实 instance-level 信号：attention 单独 macro_f1 0.397 已超 surface；hidden+attention 0.437 是目前最强分类器（bootstrap 显著）。最有用的是 context-to-slot 与 original→masked delta 两族——与「脆弱 span 被 masked 后引发 attention 重排」的假设一致。
+- 但 attention 未解决 2H-D 标记的真正瓶颈——ordinal ranking 的稳健性：hidden+attention 的排序与 hidden-only 基本相同（+0.003 不显著），且 cand vs surface 的排序优势仍只在 1/4 打分方法下成立（不满足 ≥2 方法）；budget-aware bucket-3 甚至不如 hidden-only。
+- 诚实性：未切换 primary、未放宽 ≥2-method 要求去凑 gate。attention 带来的是「分类」提升（enriched 早已擅长），而非「排序/预算稳健性」提升，故按任务门槛不进入 2000-case rerun。
+- 下一步（任务 fail 分支）：转向 trajectory-level features（多步生成的 answer / trajectory stability）或 hybrid recovery-guided pipeline；expected_bucket 仍是 2H-D/2I 中唯一稳定使 hidden(+attention) 超过 surface 的打分，值得在新特征下延续。
+
+输出文件（`outputs/logs/sprint_2I_attention_cache_500/` 与 `outputs/logs/sprint_2I_attention_features_500/`）：
+
+```text
+attention_cache_report.json
+attention_feature_dataset.jsonl / attention_feature_report.json
+attention_probe_eval_report.json
+attention_ordinal_calibration_report.json / attention_budget_curve.json
+review_gate_attention_features.json / review_gate_attention_features.md
+```
+
+新增或修改文件：
+
+- src/recover_attention/attention_features.py（新增）
+- scripts/sprint_2I_attention_cache.py、scripts/sprint_2I_attention_probe.py（新增）
+- src/recover_attention/fragility_probe_training.py（注册 attention / fusion feature set + 扩展禁用子串断言）
+- tests/test_sprint_2h_instance_signal.py（新增 2I attention 测试）
+- outputs/logs/sprint_2I_attention_cache_500/*、outputs/logs/sprint_2I_attention_features_500/*
+
+运行命令：
+
+```bash
+conda run -n recover_attention python -m pytest tests/test_sprint_2h_instance_signal.py -q
+conda run -n recover_attention python scripts/sprint_2I_attention_cache.py
+conda run -n recover_attention python scripts/sprint_2I_attention_probe.py
+conda run -n recover_attention python -m pytest -q
+```
+
+检查结果：
+
+- 2I targeted pytest：35 passed（2H/2H-C/2H-D/2I 共用测试文件）。
+- full pytest：582 passed, 2 skipped。
+- attention cache：477 records，57 attention features，leakage_free=True，seq_mismatch=0，slot_missing=0，recovered_channel_cached=False，~5.5 forward/s。
+- probe：hidden_plus_attention macro_f1=0.437（最佳）；gate 6/7，ready_for_2000_rerun=False（#7 仅 1 种打分方法同向）。
+
+边界：
+
+- 只缓存 original + masked attention，未缓存 recovered question attention / hidden states；未重跑 recovery；未扩大到 2000；未进入 Sprint 3A；未执行 attention steering。
+- gate-eligible 特征仅用 original/masked attention；未使用 recovered channel / gold solution path / drift / bucket / risk_strength / answer / label / target 作为输入特征（断言通过）。
+- 未覆盖 2G / 2H-B / 2H-C / 2H-D 输出。attention 来自 4-bit 量化模型（与 2G 的 4-bit hidden states 一致），且排除了 NaN 的最终层。
+
+遗留问题：
+
+- attention 提升的是分类（macro_f1）而非 ordinal ranking 稳健性；hidden+attention 排序 ≈ hidden-only；cand vs surface 排序仍只在 expected_bucket 一种打分下显著。
+- budget-aware bucket-3 在有限预算下 hidden-only 最优，attention 未带来增益。
+- context-to-slot 依赖 qfocus/operation 的正则定位，缺失率 qfocus 15% / operation 13%；更强定位（句法/语义）可能提升 C 族信号。
+- per-question top-k 覆盖仍平凡 1.0；trajectory-level 评估需每题多 span 与多步生成信号。

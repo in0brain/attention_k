@@ -22,6 +22,24 @@ Token / Span Intervention
 当前阶段：
 
 ```text
+Sprint 2I 已完成：Targeted Attention-Map Feature Cache and Probe（500-case diagnostic）。
+
+在 2H-D 结论（enriched 分类强、但 ordinal ranking 稳健性不足）之后，2I 引入 attention-level pre-recovery 特征：4-bit eager 重跑 original+masked forward（不含 recovered），提取 leakage-free attention 摘要（slot mass / shape / context-to-slot / original→masked delta），新 gate candidate = hidden_plus_attention_pre_recovery。复用 2H-C/2H-D 的 477 trainable subset 与 labels。
+
+2I 关键结果（477 trainable）：
+- 分类：hidden_plus_attention macro_f1=0.437（最佳）> hidden_only 0.426 > attention_only 0.397 > surface 0.378；hidden+attention vs surface bootstrap 显著（+0.060，CI [+0.008,+0.117]）。attention 单独已优于 surface。
+- 排序：hidden+attention Spearman 0.389 vs hidden_only 0.386（+0.003，不显著）——attention 对 ranking 几乎无增益。
+- budget-aware bucket-3：top-10%/20% precision hidden_only 最优，attention 未带来增益。
+- 最有用 attention family：context-to-slot(0.164) 与 original→masked delta(0.134)。
+- review gate 6/7，ready_for_2000_rerun=False：唯 #7 失败（cand vs surface 排序仅在 expected_bucket 一种打分下成立，未满足 ≥2 方法同向）。
+
+结论：attention 提升的是分类（enriched 早已擅长），而非 2H-D 标记的排序/预算稳健性；未切换 primary/放宽 gate 去凑通过。下一步转向 trajectory-level features 或 hybrid recovery-guided pipeline；不进入 2000-case rerun，不进入 Sprint 3A。
+
+关键工程点：最终层(27) 在 4-bit eager 下 attention 全 NaN，attention 层集合改用 [0,8,16,24]；attention 来自 4-bit 量化模型（与 2G 一致）。
+
+正式产物：
+- outputs/logs/sprint_2I_attention_cache_500/*、outputs/logs/sprint_2I_attention_features_500/*（含 review_gate_attention_features.{json,md}）
+
 Sprint 2H-D 已完成：Ordinal Calibration and Budget-Aware Gate Redesign（500-case diagnostic）。
 
 在 2H-C 证明 enriched pre-recovery 特征在 macro_f1 上显著优于 surface、但排序指标略逊之后，2H-D 用三种校准方法（expected-bucket / ordinal-threshold / calibrated regression，全部 per-train-fold 拟合）把 enriched signal 转成更稳定的 ordinal / budget-aware risk score，并重设 gate 以中和 surface 的 bucket_3 flooding 假优势。复用 2H-C 数据集，不重跑 recovery / hidden-state cache。
@@ -202,6 +220,7 @@ sprint_2_stage_summary_v0 已只读汇总 Sprint 2A-real / 2B / 2C / 2D / 2E / 2
 | Sprint 2H-B | 完成 | Instance-Level Signal Construction（gate 第 5 项失败，ready_for_2000_rerun=False） |
 | Sprint 2H-C | 完成 | Pre-Recovery Feature Enrichment（enriched 显著优于 surface baseline，但 gate 5/8，ready_for_2000_rerun=False） |
 | Sprint 2H-D | 完成 | Ordinal Calibration and Budget-Aware Gate Redesign（排序优势真实但不稳健，gate 5/8，ready_for_2000_rerun=False） |
+| Sprint 2I | 完成 | Targeted Attention-Map Feature Cache and Probe（attention 提升分类不提升排序稳健性，gate 6/7，ready_for_2000_rerun=False） |
 
 详细历史见：
 
@@ -246,8 +265,10 @@ conda run -n recover_attention python -m pytest -q
 最近一次检查结果：
 
 ```text
-pytest（Sprint 2H-D 后最新）: 579 passed, 2 skipped
-2H-D targeted pytest: 32 passed（2H/2H-C/2H-D 共用测试文件）
+pytest（Sprint 2I 后最新）: 582 passed, 2 skipped
+2I targeted pytest: 35 passed（2H/2H-C/2H-D/2I 共用测试文件）
+2I attention-features gate: 6/7 checks passed, ready_for_2000_rerun=False（唯 #7 未满足 ≥2 打分方法同向）
+2I hidden_plus_attention macro_f1=0.437（最佳）> hidden_only 0.426 > attention_only 0.397 > surface 0.378；但排序 vs hidden_only 仅 +0.003（不显著）
 2H-D ordinal-calibration gate: 5/8 checks passed, ready_for_2000_rerun=False（primary=ordinal_threshold；仅 expected_bucket 打分 bootstrap 显著 +0.076）
 2H-C feature-enrichment gate: 5/8 checks passed, ready_for_2000_rerun=False
 2H-C enriched macro_f1=0.426 > surface_rule 0.378 > span_type_only 0.339 > hidden_no_recovered 0.318（bootstrap 对两 baseline 均显著）
@@ -393,6 +414,7 @@ targeted stage summary pytest: 7 passed
 - src/recover_attention/fragility_probe_training.py（Sprint 2H-B：leakage-safe 探针 + baseline + 序数指标；Sprint 2H-C：新增 hidden_pre_recovery_enriched feature set）
 - src/recover_attention/pre_recovery_features.py（Sprint 2H-C：从 2G .pt 缓存构造 pre-recovery enriched 特征）
 - src/recover_attention/ordinal_calibration.py（Sprint 2H-D：expected-bucket / ordinal-threshold / isotonic 校准 + budget-aware 指标）
+- src/recover_attention/attention_features.py（Sprint 2I：original/masked attention 摘要特征）
 - scripts/00_smoke_test.py
 - scripts/01_prepare_data.py
 - scripts/02_extract_candidate_spans.py
@@ -420,6 +442,8 @@ targeted stage summary pytest: 7 passed
 - scripts/sprint_2H_instance_signal.py（Sprint 2H-B：instance-level signal staged pipeline）
 - scripts/sprint_2H_feature_enrichment.py（Sprint 2H-C：pre-recovery feature enrichment staged pipeline）
 - scripts/sprint_2H_ordinal_calibration.py（Sprint 2H-D：ordinal calibration + budget-aware gate）
+- scripts/sprint_2I_attention_cache.py（Sprint 2I：4-bit eager attention 缓存）
+- scripts/sprint_2I_attention_probe.py（Sprint 2I：attention probe + gate）
 - tests/test_data_io.py
 - tests/test_schemas.py
 - tests/test_prepare_data.py
@@ -572,32 +596,34 @@ targeted stage summary pytest: 7 passed
 - Sprint 2H-D budget-aware bucket-3 在 top-10% 预算下 enriched 未稳定优于 surface（0.688 vs 0.708）；bucket_3_vs_1 AUC 在 primary 方法下仍输 surface；故 gate 5/8、ready_for_2000_rerun=False。
 - Sprint 2H-D 未把 primary 切到唯一能过的 expected_bucket 去凑 gate（避免 p-hacking），保留 surface-blind 预注册规则；expected_bucket 显著性作为「promising 但不稳健」记录。
 - Sprint 2H-D 复用 2H-C 数据集，未重跑 recovery / hidden-state cache、未扩大到 2000、未手动改标签；开工前核验当前 drift 代码重算 labels 与磁盘 0/500 差异。
+- Sprint 2I：attention 特征提升的是分类（hidden+attention macro_f1 0.437 最佳，vs surface bootstrap 显著），但未提升 ordinal ranking 稳健性（vs hidden_only +0.003 不显著；cand vs surface 排序仅 expected_bucket 一种打分显著）；budget-aware bucket-3 在有限预算下 hidden_only 反而最优。gate 6/7、ready_for_2000_rerun=False（#7 未满足 ≥2 打分方法同向）。
+- Sprint 2I 只缓存 original+masked attention（4-bit eager，来自量化模型，排除 NaN 的最终层 27），未缓存 recovered attention/hidden、未重跑 recovery、未扩大到 2000、未覆盖既有输出；context-to-slot 依赖正则定位（qfocus 缺失 15% / operation 13%）。
 
 ## 6. 下一步
 
 下一步建议：
 
 ```text
-Sprint 2H-D-attn（建议）：Attention / Trajectory Feature Cache（仍 500-case，不扩大规模）。
-- 2H-D 已证明：ordinal 校准把 enriched 排序提升到与 surface 打平，且分类优势（macro_f1 0.426）保持，但排序/预算优势不稳健（仅 expected_bucket 一种打分显著、CI 下界紧贴 0，top-10% bucket-3 打平）。
-- 结论：hidden-state-only 的 pre-recovery 特征已到瓶颈；要让 enriched 稳健超过 surface，需要更强的推理时可得信号：
-  - 补 targeted attention-map cache：span attention in/out mass、attention entropy at span、mask-to-span / question_target-to-span / operation-to-span attention、attention_delta(original,masked)；
-  - 这需要重跑一次「带 attention 输出」的前向（独立小任务，不改 label、不进入 2000）；
-  - 之后可加 trajectory-level features（多步生成的 answer/trajectory stability）。
-- expected_bucket（分类器派生的 ordinal 分）在更强特征下值得优先复核，因为它是当前唯一显著优于 surface 的打分。
-- 只有 attention/trajectory 特征让 enriched 稳健且显著超过 surface（排序 + budget-aware bucket3）后，才考虑 500 -> 2000 rerun（Sprint 2H-E）。
+Sprint 2J（建议）：Trajectory-Level Features 或 Hybrid Recovery-Guided Pipeline（仍 500-case，不扩大规模）。
+- 2I 已证明：attention 特征提升分类（hidden+attention macro_f1 0.437 为最佳），但未提升 2H-D 标记的真正瓶颈——ordinal ranking 稳健性（vs hidden_only +0.003 不显著；cand vs surface 仅 expected_bucket 一种打分显著）。
+- 结论：pre-recovery 的 hidden + attention 静态表征已到瓶颈；要稳健超过 surface 的排序/预算，需要更强的 instance-level 信号：
+  - trajectory-level features：对每个 span 做 masked/原始的多步生成，度量 answer stability / trajectory divergence / self-consistency 方差（推理时可得，不依赖 gold）；
+  - 或 hybrid recovery-guided：把 recovery 信号仅用于「标签」的部分转成推理时可复现的一致性特征。
+- 评估沿用 2H-D/2I 的 ordinal + budget-aware 框架；gate 仍要求 ≥2 打分方法同向 + budget-aware bucket-3 稳定优于 surface。
+- expected_bucket 是 2H-D/2I 中唯一稳定使候选优于 surface 的打分，新特征下优先复核。
+- 只有排序/预算在 ≥2 方法下稳健且显著优于 surface 后，才考虑 500 -> 2000 rerun。
 ```
 
 注意：
 
 ```text
-不要自动开始 Sprint 2H-D-attn / all-train / Sprint 3A；必须先有 task card 或用户明确指令。
-Ordinal-calibration rerun gate（2H-D 已实现于 review_gate_ordinal_calibration.json，当前 5/8）：
-- enriched ordinal score 的 Spearman / pairwise 优于 surface（primary 方法下已通过，但 bootstrap 不显著）；
-- enriched bucket_3_vs_1 AUC 优于 surface（当前失败）；
-- top-10% bucket-3 precision / F1 优于 surface（当前失败，打平/略输）；
-- top-k coverage 不下降、off-path budget 不恶化、macro_f1 不回退（均已通过）；
-- 主排序指标 bootstrap CI95 下界 > 0（primary 方法失败；仅 expected_bucket 显著）。
-2G-2000 / 2H-B / 2H-C / 2H-D 均为 weak-labeled diagnostic evidence，不是 human-reviewed validation；
+不要自动开始 Sprint 2J / all-train / Sprint 3A；必须先有 task card 或用户明确指令。
+Attention-features rerun gate（2I 已实现于 review_gate_attention_features.json，当前 6/7）：
+- hidden_plus_attention Spearman 显著 > surface（primary=expected_bucket 已通过）；
+- Spearman > hidden-only enriched（已通过，但 +0.003 微弱、bootstrap 不显著）；
+- top-budget bucket-3 precision/F1 > surface（已通过）；
+- off-path budget 不恶化、coverage 不降、leakage 通过（均已通过）；
+- ≥2 scoring method 同向支持 candidate > surface（当前失败，仅 expected_bucket 一种）。
+2G-2000 / 2H-B / 2H-C / 2H-D / 2I 均为 weak-labeled diagnostic evidence，不是 human-reviewed validation；
 不得把 weak-labeled metrics 说成 attention guidance 有效 / hallucination 减少 / answer accuracy 提升。
 ```

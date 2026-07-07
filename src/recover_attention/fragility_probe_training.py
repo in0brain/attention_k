@@ -47,10 +47,21 @@ FEATURE_SETS = [
 ]
 # 2H-C: the enriched pre-recovery set is the new gate candidate; hidden_no_recovered
 # is kept for continuity, hidden_with_recovered stays a leakage diagnostic only.
+# 2I adds attention feature sets (registered dynamically by the 2I script via
+# FEATURE_SETS_2I); the 2I gate candidate is hidden_plus_attention_pre_recovery.
 GATE_ELIGIBLE = "hidden_pre_recovery_enriched"
-GATE_ELIGIBLE_SETS = {"hidden_no_recovered", "hidden_pre_recovery_enriched"}
+GATE_ELIGIBLE_SETS = {
+    "hidden_no_recovered", "hidden_pre_recovery_enriched",
+    "attention_pre_recovery", "hidden_plus_attention_pre_recovery",
+}
 BASELINE_SETS = ["span_type_only", "surface_rule"]
 ENRICHED_FEATURE_KEY = "pre_recovery_features"
+ATTENTION_FEATURE_KEY = "attention_features"
+DICT_FEATURE_KEYS = {
+    "hidden_pre_recovery_enriched": [ENRICHED_FEATURE_KEY],
+    "attention_pre_recovery": [ATTENTION_FEATURE_KEY],
+    "hidden_plus_attention_pre_recovery": [ENRICHED_FEATURE_KEY, ATTENTION_FEATURE_KEY],
+}
 
 
 # --------------------------------------------------------------------------- #
@@ -108,8 +119,8 @@ def build_feature_matrix(records: list[dict[str, Any]], feature_set: str) -> dic
             "feature_names": onehot_names + stats_names,
         }
 
-    if feature_set == "hidden_pre_recovery_enriched":
-        return _build_enriched_matrix(records)
+    if feature_set in DICT_FEATURE_KEYS:
+        return _build_dict_matrix(records, DICT_FEATURE_KEYS[feature_set])
 
     exclude = feature_set == "hidden_no_recovered"
     base_names = _hidden_base_names(records, exclude_recovered=exclude)
@@ -121,19 +132,27 @@ def build_feature_matrix(records: list[dict[str, Any]], feature_set: str) -> dic
     return {"matrix": matrix, "feature_names": base_names}
 
 
-def _build_enriched_matrix(records: list[dict[str, Any]]) -> dict[str, Any]:
+def _build_dict_matrix(records: list[dict[str, Any]], keys: list[str]) -> dict[str, Any]:
+    """Build a dense matrix from one or more flat scalar-feature dicts on each record."""
     names: set[str] = set()
     for record in records:
-        names.update((record.get(ENRICHED_FEATURE_KEY) or {}).keys())
+        for key in keys:
+            names.update((record.get(key) or {}).keys())
     feature_names = sorted(names)
+    index = {n: c for c, n in enumerate(feature_names)}
     matrix = np.zeros((len(records), len(feature_names)), dtype=float)
     for row, record in enumerate(records):
-        feats = record.get(ENRICHED_FEATURE_KEY) or {}
-        for col, name in enumerate(feature_names):
-            value = feats.get(name)
+        merged: dict[str, Any] = {}
+        for key in keys:
+            merged.update(record.get(key) or {})
+        for name, value in merged.items():
             if value is not None and math.isfinite(float(value)):
-                matrix[row, col] = float(value)
+                matrix[row, index[name]] = float(value)
     return {"matrix": matrix, "feature_names": feature_names}
+
+
+def _build_enriched_matrix(records: list[dict[str, Any]]) -> dict[str, Any]:
+    return _build_dict_matrix(records, [ENRICHED_FEATURE_KEY])
 
 
 def assert_no_recovered_features(feature_names: list[str]) -> None:
@@ -295,6 +314,11 @@ def run_cv_for_feature_set(
         from recover_attention.pre_recovery_features import assert_no_banned_feature_names
 
         assert_no_banned_feature_names(feature_names)
+    if feature_set in ("attention_pre_recovery", "hidden_plus_attention_pre_recovery"):
+        # 2I expands the banned list with answer / label / target
+        from recover_attention.attention_features import assert_no_banned_attention_names
+
+        assert_no_banned_attention_names(feature_names)
 
     bucket_array = np.array(buckets, dtype=int)
     strength_array = np.array(risk_strength, dtype=float)
