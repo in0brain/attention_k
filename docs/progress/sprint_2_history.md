@@ -1481,3 +1481,46 @@ conda run -n recover_attention python -m pytest -q
 - budget-aware bucket-3 在有限预算下 hidden-only 最优，attention 未带来增益。
 - context-to-slot 依赖 qfocus/operation 的正则定位，缺失率 qfocus 15% / operation 13%；更强定位（句法/语义）可能提升 C 族信号。
 - per-question top-k 覆盖仍平凡 1.0；trajectory-level 评估需每题多 span 与多步生成信号。
+
+## Sprint 2I-R：Score Matrix Decomposition and Root-Cause Audit
+
+目标：只读审计 2H-B / 2H-C / 2H-D / 2I 的 500-case 正式产物，构造 score matrix，拆分 keyness / fragility / budget priority，并诊断当前排序与预算选择失败的根因。边界：不重跑 recovery、hidden-state cache、attention cache、probe training 或 2000-scale pipeline；不执行 attention steering；不进入 Sprint 3A。
+
+已完成内容：
+
+- 新增 `src/recover_attention/score_matrix_audit.py`：读取既有 2H/2I JSONL/JSON，按 `masked_id` 对齐，生成 per-span score matrix；将 formula input features 与 `fragility_bucket` / `risk_strength` / `solution_path_status` 等 evaluation-only labels 分离。
+- 新增 `scripts/sprint_2I_R_score_matrix_audit.py`：CLI 默认读取 2H-B/2H-C/2H-D/2I 500-case 产物，输出到 `outputs/logs/sprint_2I_R_score_matrix_audit_500/`。
+- 新增 `tests/test_score_matrix_audit.py`：覆盖 forbidden input feature name 审计、eval-only label 分离、完整输出文件生成。
+- 生成 2I-R 正式产物：`score_matrix_dataset.jsonl`、`score_matrix_feature_audit.json`、`keyness_eval_report.json`、`fragility_eval_report.json`、`budget_priority_eval_report.json`、`topk_failure_cases.jsonl`、`topk_success_cases.jsonl`、`formula_simulation_report.json`、`formula_bootstrap_report.json`、`reasoning_signal_gap_analysis.json`、`root_cause_decision_table.json`、`review_gate_score_matrix_audit.md`。
+
+关键结果：
+
+- `num_score_matrix_records=477`。
+- `score_matrix_feature_audit.passed=true`，审计了 149 个 formula input feature names，`leaked_input_features=0`。
+- `risk_strength`、`fragility_bucket`、`solution_path_status`、`on_path_number`、`off_path_number` 仅作为 diagnostic / evaluation-only 字段保留，不进入非 oracle 公式输入。
+- `reasoning_signal_gap_analysis.all_reasoning_signals_missing=true`：`answer_logprob_delta`、`trajectory_change`、`cot_path_change`、`nla_semantic_role` 全部为 null。
+- `same_question_rank_diagnostic.num_questions=477`，`num_questions_with_multiple_scored_spans=0`，所以当前 500-case matrix 无法计算 same-question pairwise ranking；不能声称当前公式解决了 same-question ranking。
+- 公式模拟未发现任何非 oracle 公式在 top-k bucket-3 precision 与 off-path budget share 上稳定优于 current priority；`best_non_oracle_formula=A_current_priority`。
+- `root_cause_decision_table.ready_for_2000_rerun=false`，`do_not_enter_sprint_3A=true`。
+
+运行命令：
+
+```bash
+conda run -n recover_attention python -m pytest tests/test_score_matrix_audit.py -q
+conda run -n recover_attention python scripts/sprint_2I_R_score_matrix_audit.py --output-dir outputs/logs/sprint_2I_R_score_matrix_audit_500 --overwrite
+conda run -n recover_attention python -m pytest -q
+```
+
+检查结果：
+
+- targeted pytest：3 passed。
+- 2I-R audit script：477 records；feature_audit_passed=true；topk_failure_cases=30；topk_success_cases=30；ready_for_2000_rerun=false。
+- full pytest：585 passed, 2 skipped。
+
+遗留问题：
+
+- 当前 500-case 2H/2I 输入是每题 1 条 scored span，无法评估真正的 same-question ranking / budget ordering。
+- 当前信号仍是静态 surface + hidden + attention 摘要，缺少 reasoning-path / answer-stability 证据。
+- 2I-R task card 在本轮开始前已有 `AM` 状态，已保留并记录；未重写 task card。
+
+下一步建议：Sprint 2J 应优先补 reasoning-path / answer-stability features，并构造 multi-span-per-question 的可排名矩阵；在 gate 通过前不做 2000 rerun，不进入 Sprint 3A。

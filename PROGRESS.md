@@ -22,6 +22,32 @@ Token / Span Intervention
 当前阶段：
 
 ```text
+Sprint 2I-R 已完成：Score Matrix Decomposition and Root-Cause Audit（500-case read-only audit）。
+
+本轮只读 2H-B / 2H-C / 2H-D / 2I 的 500-case 正式产物，构造 score matrix，拆分 keyness / fragility / budget priority，并做 feature leakage audit、公式模拟、bootstrap、top-k failure/success cases 和 root-cause decision table。未重跑 recovery、hidden-state cache、attention cache、probe training 或 2000-scale pipeline；未执行 attention steering，未进入 Sprint 3A。
+
+2I-R 关键结果（477 score-matrix records）：
+- score_matrix_feature_audit：149 个 input feature name 审计通过，leaked_input_features=0；risk_strength / fragility_bucket / solution_path_status 仅保留为 diagnostic/evaluation-only labels。
+- reasoning_signal_gap：answer_logprob_delta、trajectory_change、cot_path_change、nla_semantic_role 全部缺失；当前 2H/2I 静态特征无法提供真正 reasoning-path evidence。
+- same-question ranking diagnostic：当前 500-case matrix 为 477 个 question 各 1 条 scored span，num_questions_with_multiple_scored_spans=0，因此 same-question pairwise ranking 不可计算；不能宣称当前公式解决 same-question ranking。
+- formula simulation：没有非 oracle 公式在 top-k precision 与 off-path budget 上稳定优于 current priority；best_non_oracle_formula 保守保留为 A_current_priority。
+- review gate：ready_for_2000_rerun=False，do_not_enter_sprint_3A=True。
+
+正式产物：
+- outputs/logs/sprint_2I_R_score_matrix_audit_500/score_matrix_dataset.jsonl
+- outputs/logs/sprint_2I_R_score_matrix_audit_500/score_matrix_feature_audit.json
+- outputs/logs/sprint_2I_R_score_matrix_audit_500/keyness_eval_report.json
+- outputs/logs/sprint_2I_R_score_matrix_audit_500/fragility_eval_report.json
+- outputs/logs/sprint_2I_R_score_matrix_audit_500/budget_priority_eval_report.json
+- outputs/logs/sprint_2I_R_score_matrix_audit_500/formula_simulation_report.json
+- outputs/logs/sprint_2I_R_score_matrix_audit_500/formula_bootstrap_report.json
+- outputs/logs/sprint_2I_R_score_matrix_audit_500/reasoning_signal_gap_analysis.json
+- outputs/logs/sprint_2I_R_score_matrix_audit_500/root_cause_decision_table.json
+- outputs/logs/sprint_2I_R_score_matrix_audit_500/topk_failure_cases.jsonl / topk_success_cases.jsonl
+- outputs/logs/sprint_2I_R_score_matrix_audit_500/review_gate_score_matrix_audit.md
+
+下一步建议：Sprint 2J 需要补 reasoning-path / answer-stability signals，并先构造 multi-span-per-question 的可排名矩阵；gate 通过前仍不做 2000 rerun，不进入 Sprint 3A。
+
 Sprint 2I 已完成：Targeted Attention-Map Feature Cache and Probe（500-case diagnostic）。
 
 在 2H-D 结论（enriched 分类强、但 ordinal ranking 稳健性不足）之后，2I 引入 attention-level pre-recovery 特征：4-bit eager 重跑 original+masked forward（不含 recovered），提取 leakage-free attention 摘要（slot mass / shape / context-to-slot / original→masked delta），新 gate candidate = hidden_plus_attention_pre_recovery。复用 2H-C/2H-D 的 477 trainable subset 与 labels。
