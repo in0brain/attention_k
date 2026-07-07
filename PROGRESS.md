@@ -1,5 +1,52 @@
 # 实验进度记录：Reasoning-Aware Attention Guidance
 
+## Current Status Update: Sprint 3A-0 Attention Bias Steering Smoke Test
+
+Sprint 3A-0 is completed as a small-scale increase-only attention-bias steering smoke test. It is not full Sprint 3A, not a 2000 rerun, and not evidence of answer accuracy improvement or hallucination reduction.
+
+Completed:
+- Added an additive attention logit bias hook for Qwen attention modules, with per-forward registration and removal.
+- Built a 50-question steering subset from the existing 2J-Fix / 2K-W 4935-span artifacts.
+- Tested random, surface, attention-only, attention x response-position output-effect, and oracle eval-only selectors.
+- Ran a sparse smoke grid over top-k, lambda, layer configs, and diagnostic query scopes.
+- Generated required 3A-0 reports under `outputs/logs/sprint_3A_0_attention_bias_steering_smoke_test/`.
+
+Core results:
+- `num_questions=50`, `num_forward_records=1520`, review gate passed 13/13.
+- Hook reliability passed: requested layers were triggered and hooks were removed after every steered forward.
+- Primary config: top_k=2, lambda=0.2, layers=[16,24], query_scope=answer_position.
+- Target attention mass delta: attention x response-position 0.00483, random 0.00362, surface 0.00451, attention-only 0.00278.
+- attention x response-position beat random and surface on target mass delta and was not worse than attention-only.
+- Oracle sanity was inconclusive: oracle delta 0.00214, predicted delta 0.00483, random delta 0.00362.
+- Primary harm proxy: attention x response-position harm_proxy_rate=0.0; random=0.02; oracle=0.02.
+- Generation eval was not performed; answer-position next-token proxy was used. Some non-primary output-shift fields were nonfinite and were counted/sanitized in `answer_position_output_shift_report.json`.
+
+Boundary:
+- increase-only positive attention bias.
+- no decrease, no hard mask, no manual probability replacement.
+- no training, no LoRA, no finetuning.
+- no CoT, trajectory, NLA, causal patching, recovery rerun, 2000 rerun, or full Sprint 3A.
+- `ready_for_2000_rerun=false`, `do_not_enter_full_sprint_3A=true`.
+
+Commands:
+```bash
+conda run -n recover_attention python -m pytest tests/test_attention_bias_steering.py -q
+conda run -n recover_attention python scripts/sprint_3A_0_attention_bias_smoke_test.py --output-dir outputs/logs/sprint_3A_0_attention_bias_steering_smoke_test --overwrite --report-every 100
+conda run -n recover_attention python -m pytest -q
+```
+
+Checks:
+- Targeted pytest: 5 passed.
+- Full pytest: 604 passed, 2 skipped.
+
+Remaining issues:
+- Oracle boost was inconclusive, so the intervention mechanism should still be treated as smoke-test evidence only.
+- Output-distribution changes are tiny and are not answer accuracy evidence.
+- Do not claim hallucination reduction or answer accuracy improvement.
+
+Next:
+- A controlled Sprint 3A-1 500-case steering eval can be considered, but full Sprint 3A and 2000-scale rerun remain blocked.
+
 ## Current Status Update: Sprint 2K-W Answer-Position Output-Effect
 
 Sprint 2K-W is completed as an answer-position output-effect remeasurement sprint, not a 2000-scale rerun and not Sprint 3A.

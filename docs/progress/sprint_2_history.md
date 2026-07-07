@@ -1831,3 +1831,75 @@ conda run -n recover_attention python -m pytest -q
 - 不得把 2K-W gate passed 解读成可以直接做 2000-scale rerun 或 Sprint 3A steering。
 - response-position output-effect alone 没有稳定超过 attention-only，仍需以 formula validation 决定实际 steering gate。
 - oracle gap 仍大；当前结论只是 answer-position output-effect 测点复核与 formula evidence，不是 hallucination reduction 或 answer accuracy improvement 证据。
+
+## Sprint 3A-0：Attention Bias Steering Smoke Test
+
+目标：从 diagnostic ranking 进入最小 attention intervention smoke test，验证能否在本地 Qwen forward 中通过 additive attention logit bias 可控地提升目标 span attention mass。本轮不是 full Sprint 3A，不是 2000 rerun，不证明 answer accuracy improvement 或 hallucination reduction。
+
+Pre-existing workspace state:
+- `docs/codex_tasks/sprint_3A_0_attention_bias_steering_smoke_test.md` had pre-existing `AM` status before this sprint.
+- The task card was preserved; no git restore/checkout/reset was run.
+
+已完成内容：
+- 新增 `src/recover_attention/attention_bias_steering.py`：实现 increase-only additive attention logit bias、可撤销 hook、response prompt token alignment、selector construction、steered/no-steering forward、attention mass / output shift / harm / oracle sanity / case reports。
+- 新增 `scripts/sprint_3A_0_attention_bias_smoke_test.py`：默认读取 2J-Fix feature matrix 与 2K-W answer-position score matrix，输出到 `outputs/logs/sprint_3A_0_attention_bias_steering_smoke_test/`。
+- 新增 `tests/test_attention_bias_steering.py`：覆盖 prompt-offset token alignment、positive-only bias、sparse smoke grid、oracle eval-only selector、review gate boundary flags。
+- 真实运行本地 Qwen2.5-7B-Instruct 4-bit eager forward；未下载模型，未 fallback，未训练参数，未 rerun recovery。
+
+正式输出：
+```text
+outputs/logs/sprint_3A_0_attention_bias_steering_smoke_test/steering_subset_manifest.jsonl
+outputs/logs/sprint_3A_0_attention_bias_steering_smoke_test/target_selector_report.json
+outputs/logs/sprint_3A_0_attention_bias_steering_smoke_test/attention_bias_config.json
+outputs/logs/sprint_3A_0_attention_bias_steering_smoke_test/steering_forward_manifest.jsonl
+outputs/logs/sprint_3A_0_attention_bias_steering_smoke_test/attention_mass_fidelity_report.json
+outputs/logs/sprint_3A_0_attention_bias_steering_smoke_test/answer_position_output_shift_report.json
+outputs/logs/sprint_3A_0_attention_bias_steering_smoke_test/steering_generation_report.json
+outputs/logs/sprint_3A_0_attention_bias_steering_smoke_test/oracle_sanity_report.json
+outputs/logs/sprint_3A_0_attention_bias_steering_smoke_test/harm_rate_report.json
+outputs/logs/sprint_3A_0_attention_bias_steering_smoke_test/baseline_comparison_report.json
+outputs/logs/sprint_3A_0_attention_bias_steering_smoke_test/failure_case_report.jsonl
+outputs/logs/sprint_3A_0_attention_bias_steering_smoke_test/success_case_report.jsonl
+outputs/logs/sprint_3A_0_attention_bias_steering_smoke_test/review_gate_attention_bias_smoke_test.md
+outputs/logs/sprint_3A_0_attention_bias_steering_smoke_test/attention_mass_before_after.jsonl
+outputs/logs/sprint_3A_0_attention_bias_steering_smoke_test/debug_hook_trace.jsonl
+```
+
+关键结果：
+- `num_questions=50`，`num_forward_records=1520`，`review_gate=13/13 passed`。
+- hook reliability passed：每个 steered forward 均注册 hook、触发请求层、并在 forward 后撤销；no-steering baseline 每题先单独运行并缓存。
+- primary config：top_k=2，lambda=0.2，layers=[16,24]，query_scope=answer_position，head_scope=all_heads。
+- target attention mass delta：attention x response-position 0.00483，random 0.00362，surface 0.00451，attention-only 0.00278。
+- attention x response-position 在 primary config 下高于 random / surface，且不低于 attention-only。
+- oracle sanity inconclusive：oracle delta 0.00214，predicted delta 0.00483，random delta 0.00362；oracle 仅作 eval-only sanity，不混入 non-oracle performance。
+- primary harm proxy：attention x response-position 0.0，attention-only 0.0，surface 0.0，random 0.02，oracle 0.02。
+- generation eval 未执行；本轮只做 answer-position next-token distribution proxy。`answer_position_output_shift_report.json` 记录了部分非 primary 配置的 nonfinite output-shift 字段计数，并在聚合中做 finite sanitization。
+
+边界：
+- 只做 positive boost；未做 decrease、hard mask、manual probability replacement。
+- 未训练模型参数，未做 LoRA / finetuning。
+- 未生成 CoT，未做 trajectory / NLA / causal patching。
+- 未重跑 recovery，未扩展到 2000，未进入 full Sprint 3A。
+- `ready_for_2000_rerun=false`，`do_not_enter_full_sprint_3A=true`，`hallucination_reduction_proven=false`，`answer_accuracy_improvement_proven=false`。
+
+运行命令：
+```bash
+conda run -n recover_attention python -m pytest tests/test_attention_bias_steering.py -q
+conda run -n recover_attention python scripts/sprint_3A_0_attention_bias_smoke_test.py --output-dir outputs/logs/sprint_3A_0_attention_bias_steering_smoke_test --overwrite --report-every 100
+conda run -n recover_attention python -m pytest -q
+```
+
+检查结果：
+- targeted pytest：5 passed。
+- full pytest：604 passed, 2 skipped。
+- required outputs 全部生成；`steering_subset_manifest.jsonl=50`，`steering_forward_manifest.jsonl=1520`，`debug_hook_trace.jsonl=1520`，failure/success cases 各 30 行。
+
+解释与决策：
+- 本轮证明 additive attention logit bias 能可控改变目标 span attention mass，且 hook 工程机制可注册/触发/撤销。
+- attention x response-position selector 在 primary smoke metric 上优于 random/surface，并不差于 attention-only。
+- 但 oracle sanity 不是强阳性，output shift 很小，且没有 generation accuracy evaluation；因此只能支持考虑 controlled 3A-1 500-case steering eval，不能直接进入 full Sprint 3A 或 2000-scale rerun。
+
+遗留问题：
+- oracle boost inconclusive，说明 selector / query scope / layer config 仍需在 3A-1 前更严格评估。
+- answer-position output-shift 是 proxy，不是 answer accuracy proof。
+- 不得宣称 hallucination reduction 或 answer accuracy improvement。
