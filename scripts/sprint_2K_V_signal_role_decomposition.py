@@ -468,8 +468,20 @@ def _gate_md(keyness, gated, frag, conflict, boot, surf_auc, attn_auc, gated_bea
         "solution_path/fragility_bucket kept as eval-only labels.",
         "",
         "Recommendation:",
-        "- keep attention as first-stage keyness gate; use hidden only as second-stage fragility ranker; drop simple average.",
-        "- re-measure output-effect at an answer-eliciting position before trusting output-effect-only.",
+    ]
+    # data-driven hidden recommendation (must not contradict the verdict above)
+    hidden_useful_fragility = frag.get("available") and (fh.get("bucket3_vs_bucket1_auc") or 0) > max(0.55, fa.get("bucket3_vs_bucket1_auc") or 0)
+    lines.append("- keep attention as first-stage keyness/risk signal.")
+    if hidden_useful_fragility:
+        lines.append(f"- use hidden as a second-stage fragility ranker (hidden bucket3-vs-1 AUC "
+                     f"{_f(fh.get('bucket3_vs_bucket1_auc'))} > attention {_f(fa.get('bucket3_vs_bucket1_auc'))}).")
+    else:
+        lines.append(f"- do NOT use hidden under the current feature construction: it is weak at both keyness "
+                     f"({_f(keyness['hidden_fragility']['same_question_on_path_vs_off_path_auc'])}) and fragility "
+                     f"({_f(fh.get('bucket3_vs_bucket1_auc'))}), i.e. noise in the fusion, not a complementary signal.")
+    lines.append("- drop simple average (hidden+attention fusion is below attention-only).")
+    lines.append("- re-measure output-effect at an answer-eliciting position before trusting output-effect-only.")
+    lines += [
         "",
         "Next sprint candidate:",
         "- answer-position output-effect re-measurement, then a gated formula-validation sprint.",
