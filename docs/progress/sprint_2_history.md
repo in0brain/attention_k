@@ -1317,3 +1317,85 @@ conda run -n recover_attention python -m pytest -q
 - bucket_3_recall gate 项与「最大化 macro_f1」内在冲突（surface baseline 靠退化的 number→bucket3 预测拿高 bucket3 recall）；后续 gate 设计应改用 macro/ordinal 综合项，而非单类 recall 对齐退化基线。
 - attention-level 特征（span attention mass / entropy / mask-to-span attention）在当前 cache 不可得；如需检验必须先补 targeted attention cache（不在本轮 boundary 内）。
 - fragility label 仍为 2H-B 的 weak instance labels（模型 recovery + 启发式 drift 分类），非人工校验。
+
+## Sprint 2H-D：Ordinal Calibration and Budget-Aware Gate Redesign
+
+目标：不改 label、不扩规模，把 2H-C 的 enriched hidden-state signal 通过校准转化为更稳定的 ordinal / budget-aware risk score，并重设 gate 以避免 surface_rule 靠「number→bucket3 泛滥」拿到的假 bucket_3_recall 优势。复用 2H-C 的 `pre_recovery_feature_dataset.jsonl`，不重跑 recovery / hidden-state cache。
+
+数据一致性核验（重要）：开工前用当前（已被修改的）drift 代码，从现有 recovery outputs 重算 fragility labels，与磁盘上 2H-B/2H-C 标签逐条比对——0/500 改变，bucket 分布一致 `{0:23,1:109,2:153,3:192,None:23}`。故 2H-C 数据集与当前代码一致，2H-D 与 2H-C 直接可比，无 stale-label 问题。
+
+已完成内容：
+
+- 实现 `src/recover_attention/ordinal_calibration.py`：三种校准/打分方法——A. expected-bucket（Σ softmax(decision_k/T)·k，温度 T 在 train fold 内网格拟合）；B. ordinal-threshold（三个二分类 P(bucket≥1/2/3) 求和）；C. calibrated regression（ridge risk_strength 回归 + PAV isotonic 单调校准）。全部 per-train-fold 拟合，避免 test-fold 泄漏。另含 budget-aware bucket-3 指标（top-k% precision/recall）与 bootstrap 排序 delta。
+- 实现 `scripts/sprint_2H_ordinal_calibration.py`：对 enriched / surface_rule / span_type_only 三个特征集用同一方法逐 fold 产生 OOF 分数并评估（公平：同方法比较，不只给 enriched 加校准）。
+- 新增 6 个 2H-D 测试（softmax 归一、expected-bucket 单调、PAV 单调、isotonic 保序、budget_curve、bootstrap delta）。
+
+关键实现要点（关闭三个陷阱）：
+
+- per-fold 校准（温度 / isotonic / 阈值分类器全部只在 train fold 拟合）；
+- 对 enriched 与 surface 应用同一打分方法后再比较（否则只给 enriched 校准是不公平优势）；
+- 对主排序指标 Spearman 逐方法都做 bootstrap，避免结论悬于一个噪声化的 primary 选择；
+- primary method 选择规则为 surface-blind 的「enriched Spearman 最大」（预注册，不偷看 surface）。
+
+关键数据（500 条，复用 2H-C 数据集）：
+
+- 各方法 enriched vs surface 排序（Spearman / pairwise / bucket3v1_AUC）：
+  - expected_bucket：0.386/0.682/0.820 vs 0.310/0.645/0.777（enriched 三项全胜）
+  - ordinal_threshold（primary）：0.391/0.683/0.833 vs 0.389/0.682/0.859（Spearman/pairwise 打平，AUC 输）
+  - reg_calibrated：0.337 vs 0.390（surface 略优）；reg_raw：0.353 vs 0.387（surface 略优）
+- 校准提升了 enriched 绝对排序：Spearman 从 2H-C 的 0.353 提升到 0.386（expected_bucket）/0.391（ordinal_threshold），但 surface 也在 ~0.39，属打平。
+- enriched vs surface Spearman 逐方法 bootstrap：expected_bucket delta=+0.076（CI95 [+0.003,+0.159]，显著）；ordinal_threshold +0.002（不显著）；reg_calibrated −0.053、reg_raw −0.033（均不显著）。即仅 1/4 方法显著、且 CI 下界紧贴 0。
+- budget-aware bucket-3（primary=ordinal_threshold）：top-10% enr precision 0.688 vs surf 0.708（surface 略优）；top-20% enr 0.726 vs surf 0.674（enriched 略优）——混合、无稳定优势；也证实 surface 高整体 bucket_3_recall 来自泛滥而非有限预算下的精准。
+- classifier macro_f1 保持 2H-C 水平：enriched 0.426 > surface 0.378 > span_type 0.339（未回退）。coverage 1.0（平凡）；off-path budget 0.055（≈2H-C 0.054，未恶化）。
+- review gate（8 项，primary=ordinal_threshold）：通过 5 项（#1 Spearman>surface、#2 pairwise>surface、#4 coverage≥2H-C、#5 budget 未恶化、#7 macro_f1 未回退）；失败 3 项（#3 bucket3v1_AUC 输、#6 top-10% bucket-3 precision 略输、#8 primary 方法 bootstrap CI 下界 <0）。ready_for_2000_rerun=False。
+
+核心结论：
+
+- 校准有效：把 enriched 绝对排序从 0.353 提升到 ≈0.39，与 surface 打平，并保住 2H-C 分类优势（macro_f1 0.426）。存在一个 principled 方法（expected_bucket，从分类器派生，恰是 enriched 优势所在）使 enriched 显著优于 surface（+0.076，CI 显著）。
+- 但该排序优势不稳健：仅 4 种打分中的 1 种显著、CI 下界仅 +0.003，budget-aware top-10% bucket-3 打平/略输。按任务门槛「ordinal score 明显超过 surface + budget-aware bucket3 优于 surface」未达标，故不进入 2000-case rerun。
+- 诚实性：未把 primary 切到唯一能过的 expected_bucket 去凑 gate（那是 p-hacking）；保留 surface-blind 预注册规则（→ ordinal_threshold → 5/8），并把 expected_bucket 的显著结果作为「promising 但不稳健」透明记录。
+- 下一步（任务 fail 分支）：补 targeted attention-map cache（span attention mass / entropy / mask-to-span attention），再考虑 trajectory-level features；expected_bucket 的显著性提示「分类器派生的 ordinal 分」值得在更强特征下复核。
+
+输出文件（均在 `outputs/logs/sprint_2H_ordinal_calibration_500/`）：
+
+```text
+ordinal_calibration_report.json / ordinal_calibration_report.md
+ordinal_predictions.jsonl
+bucket3_budget_curve.json
+review_gate_ordinal_calibration.json / review_gate_ordinal_calibration.md
+```
+
+新增或修改文件：
+
+- src/recover_attention/ordinal_calibration.py（新增）
+- scripts/sprint_2H_ordinal_calibration.py（新增）
+- tests/test_sprint_2h_instance_signal.py（新增 2H-D 校准测试）
+- outputs/logs/sprint_2H_ordinal_calibration_500/*
+
+运行命令：
+
+```bash
+conda run -n recover_attention python -m pytest tests/test_sprint_2h_instance_signal.py -q
+conda run -n recover_attention python scripts/sprint_2H_ordinal_calibration.py --stage all
+conda run -n recover_attention python -m pytest -q
+```
+
+检查结果：
+
+- 2H-D targeted pytest：32 passed（2H/2H-C/2H-D 共用测试文件）。
+- full pytest：579 passed, 2 skipped。
+- provenance：当前 drift 代码重算 fragility labels 与磁盘 0/500 差异。
+- primary_method=ordinal_threshold；gate 5/8，ready_for_2000_rerun=False；逐方法 bootstrap 仅 expected_bucket 显著（+0.076，CI [+0.003,+0.159]）。
+
+边界：
+
+- 复用 2H-C `pre_recovery_feature_dataset.jsonl`；未重跑 recovery、未重跑 hidden-state cache、未扩大到 2000。
+- 仅用 enriched（original+masked）与 surface / span_type 特征；未使用 recovered channel / gold solution path / drift / bucket / risk_strength 作为输入特征（gate candidate 特征名断言通过）。
+- 未覆盖 2G / 2H-B / 2H-C 输出；未 all-train；未进入 Sprint 3A；未执行 attention steering；未手动改标签。
+
+遗留问题：
+
+- enriched 对 surface 的排序优势仅在 expected_bucket 一种打分下显著，且 CI 下界紧贴 0，不稳健；需更强特征（attention/trajectory）复核。
+- budget-aware bucket-3 在 top-10% 预算下 enriched 未稳定优于 surface；bucket_3_vs_1 AUC 在 primary 方法下仍输 surface。
+- per-question top-k 覆盖仍为平凡 1.0（每题单 span）；有意义的 top-k / budget 评估需每题多 span。
+- fragility label 仍为 weak instance labels（模型 recovery + 启发式 drift），非人工校验。

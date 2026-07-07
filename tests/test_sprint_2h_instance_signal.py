@@ -321,3 +321,56 @@ def test_extract_pre_recovery_features_leakage_free_with_stub_tensors():
     assert any(n.startswith("pre_delta_span_") for n in names)
     assert any(n.startswith("pre_saliency_span_to_question_") for n in names)
     assert any(n.startswith("pre_stability_span_") for n in names)
+
+
+# --------------------------------------------------------------------------- #
+# Sprint 2H-D: ordinal calibration
+# --------------------------------------------------------------------------- #
+from recover_attention import ordinal_calibration as oc  # noqa: E402
+
+
+def test_softmax_rows_normalized():
+    p = oc.softmax_rows(np.array([[1.0, 2.0, 3.0, 0.0]]), temperature=1.0)
+    assert abs(float(p.sum()) - 1.0) < 1e-9
+    assert p.argmax() == 2
+
+
+def test_expected_bucket_monotone_in_decision():
+    # higher decision mass on bucket 3 -> higher expected bucket
+    low = oc.expected_bucket_from_decision(np.array([[3.0, 0, 0, 0]]), [0, 1, 2, 3], 1.0)[0]
+    high = oc.expected_bucket_from_decision(np.array([[0, 0, 0, 3.0]]), [0, 1, 2, 3], 1.0)[0]
+    assert high > low
+
+
+def test_pav_isotonic_is_monotone():
+    y = np.array([0.0, 3.0, 1.0, 2.0, 2.5])
+    fitted = oc.pav_isotonic(y)
+    assert all(fitted[i] <= fitted[i + 1] + 1e-9 for i in range(len(fitted) - 1))
+
+
+def test_fit_isotonic_preserves_order_on_train():
+    rng = np.random.default_rng(0)
+    pred = rng.normal(size=50)
+    target = (pred > 0).astype(float) * 2 + rng.normal(0, 0.1, size=50)
+    f = oc.fit_isotonic(pred, target)
+    cal = f(pred)
+    # calibrated should correlate positively with target
+    assert oc.spearman_corr(cal, target) > 0.5
+
+
+def test_budget_curve_flooding_vs_precise():
+    buckets = np.array([3, 3, 1, 1, 0, 2, 3, 1, 2, 3])
+    # a precise score ranks bucket-3 items first
+    precise = np.array([0.9, 0.85, 0.1, 0.1, 0.0, 0.4, 0.95, 0.1, 0.4, 0.88])
+    curve = oc.budget_curve(precise, buckets, fractions=[0.2])
+    assert curve["points"]["top_20pct"]["bucket_3_precision"] == 1.0
+
+
+def test_bootstrap_ranking_delta_positive_when_a_better():
+    rng = np.random.default_rng(1)
+    buckets = np.array([0, 1, 2, 3] * 20)
+    good = buckets + rng.normal(0, 0.2, size=len(buckets))   # tracks bucket
+    bad = rng.normal(0, 1, size=len(buckets))                # noise
+    res = oc.bootstrap_ranking_delta(good.astype(float), bad, buckets, num_boot=200, seed=3)
+    assert res["ci95_low"] > 0
+    assert res["meaningfully_above_noise"] is True
