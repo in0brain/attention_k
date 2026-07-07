@@ -1524,3 +1524,97 @@ conda run -n recover_attention python -m pytest -q
 - 2I-R task card 在本轮开始前已有 `AM` 状态，已保留并记录；未重写 task card。
 
 下一步建议：Sprint 2J 应优先补 reasoning-path / answer-stability features，并构造 multi-span-per-question 的可排名矩阵；在 gate 通过前不做 2000 rerun，不进入 Sprint 3A。
+## Sprint 2J: Multi-Span Reasoning Matrix Construction
+
+Goal: build a true multi-span-per-question ranking substrate for the 500-case diagnostic subset, then run local hidden/attention scoring and formula validation without entering 2000 rerun or Sprint 3A.
+
+Pre-existing workspace state:
+- `docs/codex_tasks/sprint_2J_multi_span_reasoning_matrix.md` had pre-existing `AM` status before this sprint.
+- The task card was preserved; no git restore/checkout/reset was run.
+
+Completed:
+- Added `src/recover_attention/multi_span_reasoning_matrix.py` for 2J-A text-only multi-span candidate extraction, grouped/flat matrix construction, coverage audit, keyness diagnostics, and surface ranking baseline.
+- Added `scripts/sprint_2J_multi_span_matrix.py` for 2J-A.
+- Added `src/recover_attention/multi_span_reasoning_scoring.py` for 2J-B local 4-bit HF hidden/attention scoring, feature matrix generation, same-question ranking, formula validation, top-k budget reports, failure/success cases, reasoning-signal gap report, and review gate.
+- Added `scripts/sprint_2J_multi_span_scoring.py` for 2J-B.
+- Added tests in `tests/test_multi_span_reasoning_matrix.py`.
+
+2J-A outputs:
+- `outputs/logs/sprint_2J_multi_span_matrix_500/multi_span_grouped_matrix.jsonl`
+- `outputs/logs/sprint_2J_multi_span_matrix_500/multi_span_flat_matrix.jsonl`
+- `outputs/logs/sprint_2J_multi_span_matrix_500/candidate_span_coverage_report.json`
+- `outputs/logs/sprint_2J_multi_span_matrix_500/span_extraction_audit.json`
+- `outputs/logs/sprint_2J_multi_span_matrix_500/keyness_label_report.json`
+- `outputs/logs/sprint_2J_multi_span_matrix_500/surface_ranking_baseline_report.json`
+- `outputs/logs/sprint_2J_multi_span_matrix_500/review_gate_multi_span_matrix.md`
+
+2J-A result:
+- `num_questions=500`
+- `num_candidate_spans=4935`
+- `mean_spans_per_question=9.87`
+- `questions_with_on_path_and_off_path_number=232`
+- `gate_passed=true`
+- `checks_passed=8/8`
+
+2J-B outputs:
+- `outputs/logs/sprint_2J_multi_span_scoring_500/multi_span_feature_matrix.jsonl`
+- `outputs/logs/sprint_2J_multi_span_scoring_500/multi_span_score_matrix.jsonl`
+- `outputs/logs/sprint_2J_multi_span_scoring_500/hidden_attention_feature_report.json`
+- `outputs/logs/sprint_2J_multi_span_scoring_500/same_question_ranking_report.json`
+- `outputs/logs/sprint_2J_multi_span_scoring_500/formula_validation_report.json`
+- `outputs/logs/sprint_2J_multi_span_scoring_500/topk_budget_report.json`
+- `outputs/logs/sprint_2J_multi_span_scoring_500/failure_case_report.jsonl`
+- `outputs/logs/sprint_2J_multi_span_scoring_500/success_case_report.jsonl`
+- `outputs/logs/sprint_2J_multi_span_scoring_500/reasoning_signal_gap_report.json`
+- `outputs/logs/sprint_2J_multi_span_scoring_500/review_gate_multi_span_scoring.md`
+
+2J-B real run:
+- backend: `multi_span_hidden_attention_scoring_v0`
+- model path: `D:/models/Qwen2.5-7B-Instruct`
+- local 4-bit loading: true
+- `attn_implementation=eager`
+- layers: `0/8/16/24`; final attention layer excluded.
+- `num_feature_records=4935`
+- `num_score_records=4935`
+- feature/formula leakage audits passed.
+- no recovery rerun, no CoT, no trajectory, no NLA, no causal attribution, no attention steering.
+
+2J-B result:
+- `review_gate_passed=false`
+- `checks_passed=6/8`
+- `best_non_oracle_formula=C_attention_only`
+- `best_non_oracle_delta_vs_surface_only_auc=-0.0502`
+- `A_surface_only same_question_on_path_vs_off_path_auc=0.5120`
+- `C_attention_only same_question_on_path_vs_off_path_auc=0.4618`
+- `C_attention_only off_path_budget_share=0.1307` vs surface `0.1707`
+- `C_attention_only on_path_number_topk_coverage=0.7600` vs surface `0.9789`
+
+Failed 2J-B gate checks:
+- Non-oracle formula did not improve over surface-only on same-question on-path/off-path number ranking.
+- Best non-oracle formula reduced on-path number top-k coverage relative to surface-only.
+
+Decision:
+- `ready_for_2000_rerun=false`
+- `do_not_enter_sprint_3A=true`
+- Do not run 2000 rerun.
+- Do not enter attention steering.
+
+Commands run:
+```bash
+conda run -n recover_attention python -m pytest tests/test_multi_span_reasoning_matrix.py -q
+conda run -n recover_attention python scripts/sprint_2J_multi_span_matrix.py --output-dir outputs/logs/sprint_2J_multi_span_matrix_500 --overwrite
+conda run -n recover_attention python scripts/sprint_2J_multi_span_scoring.py --output-dir outputs/logs/sprint_2J_multi_span_scoring_500 --overwrite --report-every 25
+conda run -n recover_attention python -m pytest tests/test_multi_span_reasoning_matrix.py -q
+conda run -n recover_attention python -m pytest -q
+```
+
+Validation:
+- Targeted pytest: 7 passed.
+- Full pytest: 592 passed, 2 skipped.
+
+Remaining issue:
+- Hidden/attention signals make same-question ranking computable and reduce off-path budget share in some formulas, but they do not beat the surface baseline for on-path/off-path number ranking.
+- Reasoning-level signals remain missing: answer-logprob, answer-rank, trajectory, CoT path, NLA semantic role, and causal attribution.
+
+Next recommendation:
+- Run a formula validation or reasoning-signal sprint before any 2000 rerun or Sprint 3A steering implementation.

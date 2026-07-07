@@ -653,3 +653,36 @@ Attention-features rerun gate（2I 已实现于 review_gate_attention_features.j
 2G-2000 / 2H-B / 2H-C / 2H-D / 2I 均为 weak-labeled diagnostic evidence，不是 human-reviewed validation；
 不得把 weak-labeled metrics 说成 attention guidance 有效 / hallucination 减少 / answer accuracy 提升。
 ```
+## Current Status - Sprint 2J Multi-Span Reasoning Matrix
+
+Sprint 2J is completed as a 500-case diagnostic run.
+
+Validation:
+- Full pytest passed: 592 passed, 2 skipped.
+
+Completed:
+- 2J-A built a multi-span-per-question matrix from the existing 500-case GSM8K diagnostic subset.
+- 2J-A gate passed: 500 questions, 4935 candidate spans, mean 9.87 spans/question, 8/8 checks passed.
+- 2J-B ran the real local Qwen2.5-7B-Instruct 4-bit eager original/masked forward pass for all 4935 candidate spans.
+- 2J-B generated hidden/attention features, same-question ranking metrics, formula validation, top-k budget reports, failure/success cases, and reasoning-signal gap report.
+- Feature/formula leakage audits passed; eval-only fields such as solution_path_status, fragility_bucket, and risk_strength were not used as non-oracle formula inputs.
+
+Key result:
+- 2J-B review gate did not pass: 6/8 checks.
+- Best non-oracle formula: C_attention_only.
+- Best non-oracle AUC delta vs surface-only: -0.0502.
+- Non-oracle formulas reduced off-path budget share in some settings, but did not improve on-path/off-path number ranking over the surface baseline.
+- On-path number top-k coverage decreased for the best non-oracle formula.
+- Oracle diagnostic upper bound remains high, confirming the gap is signal/formula quality rather than the multi-span substrate itself.
+
+Current decision:
+- ready_for_2000_rerun = false.
+- do_not_enter_sprint_3A = true.
+- Do not run 2000 rerun and do not start attention steering.
+
+Primary outputs:
+- outputs/logs/sprint_2J_multi_span_matrix_500/
+- outputs/logs/sprint_2J_multi_span_scoring_500/
+
+Next recommended sprint:
+- Formula validation or reasoning-signal sprint, especially answer-logprob / semantic-role / trajectory evidence before any steering implementation.
