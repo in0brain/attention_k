@@ -1,5 +1,43 @@
 # 实验进度记录：Reasoning-Aware Attention Guidance
 
+## Current Status Update: Sprint 2K-W Answer-Position Output-Effect
+
+Sprint 2K-W is completed as an answer-position output-effect remeasurement sprint, not a 2000-scale rerun and not Sprint 3A.
+
+Completed:
+- Added a leakage-audited answer-position output-effect backend and CLI.
+- Reran only original/masked answer-position logits over the existing 4935-span 2J-Fix / 2K / 2K-V matrix.
+- Generated the required 2K-W reports under `outputs/logs/sprint_2K_W_answer_position_output_effect_500/`.
+- Preserved the pre-existing `AM` task card state for `docs/codex_tasks/sprint_2K_W_answer_position_output_effect.md`.
+
+Core results:
+- `num_feature_records=4935`, `num_score_records=4935`, feature leakage audit passed.
+- AUC: surface 0.5120, attention-only 0.5885, prompt-final output-effect 0.5545, response-position output-effect 0.6371, attention x response-position output-effect 0.6470.
+- Response-position output-effect is stably stronger than prompt-final output-effect: delta +0.0803, CI95 [+0.0314, +0.1321].
+- Response-position output-effect alone is not stably stronger than attention-only: delta +0.0103, CI95 [-0.0483, +0.0723].
+- Attention x response-position output-effect is stably stronger than attention-only: delta +0.0379, CI95 [+0.0090, +0.0709].
+- Best AUC formula is `I_mean_attention_response_output` at 0.6534.
+- Review gate passed 11/11, but the sprint still records `ready_for_2000_rerun=false` and `do_not_enter_sprint_3A=true`.
+
+Commands:
+```bash
+conda run -n recover_attention python scripts/sprint_2K_W_answer_position_output_effect.py --output-dir outputs/logs/sprint_2K_W_answer_position_output_effect_500 --overwrite --report-every 50
+conda run -n recover_attention python -m pytest tests/test_answer_position_output_effect.py -q
+conda run -n recover_attention python -m pytest -q
+```
+
+Checks:
+- Targeted pytest: 4 passed.
+- Full pytest: 599 passed, 2 skipped.
+
+Remaining issues:
+- Do not enter 2000 rerun or Sprint 3A directly from this sprint.
+- Response-position output-effect improves the measurement point, but the output-only signal is not stably above attention-only.
+- Formula validation should stay between 2K-W and any steering implementation.
+
+Next:
+- Run a formula-validation / 3A-0 smoke-test sprint only; no full Sprint 3A attention steering yet.
+
 ## 1. 当前项目状态
 
 当前主线：

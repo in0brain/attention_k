@@ -1767,3 +1767,67 @@ conda run -n recover_attention python -m pytest -q
 - output-effect 受 prompt 末 token 测点限制，需 answer-eliciting 测点复核后再定 output-effect 角色。
 - oracle gap 仍大（0.9995 vs 0.588）；attention-only 虽显著 > surface，但离可用 keyness gate 仍远。
 - negation(n=12)/comparison(n=62) 样本稀少；within-question median gate 在小 group 区分度弱。
+
+## Sprint 2K-W：Answer-Position Output-Effect Remeasurement
+
+目标：复核 2K / 2K-V 中 prompt-final output-effect 测点过早的问题，把 output-effect 测点移动到 answer-eliciting prompt 后的首个 answer-position logits，仅重跑 original/masked answer-position logits，不做 recovery rerun、CoT、trajectory、NLA、causal attribution、attention steering、2000 rerun 或 Sprint 3A。
+
+Pre-existing workspace state:
+- `docs/codex_tasks/sprint_2K_W_answer_position_output_effect.md` had pre-existing `AM` status before this sprint.
+- The task card was preserved; no git restore/checkout/reset was run.
+
+已完成内容：
+- 新增 `src/recover_attention/answer_position_output_effect.py`：本地 HF 4-bit answer-position output-effect backend，`local_files_only=True`，缺 bitsandbytes 时不 fallback；只读取 original/masked logits，不读取/使用 gold answer、solution path、recovery drift、risk bucket、CoT、NLA 或 trajectory 作为 gate-eligible input。
+- 新增 `scripts/sprint_2K_W_answer_position_output_effect.py`：默认读取 `outputs/logs/sprint_2J_fix_slot_alignment_scoring_500/multi_span_feature_matrix.jsonl`，输出到 `outputs/logs/sprint_2K_W_answer_position_output_effect_500/`。
+- 新增 `tests/test_answer_position_output_effect.py`：覆盖 prompt 不含 solution/CoT、feature leakage audit、公式排序、报告生成。
+- 对 4935-span 2J-Fix / 2K / 2K-V matrix 只重跑 answer-position logits，并生成 2K-W 正式产物。
+
+正式输出：
+```text
+outputs/logs/sprint_2K_W_answer_position_output_effect_500/answer_position_feature_matrix.jsonl
+outputs/logs/sprint_2K_W_answer_position_output_effect_500/answer_position_score_matrix.jsonl
+outputs/logs/sprint_2K_W_answer_position_output_effect_500/answer_position_feature_audit.json
+outputs/logs/sprint_2K_W_answer_position_output_effect_500/answer_position_ranking_report.json
+outputs/logs/sprint_2K_W_answer_position_output_effect_500/answer_position_formula_validation_report.json
+outputs/logs/sprint_2K_W_answer_position_output_effect_500/answer_position_grouped_bootstrap_report.json
+outputs/logs/sprint_2K_W_answer_position_output_effect_500/prompt_vs_answer_position_comparison.json
+outputs/logs/sprint_2K_W_answer_position_output_effect_500/span_type_answer_position_breakdown.json
+outputs/logs/sprint_2K_W_answer_position_output_effect_500/off_path_budget_report.json
+outputs/logs/sprint_2K_W_answer_position_output_effect_500/failure_case_report.jsonl
+outputs/logs/sprint_2K_W_answer_position_output_effect_500/success_case_report.jsonl
+outputs/logs/sprint_2K_W_answer_position_output_effect_500/review_gate_answer_position_output_effect.md
+outputs/logs/sprint_2K_W_answer_position_output_effect_500/answer_position_forward_manifest.jsonl
+```
+
+关键结果：
+- `num_feature_records=4935`，`num_score_records=4935`，`failure_case_report=52`，`success_case_report=86`。
+- feature leakage audit passed：gate-eligible feature names 仅使用 `self_output_*`，未使用 answer / target / label / gold / oracle / recovered / drift / bucket / risk_strength / solution_path / trajectory / cot / nla 等禁用输入。
+- same-question on/off-path AUC：surface 0.5120，attention-only 0.5885，prompt-final output-effect 0.5545，response-position output-effect 0.6371，attention x response-position output-effect 0.6470。
+- response-position output-effect 显著强于 prompt-final output-effect：delta +0.0803，CI95 [+0.0314, +0.1321]，stable_positive=true。
+- response-position output-effect alone 高于 attention-only 的点估计，但不稳定：delta +0.0103，CI95 [-0.0483, +0.0723]，stable_positive=false。
+- attention x response-position output-effect 稳定强于 attention-only：delta +0.0379，CI95 [+0.0090, +0.0709]，stable_positive=true。
+- best AUC formula：`I_mean_attention_response_output`，AUC 0.6534。
+- review gate passed 11/11，但按 task boundary 仍强制记录 `ready_for_2000_rerun=false`，`do_not_enter_sprint_3A=true`。
+
+解释与决策：
+- 2K 中 prompt-final output-effect 确实低估了 output-effect signal。
+- answer-position output-effect 是更合理的测点，并且和 attention 组合后有稳定增益。
+- output-effect alone 仍不能稳定替代 attention-only，所以当前 steering target recommendation 是 `attention + response-position output-effect`，不是 output-only，也不是 hidden/simple-average fusion。
+- 本轮不建议直接进入 2000 rerun 或 Sprint 3A；下一步应先做 formula-validation / 3A-0 smoke test。
+
+运行命令：
+```bash
+conda run -n recover_attention python scripts/sprint_2K_W_answer_position_output_effect.py --output-dir outputs/logs/sprint_2K_W_answer_position_output_effect_500 --overwrite --report-every 50
+conda run -n recover_attention python -m pytest tests/test_answer_position_output_effect.py -q
+conda run -n recover_attention python -m pytest -q
+```
+
+检查结果：
+- targeted pytest：4 passed。
+- full pytest：599 passed, 2 skipped。
+- real forward：4935/4935 spans processed，local Qwen2.5-7B-Instruct 4-bit，no model download，no fallback，no upstream pipeline rerun。
+
+遗留问题：
+- 不得把 2K-W gate passed 解读成可以直接做 2000-scale rerun 或 Sprint 3A steering。
+- response-position output-effect alone 没有稳定超过 attention-only，仍需以 formula validation 决定实际 steering gate。
+- oracle gap 仍大；当前结论只是 answer-position output-effect 测点复核与 formula evidence，不是 hallucination reduction 或 answer accuracy improvement 证据。
