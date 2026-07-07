@@ -1704,3 +1704,66 @@ conda run -n recover_attention python -m pytest -q
 - hidden_only 单独仍弱 anti-keyness（0.468）；within-question keyness 的信号主要来自 attention。
 - oracle gap 仍大（0.99 vs 0.59）；离可用的 first-layer keyness gate 仍有距离。
 - negation(n=12)/comparison(n=62) 等非数字类欠功率；GSM8K 数字主导，comparison/negation（项目最初 risk_positive 关注点）样本稀少，可能需更合适的数据集。
+
+## Sprint 2K-V：Signal Role Decomposition and Fusion Error Audit（read-only）
+
+目标：不追新最高分，而是拆解 attention / hidden / output-effect 分别在解决哪个子问题——为什么 simple hidden+attention（0.564）低于 attention-only（0.588）。read-only 复用 2J-Fix 4935-span feature/score matrix 与 2K output-effect；不重跑 forward、不扩大、不进入 3A。
+
+任务卡审查与补充（执行前）：card 假设「attention=keyness、hidden=fragility、simple average 混淆二者」。无冲突，但补 4 点：(1) 2J matrix 中 fragility_bucket 多为 null（仅 274/4935），改用 2H risk_strength_dataset 按 (question_id, 归一化数值) join 得 **382 个带 bucket 的 number span**（{0:43,1:31,2:82,3:226}）做真实 fragility AUC；(2) output-effect 测点在 prompt 末 token 的 caveat 写入所有结论；(3) 10 个 gated formula 的多重比较 caveat；(4) 小组 median gate 退化统计。补充已写回 card md。
+
+已完成内容：
+
+- 实现 `scripts/sprint_2K_V_signal_role_decomposition.py`（read-only）：复用 `multi_span_reasoning_scoring` 的 build_score_matrix / formula_metrics / grouped_bootstrap_delta / is_on/off_path_number；构造 surface/hidden/attention/output-effect/simple-fusion/attention×output 信号；keyness AUC + grouped bootstrap（vs surface 与 vs attention-only）；fragility AUC（2H join）；conflict-pair 审计（Type A–E + net effects）；gated formula F0–F9（label-free within-question median 阈值）；span-type 拆解；failure/success cases。
+- 新增测试：_pair_result 语义、within-group median。
+
+关键数据（4935 spans；1871 on/off-path number pairs；382 fragility-joined number spans）：
+
+- keyness same-question on/off-path AUC：surface 0.512 / **hidden 0.468** / **attention 0.588** / simple_fusion 0.564 / attention×output 0.586。attention 稳定优于 surface（grouped bootstrap delta +0.103，CI [+0.062,+0.146]）。**simple fusion 0.564 < attention-only 0.588 得到证实。**
+- **fragility bucket3-vs-bucket1 AUC（2H join）：hidden 0.480（≈随机）/ attention 0.715 / output-effect 0.485。**
+- conflict pair 审计：net_hidden_effect=**-46**（hidden 净拖累 keyness：把 46 个 attention 排对的 pair 融合后拖成排错多于反向），net_output_effect=**+16**（output-effect 修正 171 个 attention 排错 pair，D 型）。类型分布：B(attention对/hidden中性) 860、A(attention对/hidden有害) 241、C(attention错/hidden修) 195、D(attention错/output修) 171、E(全错) 71。
+- gated formula F0–F9：**无一稳定优于 attention-only**（gated_beats_attention=[]）；best_gated=F6（output-gate→attention）但不稳定。
+
+核心结论（部分**推翻** card 假设，诚实记录）：
+
+- **attention 在 keyness（0.588）与 fragility（0.715）上都是最强信号；hidden 在两者上都弱（0.468 / 0.480，均≈随机）。** 故 card 假设「hidden=fragility、应作第二层 fragility ranker」不成立——hidden 在 fragility 上也接近随机。
+- **simple fusion 低于 attention-only 的根因是 hidden 是噪声（非互补信号）**，而非 keyness 与 fragility 被混淆；conflict 审计的 net_hidden_effect=-46 直接证实 hidden 净拖累。
+- output-effect 有 modest 互补价值（net +16，D 型 171 pair），但 attention×output（0.586）未在 aggregate AUC 超过 attention-only；单独 output-effect 不稳定（受 prompt 末 token 测点限制）。
+- 决策：**保留 attention 作第一层 keyness gate；当前构造下不要用 hidden（两个角色都弱）；废弃 simple average；先做 answer-position output-effect 复核再决定 output-effect 去留。** 仍不进入 2000 / 3A（oracle 0.9995 vs best 0.588，gap 仍大）。
+
+产物（`outputs/logs/sprint_2K_V_signal_role_decomposition_500/`）：
+
+```text
+signal_role_summary.json / keyness_signal_eval_report.json / fragility_signal_eval_report.json
+attention_hidden_conflict_report.json / output_effect_role_report.json
+gated_formula_validation_report.json / gated_formula_bootstrap_report.json / span_type_error_breakdown.json
+fusion_error_cases.jsonl / fusion_success_cases.jsonl / question_level_case_audit.jsonl
+review_gate_signal_role_decomposition.md
+```
+
+新增或修改文件：
+
+- scripts/sprint_2K_V_signal_role_decomposition.py（新增）
+- tests/test_sprint_2h_instance_signal.py（新增 2K-V 测试）
+- docs/codex_tasks/sprint_2K_V_signal_role_decomposition_fusion_audit.md（补充 4 点 + 结果摘要）
+- outputs/logs/sprint_2K_V_signal_role_decomposition_500/*
+
+运行命令：
+
+```bash
+conda run -n recover_attention python -m pytest tests/test_sprint_2h_instance_signal.py -q
+conda run -n recover_attention python scripts/sprint_2K_V_signal_role_decomposition.py
+conda run -n recover_attention python -m pytest -q
+```
+
+检查结果：
+
+- targeted pytest 通过；full pytest：595 passed, 2 skipped。
+- read-only：未重跑 forward/recovery、未扩大到 2000、未进入 3A、未执行 steering、未覆盖既有输出。
+- gate（read-only diagnostic，不要求 gated formula 通过）：attention 稳定 > surface；simple fusion 明确 < attention-only；≥1 gated formula 用 grouped bootstrap 对比 attention-only；ready_for_2000_rerun=False；do_not_enter_3A=True。
+
+遗留问题：
+
+- hidden 在当前特征构造下 keyness 与 fragility 都弱；若要 hidden 有用需换 fragility 特征（如 recovery-consistency 而非 perturbation-magnitude）。
+- output-effect 受 prompt 末 token 测点限制，需 answer-eliciting 测点复核后再定 output-effect 角色。
+- oracle gap 仍大（0.9995 vs 0.588）；attention-only 虽显著 > surface，但离可用 keyness gate 仍远。
+- negation(n=12)/comparison(n=62) 样本稀少；within-question median gate 在小 group 区分度弱。

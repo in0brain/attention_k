@@ -22,6 +22,25 @@ Token / Span Intervention
 当前阶段：
 
 ```text
+Sprint 2K-V 已完成：Signal Role Decomposition and Fusion Error Audit（read-only，4935 spans）。
+
+本轮是 signal role decomposition（不是 scale-up）：read-only 复用 2J-Fix/2K 的 4935-span artifacts，拆解 attention / hidden / output-effect 各自解决哪个子问题、为什么 simple fusion（0.564）低于 attention-only（0.588）。补充：用 2H risk_strength_dataset join 得 382 个带 bucket 的 number span 做真实 fragility AUC（card 假设 hidden=fragility 的验证）。
+
+核心结果（部分推翻 card 假设，诚实记录）：
+- keyness AUC：surface 0.512 / hidden 0.468 / attention 0.588 / simple_fusion 0.564 / attention×output 0.586。simple fusion < attention-only 证实。
+- **fragility bucket3-vs-1 AUC（2H join，382 spans）：hidden 0.480（≈随机）/ attention 0.715 / output-effect 0.485。**
+- 即 **attention 在 keyness 与 fragility 上都最强；hidden 在两者上都弱**。故「hidden=fragility」不成立——simple fusion 低于 attention-only 的根因是 **hidden 是噪声**（conflict 审计 net_hidden_effect=-46 证实），而非混淆 keyness/fragility。
+- output-effect 有 modest 互补（net +16，171 D 型修正），但 attention×output 未超 attention-only；单独 output-effect 不稳定（prompt 末 token 测点限制）。
+- gated formula F0–F9 无一稳定优于 attention-only。
+
+是否确认 attention=keyness、hidden=fragility：**否**——attention 兼任 keyness+fragility，hidden 两者都弱。simple fusion 拉低 attention 的原因是 hidden 噪声。gated formula 未优于 attention-only。
+
+下一步建议：保留 attention 作第一层 keyness gate；当前构造下不用 hidden；废弃 simple average；先做 answer-position output-effect 复核。ready_for_2000_rerun=False、do_not_enter_sprint_3A=True（oracle 0.9995 vs best 0.588，gap 仍大）。
+
+正式产物：outputs/logs/sprint_2K_V_signal_role_decomposition_500/*（review_gate_signal_role_decomposition.md 等）
+
+---
+
 Sprint 2J-Fix + 2K 已完成：Slot Alignment Repair 与 Leakage-Safe Answer-Effect Keyness（500-case，4935 spans）。
 
 修复 2J-B 的 slot alignment bug（cached original forward 复用第一个 span 的 slot_indices → 约 90% span 的 original 侧 hidden/attention/delta 特征错位），并新增 leakage-safe self-output-effect（模型自身末 token 分布 shift，非 gold）作为 keyness proxy；改用真实 question-grouped bootstrap、AUC-first。
@@ -307,7 +326,10 @@ conda run -n recover_attention python -m pytest -q
 最近一次检查结果：
 
 ```text
-pytest（Sprint 2J-Fix + 2K 后最新）: 594 passed, 2 skipped
+pytest（Sprint 2K-V 后最新）: 595 passed, 2 skipped
+2K-V signal role decomposition: attention keyness=0.588 & fragility=0.715（均最强）；hidden keyness=0.468 & fragility=0.480（均≈随机）；simple fusion 0.564<attention；hidden 是噪声（net_hidden_effect=-46）；gated formula 无一稳定优于 attention-only
+新增：scripts/sprint_2K_V_signal_role_decomposition.py
+pytest（Sprint 2J-Fix + 2K 后）: 594 passed, 2 skipped
 2J-Fix/2K targeted pytest: 37 passed（2H/2H-C/2H-D/2I/2K 共用测试文件）
 2J-Fix gate: PASSED 7/7（slot alignment 修复后 attention_only AUC 0.588 显著>surface 0.512，bootstrap stable）；2K output-effect-only 不稳健、组合稳定
 新增：src/recover_attention/answer_effect_features.py、scripts/sprint_2J_fix_2K_scoring.py

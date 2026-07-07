@@ -418,6 +418,22 @@ def test_slot_indices_recomputed_per_span():
     assert span_a != span_b
 
 
+def test_2kv_pair_result_and_median():
+    import importlib.util
+    root = Path(__file__).resolve().parents[1]
+    spec = importlib.util.spec_from_file_location(
+        "s2kv", root / "scripts" / "sprint_2K_V_signal_role_decomposition.py")
+    s2kv = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(s2kv)
+    # on-path ranked above off-path -> correct; below -> wrong; equal -> tie
+    assert s2kv._pair_result(0.9, 0.1) == "correct"
+    assert s2kv._pair_result(0.1, 0.9) == "wrong"
+    assert s2kv._pair_result(0.5, 0.5) == "tie"
+    # label-free within-group median threshold
+    assert s2kv._median([0.1, 0.5, 0.9]) == 0.5
+    assert s2kv._median([]) == 0.0
+
+
 # --------------------------------------------------------------------------- #
 # Sprint 2I: attention features
 # --------------------------------------------------------------------------- #
