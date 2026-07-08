@@ -434,6 +434,28 @@ def test_2kv_pair_result_and_median():
     assert s2kv._median([]) == 0.0
 
 
+def test_3a1_gold_token_and_logprob():
+    torch = pytest.importorskip("torch")
+    import importlib.util
+    root = Path(__file__).resolve().parents[1]
+    spec = importlib.util.spec_from_file_location(
+        "s3a1", root / "scripts" / "sprint_3A_1_controlled_attention_guidance.py")
+    s3a1 = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(s3a1)
+    # logprob_of returns log-softmax value at token id; higher logit -> higher logprob
+    logits = torch.tensor([0.0, 5.0, 0.0, 0.0])
+    assert s3a1.logprob_of(logits, 1) > s3a1.logprob_of(logits, 0)
+    assert math_isnan(s3a1.logprob_of(logits, None))
+    # harm proxy triggers on top1 change
+    assert s3a1._harm({"steer_top1_changed": 1.0, "steer_entropy_delta": 0.0, "steer_margin_delta": 0.0})
+    assert not s3a1._harm({"steer_top1_changed": 0.0, "steer_entropy_delta": 0.0, "steer_margin_delta": 0.0})
+
+
+def math_isnan(v):
+    import math
+    return math.isnan(v)
+
+
 # --------------------------------------------------------------------------- #
 # Sprint 2I: attention features
 # --------------------------------------------------------------------------- #

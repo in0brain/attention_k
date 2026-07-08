@@ -107,6 +107,21 @@ Token / Span Intervention
 当前阶段：
 
 ```text
+Sprint 3A-1 已完成：Controlled Attention Guidance on 500 Cases（increase-only，120 题 λ sweep）。
+
+首次进入 attention steering 的受控诊断（非 full 3A、非 2000 rerun、不声称 hallucination/accuracy 改善）。复用 3A-0 attention-bias hook，修正 3A-0 oracle inconclusive 的两个根因：(1) oracle 指标改为 answer-directed（eval-only：steering 是否把 answer-position 分布推向 gold answer 首 token 比 random 更多），(2) λ sweep{0.2,1.0,4.0} 找到「输出可测」regime（3A-0 λ=0.2 下 JS~1e-5 近似 no-op）。
+
+核心结果（决定性负面）：
+- λ=4.0 是可测 regime（非 oracle JS 从 3e-5→0.020；mass delta ~0.2–0.3）。
+- answer-directed oracle 诊断（gold-first-token logprob delta，regime λ=4.0）：random +0.665 / surface +0.829 / oracle +0.593 / attention +0.569 / attention_only +0.442。所有 selector 都抬高 gold token 概率，但 **oracle 不优于 random**（oracle−random 配对 mean −0.053，CI [−0.223,+0.135] 不显著；3 档 λ 均不 stable）。harm 20–27%。
+- 结论：把注意力加大到 **正确** span 并不比加大到 **随机** span 更能改善答案——高 λ 的 gold-logprob 普升是「泛化锐化」的非选择性 artifact + destabilization，非 keyness-driven guidance。**瓶颈在机制本身（additive attention bias 不能把「选对 span」转成「答对」），不在 selector 质量**。
+
+下一步建议：转向 representation-level / value-level 干预，或重审任务/数据集；不建议继续 attention-bias steering，也不建议只提升 selector。ready_for_2000_rerun=False、do_not_enter_full_sprint_3A=True。generation eval（steered autoregressive）本轮 deferred（用 gold-token logprob delta 作 answer-directed proxy）。
+
+正式产物：outputs/logs/sprint_3A_1_controlled_attention_guidance_500/*（含 review_gate_controlled_attention_guidance_500.md）；详见 docs/progress/sprint_3_history.md。
+
+---
+
 Sprint 2K-V 已完成：Signal Role Decomposition and Fusion Error Audit（read-only，4935 spans）。
 
 本轮是 signal role decomposition（不是 scale-up）：read-only 复用 2J-Fix/2K 的 4935-span artifacts，拆解 attention / hidden / output-effect 各自解决哪个子问题、为什么 simple fusion（0.564）低于 attention-only（0.588）。补充：用 2H risk_strength_dataset join 得 382 个带 bucket 的 number span 做真实 fragility AUC（card 假设 hidden=fragility 的验证）。
@@ -411,7 +426,10 @@ conda run -n recover_attention python -m pytest -q
 最近一次检查结果：
 
 ```text
-pytest（Sprint 2K-V 后最新）: 595 passed, 2 skipped
+pytest（Sprint 3A-1 后最新）: 605 passed, 2 skipped
+3A-1 controlled attention guidance: λ=4.0 为可测 regime；answer-directed oracle 不优于 random（oracle−random CI 含 0，3 档 λ 均不显著）；结论=attention-bias steering 无选择性 answer 收益，瓶颈在机制本身，ready_for_2000_rerun=False、do_not_enter_full_3A=True
+新增：scripts/sprint_3A_1_controlled_attention_guidance.py、docs/progress/sprint_3_history.md
+pytest（Sprint 2K-V 后）: 595 passed, 2 skipped
 2K-V signal role decomposition: attention keyness=0.588 & fragility=0.715（均最强）；hidden keyness=0.468 & fragility=0.480（均≈随机）；simple fusion 0.564<attention；hidden 是噪声（net_hidden_effect=-46）；gated formula 无一稳定优于 attention-only
 新增：scripts/sprint_2K_V_signal_role_decomposition.py
 pytest（Sprint 2J-Fix + 2K 后）: 594 passed, 2 skipped
