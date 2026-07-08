@@ -107,6 +107,21 @@ Token / Span Intervention
 当前阶段：
 
 ```text
+Sprint 3B-0 已完成：Representation-Level Oracle Intervention Diagnostic（residual injection，120 题 beta sweep）。
+
+3A-1 否定了 attention-logit bias 通道后，本轮换机制：把 selected span 的 residual deviation 注入 answer-position 残差流（inj=beta·‖ans_residual‖·unit(span_dev)，按残差范数缩放使 sweep 可测），检验 oracle（on-path）span 是否比 random 更能把答案推向 gold token。非 full 3B / 非 2000 / 非训练；gold/oracle 仅 eval-only。
+
+核心结果（跨通道决定性负面）：
+- residual channel 比 attention 强得多且可靠：非 oracle answer-position JS 随 beta 0.0013→0.098（3A-1 attention 只有 1e-5→0.02）；排除「干预太弱」。
+- 但 oracle 并不比 random 有选择性：oracle−random 配对 bootstrap 在 5 档 beta 全部不 stable-positive（CI 均含 0）；regime beta=0.05 各 selector 的 gold-logprob delta 近乎相同（random +0.327 / oracle +0.328 / ...），且随 beta 对所有 selector 同步上升。harm 随 beta 陡升（β=0.8 达 61–68%）。
+- 结论：注入 **正确** span 的表示不比注入 **随机** span 更能改善答案——两个独立通道（attention-bias 与 residual injection）同型失败，说明是 **span-level / answer-position / single-forward 干预与任务不匹配**，与通道无关。span-importance 对 detection 真实（2K-V AUC~0.588），但无法转成 answer-position 的 causal steering 杠杆。对应 card 的 Situation C。
+
+下一步建议：不扩大；转更细粒度——reasoning-step（数字被消费那一步）干预 / 从正确 run 做 answer-position activation patching / value-MLP causal tracing / 重审任务；或暂停 steering 回到 detection。ready_for_2000_rerun=False、do_not_enter_full_sprint_3B=True，不声称 accuracy/hallucination 改善。
+
+正式产物：outputs/logs/sprint_3B_0_representation_level_oracle_intervention_diagnostic/*（含 review_gate_representation_level_oracle_diagnostic.md）；详见 docs/progress/sprint_3_history.md。
+
+---
+
 Sprint 3A-1 已完成：Controlled Attention Guidance on 500 Cases（increase-only，120 题 λ sweep）。
 
 首次进入 attention steering 的受控诊断（非 full 3A、非 2000 rerun、不声称 hallucination/accuracy 改善）。复用 3A-0 attention-bias hook，修正 3A-0 oracle inconclusive 的两个根因：(1) oracle 指标改为 answer-directed（eval-only：steering 是否把 answer-position 分布推向 gold answer 首 token 比 random 更多），(2) λ sweep{0.2,1.0,4.0} 找到「输出可测」regime（3A-0 λ=0.2 下 JS~1e-5 近似 no-op）。
@@ -426,7 +441,10 @@ conda run -n recover_attention python -m pytest -q
 最近一次检查结果：
 
 ```text
-pytest（Sprint 3A-1 后最新）: 605 passed, 2 skipped
+pytest（Sprint 3B-0 后最新）: 610 passed, 2 skipped
+3B-0 representation-level oracle intervention: residual channel 强且可测（JS 到 ~0.1）；但 oracle 不比 random 有选择性（oracle−random 5 档 beta 全部 CI 含 0）；跨 attention/residual 两通道同型失败 => span-level answer-position 干预与任务不匹配；ready_for_2000_rerun=False、do_not_enter_full_3B=True
+新增：src/recover_attention/representation_intervention.py、scripts/sprint_3B_0_representation_level_oracle_intervention.py、tests/test_representation_level_intervention.py
+pytest（Sprint 3A-1 后）: 605 passed, 2 skipped
 3A-1 controlled attention guidance: λ=4.0 为可测 regime；answer-directed oracle 不优于 random（oracle−random CI 含 0，3 档 λ 均不显著）；结论=attention-bias steering 无选择性 answer 收益，瓶颈在机制本身，ready_for_2000_rerun=False、do_not_enter_full_3A=True
 新增：scripts/sprint_3A_1_controlled_attention_guidance.py、docs/progress/sprint_3_history.md
 pytest（Sprint 2K-V 后）: 595 passed, 2 skipped

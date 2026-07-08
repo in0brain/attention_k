@@ -83,3 +83,72 @@ conda run -n recover_attention python -m pytest -q
 - attention-bias steering 在当前构造下无选择性 answer 收益；需换机制（representation/value-level）或换任务。
 - 高 λ 的 gold-token logprob 普升是非选择性锐化 + 20–27% harm，不能当作 guidance 有效证据。
 - generation eval 尚未做；若走后续路线需补 steered generation + 正确率统计。
+
+## Sprint 3B-0：Representation-Level Oracle Intervention Diagnostic（residual injection）
+
+目标：3A-1 否定了「attention-logit bias 能把选对 span 转成答对」，但未否定「关键 span 的 representation 有用」。本轮换 **机制通道**：把 selected span 的 residual deviation 注入 answer-position 残差流，检验 **oracle（on-path）span 是否比 random 更能把答案推向 gold token**。非 full 3B、非 2000、非训练；inject-only（beta≥0）；gold/oracle 仅 eval-only；不覆盖 3A-0/3A-1 输出。
+
+补充（与 3A-1 λ-regime 同一教训）：card 的字面公式注入 **单位范数**向量乘 beta，但深层残差范数 ~100s，单位范数注入是 no-op。改为按 **answer-position 残差范数缩放**：`inj = beta·‖ans_residual‖·unit(mean(h_L[span]) − mean(h_L[all]))`，使 beta 为残差幅度的比例、sweep 能达到可测 regime（已在 config 报告注明）。
+
+已完成内容：
+
+- 实现 `src/recover_attention/representation_intervention.py`：base forward 捕获目标层 hidden；compute_injection_vectors（beta<0 报错、空 span/零 deviation→None、按残差范数缩放）；register/remove residual forward-hook（在层输出的 answer-position 残差上加注入向量，clone 防污染）；steered_forward_with_injection。
+- 实现 `scripts/sprint_3B_0_representation_level_oracle_intervention.py`：复用 3A-1 的 selector/subset/gold-token-logprob/paired bootstrap，对 120 题 × 5 beta × 5 selector 做 base+steered 前向，输出全部 11 个 required reports + review gate。
+- 新增 `tests/test_representation_level_intervention.py`（5 项：beta<0 拒绝、注入范数=beta·‖ans‖、空 span/零 beta→None、hook 注入 answer-position 且移除后基线复原且不污染其它位置、注入范数>0）。
+
+关键数据（120 题；layers 16+24；beta∈{0.05,0.1,0.2,0.4,0.8}；target=answer_position）：
+
+- **通道比 attention 强得多**：非 oracle answer-position JS 随 beta 上升 0.0013→0.005→0.017→0.052→**0.098**（3A-1 attention 同类只有 1e-5→0.02）；injection_norm ~13（beta 0.05）→~210（beta 0.8）。即不是「太弱」的失败。
+- **oracle 并不比 random 有选择性**：oracle−random 配对 bootstrap 在 **每个 beta 都不 stable-positive**（CI 均含 0）：0.05 +0.001[−0.026,+0.026]、0.1 +0.007、0.2 +0.029[−0.068,+0.126]、0.4 +0.019、0.8 −0.066。regime beta=0.05 verdict=oracle_not_selectively_better_than_random。
+- regime（0.05）各 selector 的 gold-logprob delta 近乎相同：random +0.327 / oracle +0.328 / attention +0.343 / surface +0.324 / attn×resp +0.309（CI 高度重叠）。且该 delta 随 beta 对**所有 selector 同步上升**（oracle β=0.2 +1.26 vs random +1.23；β=0.4 +2.16 vs +2.15）——非选择性。
+- harm 随 beta 陡升：β=0.4 时 ~47–48%，β=0.8 时 61–68%。高 beta 的「效果」与失稳高度混淆。
+
+核心结论（跨通道的决定性负面）：
+
+- **residual channel 强且可靠**（hook_ok 全 True，JS 到 0.1 量级），排除「干预太弱」。但注入 **正确** span 的表示并不比注入 **随机** span 更能把答案推向 gold——所有 selector 同幅度移动，gold-logprob 普升是「扰动 answer-position 残差 → 泛化锐化 + 失稳」的非选择性效应。
+- **与 3A-1 完全同型**：两个相互独立的通道（attention-logit bias 与 residual injection）都显示同样的非选择性。因此失败不是 attention 通道特有——而是 **span-level / answer-position / single-forward 干预在此 GSM8K 任务上不产生选择性 answer 改善，与通道无关**。span-importance 信号（2K-V 已证 attention AUC~0.588）对 **detection** 真实，但通过这两种机制在 answer position 都无法转成 **causal answer-steering** 杠杆。
+- 对应 card 的 Situation C。决策：ready_for_2000_rerun=False、do_not_enter_full_sprint_3B=True；不声称 accuracy/hallucination 改善。
+
+下一步建议：不要扩大；转向更细粒度——(1) reasoning-step（数字被 **消费** 的那一步）而非 final answer position 的干预；(2) 从 **正确 run** 做 answer-position residual patching（activation patching）；(3) value/MLP-level causal tracing；(4) 重审 GSM8K span-level intervention 任务是否适配 guidance；或暂停 steering 线，回到 detection/diagnosis。机制上的解读：on-path 数字在模型内部计算中已被分布式使用，事后在 answer position 再注入并不新增选择性正确信息，只是扰动。
+
+输出文件（`outputs/logs/sprint_3B_0_representation_level_oracle_intervention_diagnostic/`，共 11）：
+
+```text
+representation_subset_manifest.jsonl / representation_intervention_config.json / representation_forward_manifest.jsonl
+representation_intervention_fidelity_report.json / gold_logprob_delta_report.json
+oracle_vs_random_diagnostic_report.json / selector_comparison_report.json / harm_rate_report.json
+failure_case_report.jsonl / success_case_report.jsonl
+review_gate_representation_level_oracle_diagnostic.md
+```
+
+新增或修改文件：
+
+- src/recover_attention/representation_intervention.py（新增）
+- scripts/sprint_3B_0_representation_level_oracle_intervention.py（新增）
+- tests/test_representation_level_intervention.py（新增）
+- outputs/logs/sprint_3B_0_representation_level_oracle_intervention_diagnostic/*
+
+运行命令：
+
+```bash
+conda run -n recover_attention python -m pytest tests/test_representation_level_intervention.py -q
+conda run -n recover_attention python scripts/sprint_3B_0_representation_level_oracle_intervention.py --primary-n 120 --betas 0.05 0.1 0.2 0.4 0.8 --layers 16 24 --overwrite
+conda run -n recover_attention python -m pytest -q
+```
+
+检查结果：
+
+- full pytest：610 passed, 2 skipped。
+- 120 题 × 5 beta × 5 selector 前向完成；hook_ok 全 True；residual channel 可测（JS 到 ~0.1）。
+- oracle−random 跨 5 档 beta 均不 stable-positive；verdict=oracle_not_selectively_better_than_random。
+
+边界：
+
+- inject-only（beta≥0）；无 decrease/hard-mask/训练/LoRA；gold answer 仅用于 eval-only gold-token logprob；oracle 仅作 eval-only 诊断 selector，全程隔离。
+- 未进入 full 3B / 2000；未覆盖 3A-0/3A-1 输出（新目录）；generation eval 用 single-forward answer-directed proxy（deferred autoregressive）。
+
+遗留问题：
+
+- 两个通道均证明 answer-position span 注入无选择性；若继续 steering 需转 reasoning-step 干预 / correct-run activation patching / value-MLP tracing，或换任务。
+- beta 高时 harm 陡升（≥40%），高 beta 的 gold-logprob 上升不可作为 guidance 有效证据。
+- 仍未做 steered autoregressive generation + 正确率统计；负面机制诊断已足以支撑「不 scale、换粒度/机制」的决策。
