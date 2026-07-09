@@ -1,51 +1,88 @@
 # 实验进度记录：Reasoning-Aware Attention Guidance
 
-## Current Status Update: Sprint 3A-0 Attention Bias Steering Smoke Test
+## Current Status Update: Sprint 3C-0-Fix Answer-Position Proxy Recheck
 
-Sprint 3A-0 is completed as a small-scale increase-only attention-bias steering smoke test. It is not full Sprint 3A, not a 2000 rerun, and not evidence of answer accuracy improvement or hallucination reduction.
+Sprint 3C-0-Fix is completed as a low-cost proxy repair and recheck of Sprint 3C-0. It is not full Sprint 3C, not a 2000-scale rerun, not training, not a new steering mechanism, and not evidence of answer accuracy improvement or hallucination reduction. Teacher-forced single-forward proxy only.
 
-Completed:
-- Added an additive attention logit bias hook for Qwen attention modules, with per-forward registration and removal.
-- Built a 50-question steering subset from the existing 2J-Fix / 2K-W 4935-span artifacts.
-- Tested random, surface, attention-only, attention x response-position output-effect, and oracle eval-only selectors.
-- Ran a sparse smoke grid over top-k, lambda, layer configs, and diagnostic query scopes.
-- Generated required 3A-0 reports under `outputs/logs/sprint_3A_0_attention_bias_steering_smoke_test/`.
+Motivation: 3C-0's `clean_direction` was measured with two proxy weaknesses — logits read at the last trace token (after the answer was already written) and only the answer's first digit token. This sprint reads logits at the **answer slot** (right before the final answer number) and scores the **full numeric answer sequence** conditional logprob, gold vs wrong, under the same wrong prefix.
 
-Core results:
-- `num_questions=50`, `num_forward_records=1520`, review gate passed 13/13.
-- Hook reliability passed: requested layers were triggered and hooks were removed after every steered forward.
-- Primary config: top_k=2, lambda=0.2, layers=[16,24], query_scope=answer_position.
-- Target attention mass delta: attention x response-position 0.00483, random 0.00362, surface 0.00451, attention-only 0.00278.
-- attention x response-position beat random and surface on target mass delta and was not worse than attention-only.
-- Oracle sanity was inconclusive: oracle delta 0.00214, predicted delta 0.00483, random delta 0.00362.
-- Primary harm proxy: attention x response-position harm_proxy_rate=0.0; random=0.02; oracle=0.02.
-- Generation eval was not performed; answer-position next-token proxy was used. Some non-primary output-shift fields were nonfinite and were counted/sanitized in `answer_position_output_shift_report.json`.
+Setup: reused the 3C-0 `correct_wrong_pair_manifest.jsonl` (no re-sampling). Robust answer-span extraction (`#### N` → answer phrase → fallback last number excluding list ordinals → parse failure) re-validated pairs: 34/35 kept (1 dropped, recipient no longer a valid non-gold answer). Residual-replace patching (alpha=1.0) at layers [16, 20, 24]; primary positions = operator / intermediate number (strictly before the answer slot); control = final_answer_position redefined as the answer-number prefix position. 1104 forward rows. Extraction success 1.0, parse-failure 0.0; but fallback_last_number touched 0.80 of pairs (many traces don't emit `#### N`) — a noise caveat.
 
-Boundary:
-- increase-only positive attention bias.
-- no decrease, no hard mask, no manual probability replacement.
-- no training, no LoRA, no finetuning.
-- no CoT, trajectory, NLA, causal patching, recovery rerun, 2000 rerun, or full Sprint 3A.
-- `ready_for_2000_rerun=false`, `do_not_enter_full_sprint_3A=true`.
+New module/script/tests:
+- `src/recover_attention/answer_proxy_metrics.py`: `extract_final_answer_span`, `answer_token_ids`, `token_index_for_char_start`, `sequence_logprob_at_answer_slot`, `compute_corrected_clean_direction`, `paired_bootstrap_delta`.
+- `scripts/sprint_3C_0_fix_answer_proxy_recheck.py`, `tests/test_answer_proxy_metrics.py` (9 tests).
+
+Core results — the corrected proxy **revises 3C-0's Case C to Case B**:
+- Reasoning-step correct→wrong patch: overall corrected clean_direction = **+0.120**, CI95 [+0.053, +0.197] (stable vs no_patch; gold +0.121, wrong +0.005). But **non-selective**: vs random donor +0.103 CI95 [-0.017, +0.229] (not stable); vs same-trace random position -0.020 CI95 [-0.183, +0.124] (not stable). So reasoning-step patching helps a little over doing nothing, but no more than a random donor or random position — mild generic bias, not a role-specific causal fix.
+- Final-answer read-out position (answer-slot prefix): **large and partly selective** — gold **up** and wrong **down** (L16 clean +1.90 / L20 +3.64 / L24 +12.67; gold +1.9/+3.1/+9.1, wrong -0.5/-0.5/-4.3). vs no_patch +6.12 CI95 [+4.62, +7.79] (stable); vs random donor **+3.13 CI95 [+1.87, +4.46] (stable positive)**; vs same-trace random position -1.24 CI95 [-3.02, +0.61] (not stable). Harm rises with layer: 0.41 → 0.53 → 0.88.
+- Reading: correct-run activation **does** carry answer-fixing information (3C-0's flat null was partly a proxy artifact), but the selective signal lives at the **answer read-out / compression stage**, not explicit reasoning steps — consistent with 3A/3B's answer-position focus, now showing selectivity under the corrected full-sequence proxy. It is "where + same-question correct context" rather than a precisely localized donor-specific switch (same-trace random position not beaten), and it is harm-laden at high layers.
 
 Commands:
 ```bash
-conda run -n recover_attention python -m pytest tests/test_attention_bias_steering.py -q
-conda run -n recover_attention python scripts/sprint_3A_0_attention_bias_smoke_test.py --output-dir outputs/logs/sprint_3A_0_attention_bias_steering_smoke_test --overwrite --report-every 100
+conda run -n recover_attention python -m pytest tests/test_answer_proxy_metrics.py -q
+conda run -n recover_attention python scripts/sprint_3C_0_fix_answer_proxy_recheck.py \
+  --input-dir outputs/logs/sprint_3C_0_correct_wrong_activation_patching \
+  --output-dir outputs/logs/sprint_3C_0_fix_answer_proxy_recheck --layers 16 20 24 --overwrite
+conda run -n recover_attention python -m pytest -q
+```
+
+Checks: targeted pytest 9 passed; full pytest 626 passed, 2 skipped. Review gate `outputs/logs/sprint_3C_0_fix_answer_proxy_recheck/review_gate_answer_proxy_recheck.md` (Case B).
+
+Boundary: `ready_for_2000_rerun=false`, `do_not_enter_full_sprint_3C=true`, `hallucination_reduction_proven=false`, `answer_accuracy_improvement_proven=false`.
+
+Next: per Case B, do activation patching / causal tracing around the **final-answer compression** stage (value/MLP write path at the answer read-out position), not span-level residual injection and not reasoning-step residual replace. Establish donor-specificity (beat same-trace random position) and a harm-controlled regime before considering any generation-level eval.
+
+## Current Status Update: Sprint 3C-0 Correct-vs-Wrong Activation Patching
+
+Sprint 3C-0 is completed as a diagnostic correct-vs-wrong activation patching sprint at reasoning-step positions. It is not full Sprint 3C, not a 2000-scale rerun, not training, and not evidence of answer accuracy improvement or hallucination reduction.
+
+Preflight cleanup (done):
+- The stale Sprint 3A-0 top current-status block was already corrected to point at Sprint 3C-0.
+- Sprint 3A-0, Sprint 3A-1, and Sprint 3B-0 remain completed historical diagnostics.
+- `outputs/` is gitignored, so 3A-1 / 3B-0 aggregate reports exist locally but are untracked; recorded them in `docs/progress/sprint_3_artifact_manifest.md`.
+- 3B-0 boundary restated: it negated only same-run span residual deviation → final answer-position injection → single-forward gold-token proxy; it did **not** negate correct-run activation patching, reasoning-step patching, value/MLP tracing, or autoregressive steering.
+
+Setup: 100 questions × 6 samples (temp 0.7, max_new_tokens 160) → 600 traces → 35 same-question correct/wrong pairs. Residual-replace patching (alpha=1.0) at layers [16, 20, 24], role-to-role matched positions {operator, intermediate number, final answer number, final answer position(control)}. 2085 forward rows. Metric: teacher-forced gold-minus-wrong first-token logprob delta (`clean_direction_score`), gold answer eval-only.
+
+Execution finding — metric bug fixed before the reported run:
+- First run gave `clean_direction_score ≡ 0` for all rows: Qwen2.5 tokenizes `" 42"` as `[space, '4', '2']`, so `first_token_id(" "+answer)` returned the constant space token (id 220) for every answer, forcing `gold_first_token == wrong_first_token` in all 35 pairs.
+- Fixed `first_token_id` to strip the leading space and return the leading digit token (31/35 pairs discriminative), added a regression test, reran. Numbers below are from the corrected run.
+
+Core results (corrected run):
+- Hook fidelity clean: registered/triggered/removed = 1.0, non-target contamination check pass, mean patch_delta_norm ≈ 104.2.
+- Overall `mean_clean_direction_score = -0.0185`, CI95 `[-0.113, +0.080]` → **not stably positive**.
+- gold and wrong first-token logprobs rise together (+0.735 vs +0.754): the non-selective-perturbation signature the task warned about.
+- Control comparisons (question-paired bootstrap, clean_direction_score):
+  - correct_to_wrong − no_patch: -0.018, CI95 [-0.119, +0.087] (indistinguishable).
+  - correct_to_wrong − random_donor_patch: +0.092, CI95 [-0.012, +0.207] (**not stable**).
+  - correct_to_wrong − same_trace_random_position_patch: -0.227, CI95 [-0.360, -0.110] (**stably worse**).
+  - correct_to_wrong − correct_activation_patch: -0.029, CI95 [-0.159, +0.103].
+- Best clean-direction cell is L20 `final_answer_position` (+0.110) — a **control** position with ~0.94 harm and gold/wrong moving equally (+2.72/+2.61); reasoning-step primaries are ~0 with near-zero harm. No reasoning-step position × layer beats controls.
+- Verdict: **Case C** — correct-run reasoning-step activation patching does not reveal a selective causal state under this teacher-forced proxy.
+
+Commands:
+```bash
+conda run -n recover_attention python -m pytest tests/test_activation_patching.py -q
+conda run -n recover_attention python scripts/sprint_3C_0_correct_wrong_activation_patching.py \
+  --primary-questions 100 --samples-per-question 6 --temperature 0.7 --max-new-tokens 160 \
+  --layers 16 20 24 \
+  --position-types generated_operator_token generated_intermediate_number_token generated_final_answer_number final_answer_position \
+  --output-dir outputs/logs/sprint_3C_0_correct_wrong_activation_patching --overwrite
 conda run -n recover_attention python -m pytest -q
 ```
 
 Checks:
-- Targeted pytest: 5 passed.
-- Full pytest: 604 passed, 2 skipped.
+- Targeted pytest: 7 passed. Full pytest: 617 passed, 2 skipped.
+- Review gate: `outputs/logs/sprint_3C_0_correct_wrong_activation_patching/review_gate_correct_wrong_activation_patching.md` (19/19 questions answered).
 
-Remaining issues:
-- Oracle boost was inconclusive, so the intervention mechanism should still be treated as smoke-test evidence only.
-- Output-distribution changes are tiny and are not answer accuracy evidence.
-- Do not claim hallucination reduction or answer accuracy improvement.
+Boundary:
+- `ready_for_2000_rerun=false`.
+- `do_not_enter_full_sprint_3C=true`.
+- `hallucination_reduction_proven=false`.
+- `answer_accuracy_improvement_proven=false`.
 
-Next:
-- A controlled Sprint 3A-1 500-case steering eval can be considered, but full Sprint 3A and 2000-scale rerun remain blocked.
+Next (per Case C):
+- Move to value/MLP causal tracing at reasoning steps (localize the write path rather than replacing the whole residual), or pause steering and return to detection/diagnosis. Do not scale up, do not re-tune attention-bias or residual span injection. See "下一步建议" in the session and `docs/progress/sprint_3_history.md`.
 
 ## Current Status Update: Sprint 2K-W Answer-Position Output-Effect
 

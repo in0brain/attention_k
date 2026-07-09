@@ -152,3 +152,81 @@ conda run -n recover_attention python -m pytest -q
 - 两个通道均证明 answer-position span 注入无选择性；若继续 steering 需转 reasoning-step 干预 / correct-run activation patching / value-MLP tracing，或换任务。
 - beta 高时 harm 陡升（≥40%），高 beta 的 gold-logprob 上升不可作为 guidance 有效证据。
 - 仍未做 steered autoregressive generation + 正确率统计；负面机制诊断已足以支撑「不 scale、换粒度/机制」的决策。
+
+## Sprint 3C-0：Correct-vs-Wrong Activation Patching at Reasoning-Step Positions（本轮）
+
+目标：承接 3A/3B 连续负结果，做 causal localization。只回答一个问题——在 teacher-forced fixed trace 中，把 correct run 的 activation patch 到 wrong run 的某个 reasoning-step position，能否让 wrong run 的后续 answer 分布更接近 gold。**不是** full 3C、**不是** 2000 rerun、**不训练**、**不 LoRA**、**不声称** hallucination reduction / answer accuracy improvement。默认 `ready_for_2000_rerun=False`、`do_not_enter_full_sprint_3C=True`。
+
+Preflight（Fix 1/2/3 全部完成）：
+
+- Fix 1：PROGRESS.md 顶部 current status 已从 3A-0 修正到 3C-0（preflight 检测 stale_top_status=false）。
+- Fix 2：`outputs/` 被 `.gitignore` 忽略，3A-1 / 3B-0 聚合报告本地存在但未 tracked；新增 `docs/progress/sprint_3_artifact_manifest.md` 逐条记录（文件名 / exists / tracked / ignored / 关键结论）。
+- Fix 3：写清 3B-0 结论边界——只否定 same-run span residual deviation → final answer-position injection → single-forward gold-token proxy；未否定 correct-run activation patching / reasoning-step patching / value-MLP tracing / autoregressive steering。
+
+新增模块 / 脚本 / 测试：
+
+- `src/recover_attention/activation_patching.py`：`forward_with_hidden` / `register_residual_replace_hooks` / `remove_hooks` / `patched_forward` / `extract_reasoning_step_positions` / `match_role_positions` / `layer_patch_vector` / `first_token_id` / `compute_harm` / `bootstrap_ci` / `paired_deltas_vs_control` 等。
+- `scripts/sprint_3C_0_correct_wrong_activation_patching.py`：采样 → 同题 correct/wrong 配对 → role-to-role 位置对齐 → 五种 patch condition 前向 → fidelity / effect / control / heatmap / harm / case / review gate。
+- `tests/test_activation_patching.py`：hook 注册/触发/移除、只改 target position、role 提取与匹配、alpha 校验、聚合与 paired control delta，以及 **first_token_id 返回 leading digit（非 space token）** 的回归测试。
+
+执行发现（先修 metric bug 再出正式结果）：
+
+- 首跑所有行 `clean_direction_score ≡ 0`。根因：Qwen2.5 把 " 42" 切成 `[space, '4', '2']`，`first_token_id(" "+answer)` 对任何数字答案都返回恒定的 leading-space token（id 220），导致 35 对 pair 的 `gold_first_token == wrong_first_token`。
+- 修 `first_token_id`：改为对 strip 后的答案编码并返回 leading digit token（31/35 对可区分），补回归测试后重跑。下述数据为修正后结果。
+
+规模与设置：
+
+- 100 题 × 6 samples（temp 0.7，top_p 0.95，max_new_tokens 160）→ 600 traces → 35 个同题 correct/wrong pair。
+- residual_replace，alpha=1.0，layers [16, 20, 24]，position types {generated_operator_token, generated_intermediate_number_token, generated_final_answer_number, final_answer_position(control)}，2085 forward rows。metric = teacher-forced gold-minus-wrong first-token logprob delta（gold 仅 eval-only）。
+
+核心结果：
+
+- hook fidelity 全清：registered/triggered/removed = 1.0，非目标位置无污染，mean patch_delta_norm ≈ 104.2。
+- overall `mean_clean_direction_score = -0.0185`，CI95 [-0.113, +0.080] → **非 stable positive**。gold 与 wrong first-token logprob 同向上升（+0.735 vs +0.754），即任务预警的 non-selective perturbation 特征。
+- control（同题 paired bootstrap，clean_direction_score）：
+  - correct_to_wrong − no_patch：-0.018，CI95 [-0.119, +0.087]（无区分）。
+  - correct_to_wrong − random_donor_patch：+0.092，CI95 [-0.012, +0.207]（**不稳定**）。
+  - correct_to_wrong − same_trace_random_position_patch：-0.227，CI95 [-0.360, -0.110]（**稳定更差**）。
+  - correct_to_wrong − correct_activation_patch：-0.029，CI95 [-0.159, +0.103]。
+- 最高 clean-direction cell 是 L20 `final_answer_position`（+0.110），但那是 **control** 位置、harm≈0.94、gold/wrong 同幅上升（+2.72/+2.61）；reasoning-step primary 位置效果≈0 且 harm≈0。没有任何 reasoning-step × layer 稳定优于 control。
+- 判定：**情况 C** —— 当前 teacher-forced activation patching 未命中 selective causal state。
+
+检查：
+
+- 定向 pytest：7 passed；full pytest：617 passed, 2 skipped。
+- review gate 19 问全部作答；verdict 四项均 false。
+
+边界与遗留：
+
+- 全程 teacher-forced single-forward proxy，未做 steered autoregressive generation / 正确率统计；oracle/gold 仅 eval-only，不作可部署方法。
+- answer 解析对非 "#### N" 格式 trace 会退化到 last-number fallback（个别 pair 把列表序号当答案），是噪声来源之一，但不改变负结论。
+- 下一步（Case C）：转 value/MLP causal tracing（定位写答案的具体计算路径，而非整段 residual replace），或暂停 steering 回到 detection/diagnosis。不 scale、不回调 attention-bias / residual span injection。
+
+## Sprint 3C-0-Fix：Answer-Position Proxy Repair and Sequence-Logprob Recheck（本轮）
+
+目标：低成本复核 3C-0 的负结果是否是 answer-proxy artifact。修两处 proxy 弱点——(1) 不再读整段 trace 末位 logits，改在 final answer 数字前一位（answer slot）读；(2) 不再只看首个 digit token，改算完整数字答案序列的 conditional logprob（gold vs wrong，同一 wrong prefix 下）。**不是** full 3C、**不是** 2000、**不训练**、**不新增 steering**，全程 teacher-forced single-forward proxy。默认四标记 false。
+
+复用与稳健化：
+
+- 复用 3C-0 `correct_wrong_pair_manifest.jsonl`，**不重新采样**。
+- 稳健 answer-span 抽取（`#### N` → answer phrase → 排除列表序号的 last-number fallback → parse failure）重验 pair：35 → 34 保留（1 个 recipient 在稳健抽取下不再是合法非-gold 答案而被丢）。抽取成功率 1.0、parse failure 0.0；但 fallback_last_number 触及 0.80 的 pair（大量 trace 不写 `#### N`），是噪声 caveat。
+
+新增模块/脚本/测试：
+
+- `src/recover_attention/answer_proxy_metrics.py`：`extract_final_answer_span` / `answer_token_ids`（丢 leading-space token）/ `token_index_for_char_start` / `sequence_logprob_at_answer_slot` / `compute_corrected_clean_direction` / `paired_bootstrap_delta`（支持跨 position-type 的 (pair,layer) 配对）。
+- `scripts/sprint_3C_0_fix_answer_proxy_recheck.py`；`tests/test_answer_proxy_metrics.py`（9 测试）。
+
+设置：layers [16,20,24]，alpha=1.0，primary position = operator / intermediate number（严格早于 answer slot），control = final_answer_position 重定义为答案数字前一位。1104 forward rows。patch 位置 ≥ answer slot 的一律跳过。
+
+核心结果——corrected proxy 把 3C-0 的 Case C **修订为 Case B**：
+
+- reasoning-step correct→wrong：overall corrected clean_direction = **+0.120**，CI95 [+0.053, +0.197]（相对 no_patch 稳定为正；gold +0.121，wrong +0.005）。但 **非选择性**：vs random donor +0.103 CI95 [-0.017, +0.229]（不稳定）；vs same-trace random position -0.020 CI95 [-0.183, +0.124]（不稳定）。即：在推理步 patch 比「什么都不做」略好，但不比随机 donor / 随机位置更好——是温和的非特异扰动，不是角色特异的因果修复。
+- final-answer 读出位（answer-slot 前一位）：**大且部分选择性**——gold **升**、wrong **降**（L16 clean +1.90 / L20 +3.64 / L24 +12.67；gold +1.9/+3.1/+9.1，wrong -0.5/-0.5/-4.3）。vs no_patch +6.12 CI95 [+4.62, +7.79]（稳定）；vs random donor **+3.13 CI95 [+1.87, +4.46]（稳定为正）**；vs same-trace random position -1.24 CI95 [-3.02, +0.61]（不稳定）。harm 随层升高：0.41 → 0.53 → 0.88。
+- 读法：correct-run activation **确实**携带可把 wrong run 推向 gold 的信息（3C-0 的平坦 null 有一部分是 proxy artifact）；但选择性信号集中在**答案读出/压缩阶段**，不在显式 reasoning step——与 3A/3B 的 answer-position 关注一致，只是在 corrected full-sequence proxy 下才显出「优于 random donor」的选择性。它更像「位置 + 同题 correct context」而非精确定位的 donor-特异开关（未跑赢 same-trace random position），且高层 harm 很大。
+
+检查：定向 pytest 9 passed；full pytest 626 passed, 2 skipped。review gate 17 问全部作答，verdict 四项 false，判定 Case B。
+
+边界与遗留：
+
+- 全程 teacher-forced single-forward proxy；未做 autoregressive generation / 正确率。
+- 下一步（Case B）：围绕 **final-answer compression** 做 activation patching / causal tracing（answer 读出位的 value/MLP 写路径），**不**回到 span-level residual injection，也不再在 reasoning step 做整段 residual replace。需先建立 donor-特异性（跑赢 same-trace random position）与可控 harm 的 regime，再谈任何 generation-level eval。
