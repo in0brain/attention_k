@@ -42,3 +42,38 @@ domain_supervised_probe_planned=true
 ```
 
 Test status: `tests/test_dataset_audit.py tests/test_stage_summary.py` passed 14 tests; `tests/test_mlp_readout_attribution.py tests/test_approx_j_lens_readout.py` passed 15 tests.
+
+## Post-4A Documentation Guardrail Cleanup - Sprint 4B Ready
+
+Tracked documentation artifacts updated:
+
+```text
+PROGRESS.md
+docs/codex_tasks/sprint_4B_cyber_dataset_baseline_and_site_transfer.md
+docs/reference/CYBER_HALLUCINATION_CONTROL_PLAN.md
+docs/progress/sprint_4_history.md
+docs/progress/sprint_4_artifact_manifest.md
+```
+
+New or newly required Sprint 4B artifacts:
+
+```text
+outputs/logs/sprint_4B_cyber_dataset_baseline_and_site_transfer/option_position_bias_report.json
+outputs/logs/sprint_4B_cyber_dataset_baseline_and_site_transfer/site_transfer_check_report.json
+```
+
+`site_transfer_check_report.json` may be skipped with explicit `skipped_reason`
+when the Stage 5 gate fails. If `--allow-small-site-transfer` is used, the report
+must record it and any result must be labeled exploratory / underpowered
+diagnostic.
+
+Documentation cleanup boundary:
+
+```text
+no new experiment result;
+no model call;
+no data download;
+no probe training;
+no steering;
+no Stage 5 site-transfer execution.
+```

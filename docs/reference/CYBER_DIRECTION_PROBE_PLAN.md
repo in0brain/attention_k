@@ -1,5 +1,19 @@
 # Cyber Direction-Probe Plan
 
+> SUPERSEDED (2026-07-09) by `CYBER_HALLUCINATION_CONTROL_PLAN.md`.
+> After a literature review (Sun et al. 2026 trajectories, INSIDE, LM-Polygraph,
+> causal-tracing hallucination papers, Anthropic Workspace/J-lens and NLA), the
+> mainline was refined from "supervised direction probe / controller" to
+> "domain-calibrated hallucination detection with gated, closed-form
+> intervention". Key reasons: (a) instance-level answer steering is structurally
+> blocked (3C-2: the effective direction requires the gold answer); (b) the
+> trained vector-controller route (Sections 8C/14) drifts toward
+> fine-tuning-by-another-name; (c) Sun et al. show transition features can beat
+> logits baselines for detection, fixing the 3C-3 failure mode, while their own
+> results confirm detection >> correction. This file is kept for history; the
+> sample schema (Section 4) and dataset requirements (Section 3) remain valid
+> and are referenced by the successor plan.
+
 ## 1. New Research Question
 
 Sprint 4 changes the main research question from:

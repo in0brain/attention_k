@@ -1,5 +1,37 @@
 ﻿# 实验进度记录：Reasoning-Aware Attention Guidance
 
+## Current Status Update: Post-4A Mainline Refinement and Sprint 4B Ready
+
+Current mainline: `CYBER_HALLUCINATION_CONTROL_PLAN.md` now supersedes
+`CYBER_DIRECTION_PROBE_PLAN.md`. Sprint 4 mainline is domain-calibrated
+hallucination detection + gated closed-form intervention, not a supervised
+direction-probe/controller mainline. The older 4A direction-probe reset record
+is retained below for history only.
+
+Sprint 4B should start from dataset/schema/F5 baseline work, not probe training
+or steering. This documentation guardrail cleanup tightens the 4B task card
+around parameterized model-path resolution, semantic-label preservation,
+option-position bias auditing, and gated optional site-transfer execution.
+No model was called, no data was downloaded, no probe was trained, and no
+steering or 4B experiment was run.
+
+Files changed in this documentation cleanup: `PROGRESS.md`,
+`docs/codex_tasks/sprint_4B_cyber_dataset_baseline_and_site_transfer.md`,
+`docs/reference/CYBER_HALLUCINATION_CONTROL_PLAN.md`,
+`docs/progress/sprint_4_history.md`, and
+`docs/progress/sprint_4_artifact_manifest.md`.
+
+Required lightweight check:
+
+```bash
+conda run -n recover_attention python -m pytest tests/test_dataset_audit.py tests/test_stage_summary.py -q
+```
+
+Checks: `tests/test_dataset_audit.py tests/test_stage_summary.py` passed 14 tests.
+
+Next: execute Sprint 4B only from dataset/schema/F5 baseline preflight. Do not
+start probe training, steering, or Stage 5 site-transfer unless its gates pass.
+
 ## Current Status Update: Sprint 4A Cybersecurity Direction-Probe Mainline Reset
 
 Sprint 4A resets the project mainline from unsupervised span-guided steering to cyber-domain supervised direction probing. This is a documentation, requirements, and code reuse audit sprint only: no new model calls, no probe training, no steering, no patch/nudge experiment, no full Sprint 3C, and no 2000-scale rerun.
@@ -29,6 +61,8 @@ Checks: `tests/test_dataset_audit.py tests/test_stage_summary.py` passed 14 test
 Boundary flags: `ready_for_2000_rerun=false`, `do_not_enter_full_sprint_3C=true`, `hallucination_reduction_proven=false`, `answer_accuracy_improvement_proven=false`, `steering_continued=false`, `domain_supervised_probe_planned=true`.
 
 Next: Sprint 4B Cyber Dataset Selection and Domain Schema Implementation. Do not train a probe until a structured cyber dataset, label space, leakage boundary, and domain answer proxy are defined.
+
+Post-4A plan refinement (2026-07-09, documentation only): after reviewing Sun et al. 2026 (reasoning trajectories), INSIDE, LM-Polygraph, and two AAAI'26 causal-tracing hallucination papers, the Sprint 4 mainline was refined from "supervised direction probe / controller" to "domain-calibrated hallucination detection + gated closed-form intervention". Key changes: the trained vector-controller and probe-guided steering routes are dropped (fine-tuning-adjacent; instance-level answer steering remains structurally blocked per 3C-2); the deliverable is a five-feature-family detection bake-off (static site features, anchor-free trajectory transitions per Sun et al., INSIDE-style multi-sample consistency, exact J-lens label projections — cheap in a finite label space via per-label VJPs — against the mandatory final-logits baseline suite), followed by selective prediction / conformal abstention, with intervention gated behind an incremental-AUROC kill gate. See `docs/reference/CYBER_HALLUCINATION_CONTROL_PLAN.md` (supersedes `CYBER_DIRECTION_PROBE_PLAN.md`, kept for history) and STORY.md sections 19-21. Sprint 4B scope is unchanged in spirit (dataset + label space + baselines) with two additions: option-letter label space (ATT&CK ids would reproduce the 3C-0 leading-token collision) and a cheap 3C-1 site-transfer check at the label-readout position.
 
 ## Current Status Update: Sprint 3C-4A Approximate J-lens Readout Sanity Check
 

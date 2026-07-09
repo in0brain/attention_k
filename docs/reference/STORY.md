@@ -672,3 +672,75 @@ Sprint 4A 没有说明 cyber probe 已经有效。
 ```
 
 Sprint 4B 的下一步应是网络安全数据集选择与 domain schema 实现，而不是直接训练或 steering。
+
+---
+
+## 19. 新文献证据与 3C 结果的互证
+
+在 4A reset 之后，对以下文献做了接入评估：Sun et al. 2026（LLM Reasoning as Trajectories，Microsoft）、INSIDE（ICLR'24）、LM-Polygraph、CausalGaze、Causal Tracing of Object Representations（AAAI'26）、Beyond Transcription（ASR，AAAI'26）。
+
+Sun et al. 与本项目形成三处互证：
+
+```text
+1. 他们发现 correct/incorrect 轨迹只在最后两步系统性分叉，早期步不分叉
+   —— 与我们 3C-0 的发现（reasoning-step 位置无信号、answer-readout 有信号）独立收敛。
+
+2. 他们用 late-step transition 特征（相邻 step 激活差分）做答案前正确性预测，
+   AUC 0.852，跑赢 LogitLens baseline（0.765）
+   —— 直接解释了我们 3C-3 为什么输给 final logits：
+      我们用的是单前向、单位置的静态特征，从未测试 transition 特征族。
+
+3. 他们自己的修正与我们的负结果一致：
+   - freeform 无脚手架时正确性预测崩塌到 AUC 0.60（依赖 "Step k:" 格式）；
+   - 跨任务迁移掉到 0.64-0.73（correctness 几何必须逐域校准）；
+   - gated intervention 只修好 26/90、改坏 14 个（detection >> correction）；
+   - 无条件干预有害（掉 1.6%-36%）。
+```
+
+INSIDE 提供了我们从未测试的第三族特征（多采样内部一致性 / EigenScore）。LM-Polygraph 提供 baseline 纪律（很多 UQ 方法打不过简单 baseline，必须报增量）。两篇 AAAI'26 因果追踪论文说明 "causal localization → site-informed detection/interception" 正在成为跨模态范式，我们的 3C-1 位点是它在文本推理上的实例。
+
+## 20. 主线修订：从 direction probe 到幻觉检测与门控干预
+
+据此把 Sprint 4 主线从「supervised direction probe / controller」修订为「domain-calibrated hallucination detection + gated closed-form intervention」，计划书见 `CYBER_HALLUCINATION_CONTROL_PLAN.md`（取代 `CYBER_DIRECTION_PROBE_PLAN.md`，原文件保留作历史）。
+
+修订理由：
+
+```text
+1. instance-level answer steering 被结构性排除（3C-2：有效方向需要 gold）；
+2. 原计划的 vector controller / probe-guided steering 是换皮微调；
+3. Sun et al. 证明 transition 特征能跑赢 logits baseline——3C-3 的失败模式可修；
+4. 检测路线推理时不需要 gold；干预只保留 closed-form 门控形式。
+```
+
+新主线的三层结构与五族特征：
+
+```text
+DETECT:  F1 静态位点特征（3C-3）
+         F2 anchor-free 轨迹 transition 特征（Sun 配方 + 我们的角色定位机制，
+            修他们的 freeform 崩塌——这是相对 Sun et al. 的核心差异化）
+         F3 多采样内部一致性（INSIDE）
+         F4 exact J-lens 标签投影（见下）
+         F5 输出层 baseline 套件（生死门：F1-F4 必须对 F5 有增量 AUROC）
+DECIDE:  逐任务族校准 + conformal / selective prediction
+INTERVENE(门控可选): 反思 token 注入 / 约束重解码 / 弃权，
+         报告 net fix/break 账本；禁止 learned vector、禁止逐题答案 steering。
+```
+
+J-lens 的接入方式（回应 §11 与 3C-4A 的遗留）：真 J-lens 全词表不可行，3C-4A 只能用有限差分近似（Case C，对齐弱）。但 cyber 有限标签空间使**精确** J-lens 变得便宜：只需候选标签 k 个 token 的投影，每个标签一次 VJP（k=2-10 次反向传播），无 epsilon、无差分噪声。同时检测生死门可以仲裁 3C-4A 留下的疑团——若 F4 有增量而 F1 没有，说明直接 logit-lens 确实误读中间层（一个可发表的方法学发现）；若 F1≈F4，说明便宜读法够用、3C-4A 的分歧是近似噪声。
+
+NLA 维持 §12 的定位：只对 FLAGGED 高风险样本做 L20 定性 verbalization。注意 L20 不是我们的最强层（对齐信号在 L24），且 verbalizer 训练于 residual 激活、喂 MLP-output 可能 OOD——预期它可能看不到现象，空手而归不构成反证。
+
+## 21. 修订后的 Sprint 4 路线
+
+```text
+4B  数据集 + 幻觉操作化定义（编造标识符/错误映射/自信错误分类）+ F5 baseline；
+    标签空间用选项字母（单 token；ATT&CK id 会复现 3C-0 的 leading-token 退化）；
+    廉价加项：在 label-readout 位置复刻 3C-1 位点验证（无训练）——
+    位点不迁移则 F1 动机减弱，尽早知道。
+4C  五族特征 bake-off（生死门：对 F5 的增量 AUROC，分组 CV，3 seeds）
+    + J-lens vs 直接投影仲裁 + 校准。
+4D  （仅生死门通过后）门控干预：net fix/break 账本 + 固定 coverage 错误率。
+4E  held-out 任务族 + 消融（anchor-free vs 脚手架；位点 vs 盲选层）+ write-up。
+```
+
+全程冻结模型；唯一训练组件是线性探针与校准温度。声明纪律不变：只用 selective-prediction 与 fix/break 术语，不写 unqualified 的 "hallucination reduced"。即使 F1-F4 全部无增量，F5 基础上的 selective-prediction 系统仍是一个诚实可交付的幻觉控制结果——这条路线没有"全输"的分支。

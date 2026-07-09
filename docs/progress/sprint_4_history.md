@@ -1,4 +1,4 @@
-# Sprint 4 History - Cyber Direction Probe
+# Sprint 4 History - Cyber Hallucination Control
 
 ## Sprint 4A - Cybersecurity Direction-Probe Mainline Reset
 
@@ -53,3 +53,30 @@ Sprint 4E: Robustness and Write-up.
 ```
 
 Test status: `tests/test_dataset_audit.py tests/test_stage_summary.py` passed 14 tests; `tests/test_mlp_readout_attribution.py tests/test_approx_j_lens_readout.py` passed 15 tests.
+
+## Post-4A Documentation Guardrail Cleanup - Sprint 4B Ready
+
+Goal: patch the Sprint 4B documentation before execution so the run starts from
+dataset/schema/F5 baselines and not from probe training, steering, or Stage 5 by
+default. This is a documentation guardrail cleanup, not an experimental result.
+No model was called, no data was downloaded, no probe was trained, no steering
+was run, and no 4B site-transfer experiment was executed.
+
+Mainline clarification:
+
+```text
+CYBER_HALLUCINATION_CONTROL_PLAN.md supersedes CYBER_DIRECTION_PROBE_PLAN.md.
+Sprint 4 mainline is domain-calibrated hallucination detection + gated closed-form intervention.
+Sprint 4B starts from dataset/schema/F5 baseline, with Stage 5 gated optional.
+```
+
+Guardrails added:
+
+```text
+parameterized model_path resolution with source reporting;
+semantic label id/text retention in candidate_choices;
+option_position_bias_report.json requirement;
+deterministic option-order and semantic-preservation test requirements;
+Stage 5 gate and skipped site_transfer_check_report.json behavior;
+review gate questions 18-23.
+```
