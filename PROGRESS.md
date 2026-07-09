@@ -37,6 +37,26 @@ Checks: `tests/test_dataset_audit.py tests/test_stage_summary.py` passed 14 test
 Next: execute Sprint 4B only from dataset/schema/F5 baseline preflight. Do not
 start probe training, steering, or Stage 5 site-transfer unless its gates pass.
 
+Sprint 4B dataset download audit (documentation/data-prep only): downloaded and
+inspected raw CyberMetric, SecQA, and CS-Eval source files under `data/raw/cyber/`
+and wrote audit artifacts under `outputs/logs/sprint_4B_dataset_download_audit/`.
+CyberMetric is the recommended primary raw source for the next 4B smoke because
+it is MCQ-like with four options and gold answers; SecQA is a small fallback /
+held-out source; CS-Eval was source-inspection-only in this pass. No model call,
+completion generation, F5 baseline, probe training, steering, or site-transfer
+was run.
+
+Dataset audit commands/checks:
+
+```bash
+conda run -n recover_attention python scripts/sprint_4B_download_and_audit_cyber_datasets.py --output-dir outputs/logs/sprint_4B_dataset_download_audit
+conda run -n recover_attention python -m py_compile scripts/sprint_4B_download_and_audit_cyber_datasets.py
+conda run -n recover_attention python -m pytest tests/test_dataset_audit.py tests/test_stage_summary.py -q
+```
+
+Checks: audit script completed; script syntax check passed; lightweight pytest
+passed 14 tests.
+
 ## Current Status Update: Sprint 4A Cybersecurity Direction-Probe Mainline Reset
 
 Sprint 4A resets the project mainline from unsupervised span-guided steering to cyber-domain supervised direction probing. This is a documentation, requirements, and code reuse audit sprint only: no new model calls, no probe training, no steering, no patch/nudge experiment, no full Sprint 3C, and no 2000-scale rerun.

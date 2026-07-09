@@ -94,3 +94,53 @@ Documentation-only repair after merge conflict resolution. Restored:
 ```
 
 No experiment was run.
+
+## Sprint 4B Dataset Download and Raw Format Audit
+
+Goal: prepare raw cyber MCQ data sources for Sprint 4B without running the 4B
+experiment. This task only downloaded raw/source files, inspected fields and
+option/answer formats, and wrote preview/audit artifacts. It did not call a
+model, generate completions, train probes, run F5 baselines, do steering, or run
+Stage 5 patching.
+
+Outputs:
+
+```text
+data/raw/cyber/cybermetric/
+data/raw/cyber/secqa/
+data/raw/cyber/cs_eval/
+outputs/logs/sprint_4B_dataset_download_audit/dataset_source_audit.md
+outputs/logs/sprint_4B_dataset_download_audit/raw_file_manifest.json
+outputs/logs/sprint_4B_dataset_download_audit/sample_records_preview.jsonl
+scripts/sprint_4B_download_and_audit_cyber_datasets.py
+```
+
+Raw audit result:
+
+```text
+CyberMetric: downloaded 500 / 2000 / 10000 source JSON files; MCQ-like with 4 options and gold solution field; recommended primary source.
+SecQA: downloaded v1/v2 dev/val/test CSV files; MCQ-like with 4 options and gold Answer field; small fallback or held-out source.
+CS-Eval: downloaded repository metadata/examples/license only; source-inspection-only until a plain MCQ data file is identified.
+```
+
+Boundary:
+
+```text
+no model call;
+no completion generation;
+no F5 baseline;
+no probe training;
+no steering;
+no Stage 5 site-transfer or patching.
+```
+
+Commands and checks:
+
+```bash
+conda run -n recover_attention python scripts/sprint_4B_download_and_audit_cyber_datasets.py --output-dir outputs/logs/sprint_4B_dataset_download_audit
+conda run -n recover_attention python -m py_compile scripts/sprint_4B_download_and_audit_cyber_datasets.py
+conda run -n recover_attention python -m pytest tests/test_dataset_audit.py tests/test_stage_summary.py -q
+```
+
+Check result: audit script completed, syntax check passed, and lightweight
+pytest passed 14 tests.
