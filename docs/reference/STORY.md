@@ -609,3 +609,66 @@ gold-free donor-free steering 仍然较弱。
 
 MLP readout attribution 是一个有前景的机制化诊断方向；当前证据不支持把它写成优于 final logits 的实用 detector。
 ```
+---
+
+## 17. 为什么最初的 span-guided steering 计划无效
+
+最初的计划不是完全错误。它正确识别了一个重要事实：输入中的某些 span 确实更接近推理依赖、错误敏感性和答案稳定性。但 Sprint 3 的结果说明，这个事实只回答了“哪里重要”，没有回答“答案应该往哪个方向改”。
+
+核心问题是缺少 span-to-direction mapping：
+
+```text
+span relevance -> where evidence may be
+steering direction -> how the answer state should move
+```
+
+两者不是同一个对象。
+
+具体边界如下：
+
+```text
+1. span relevance 只能说明“哪里重要”，不能说明“答案应该往哪个方向改”；
+2. attention bias 改变的是信息读取比例，不等于执行正确推理；
+3. span residual injection 改变的是高维混合状态，不等于 gold answer direction；
+4. answer-readout MLP 确实是 causal write path，但仍需要知道 target direction；
+5. gold-unembedding direction 有效，但它需要 gold answer，因此只是 oracle upper bound；
+6. direct readout / approximate J-lens 没有提供足够强的 gold-free target；
+7. 因此原始无监督 steering 主线无效；
+8. 新主线必须引入领域监督 probe，学习：
+   span / activation / trace -> label direction / correction direction。
+```
+
+最初的 Reasoning-Aware Attention Guidance 计划失败的核心原因，不是模型状态无法被干预，而是“推理相关 span”没有自动给出“答案修正方向”。加重一个 span 的 attention 或 residual influence，确实会改变模型内部状态，但这种改变可能增强正确证据，也可能增强错误中间量、格式偏置、数字 token sharpness 或已有错误 commitment。换言之，span 是 evidence，不是 controller。真正缺失的是一个从 evidence 到 direction 的映射函数。Sprint 4 的新主线正是训练这个函数：在网络安全领域中，利用结构化标签和 correct/wrong 对比，训练 direction probe / controller 来预测 answer-readout MLP 的 steering direction。
+
+3C-4A 对这个判断的补充是：direct logit-lens readout 和 approximate J-lens readout 都较弱，approximate J-lens 没有显著改善 3C-3 的 diagnostic result，final-logits margin 仍然更强。因此不能把 gold-free readout 当成可直接替代 gold direction 的控制信号。
+
+---
+
+## 18. Sprint 4 新主线：领域监督 direction probe
+
+Sprint 4 不再把 attention 或 span 本身当作 steering handle。Sprint 4 的核心假设是：span / attention / MLP readout 等 reasoning-aware signals 可以作为 probe 输入，但需要领域监督来学习它们到 answer direction 的映射。
+
+在网络安全领域中，答案空间通常比 GSM8K 数字答案更结构化，例如 MITRE technique、CWE、攻击阶段、告警类别、误报/真阳性、缓解措施或多选项答案。这类标签空间使得“正确方向”更容易定义为 label-unembedding direction 或 correct-wrong MLP delta。因此，Sprint 4 的目标不是恢复无监督 steering，而是训练一个 domain-supervised direction probe：它在冻结 LLM 的前提下，根据当前 span、activation 和 readout features 预测应当增强的 label / direction，再通过低强度 MLP readout steering 或 risk-controlled retry 进行评估。
+
+Sprint 4 的新主线是：
+
+```text
+cyber structured labels
+-> correct/wrong label contrast
+-> reasoning-aware activation/readout features
+-> supervised direction-selection probe
+-> low-alpha, harm-controlled evaluation
+```
+
+边界仍然必须保持清楚：
+
+```text
+Sprint 4A 没有训练 probe；
+Sprint 4A 没有调用模型；
+Sprint 4A 没有执行 steering；
+Sprint 4A 没有证明 hallucination reduction；
+Sprint 4A 没有证明 answer accuracy improvement；
+Sprint 4A 没有说明 cyber probe 已经有效。
+```
+
+Sprint 4B 的下一步应是网络安全数据集选择与 domain schema 实现，而不是直接训练或 steering。

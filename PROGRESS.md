@@ -1,5 +1,35 @@
 ﻿# 实验进度记录：Reasoning-Aware Attention Guidance
 
+## Current Status Update: Sprint 4A Cybersecurity Direction-Probe Mainline Reset
+
+Sprint 4A resets the project mainline from unsupervised span-guided steering to cyber-domain supervised direction probing. This is a documentation, requirements, and code reuse audit sprint only: no new model calls, no probe training, no steering, no patch/nudge experiment, no full Sprint 3C, and no 2000-scale rerun.
+
+Reason for reset: Sprint 3A-3C show that blind span steering is unstable. Attention-bias steering and span residual injection did not turn span relevance into selective answer improvement. Sprint 3C-1 / 3C-2 preserve the positive mechanism finding: the final-answer readout MLP is a valid causal write site and its effective oracle direction aligns with gold label/token unembedding. Sprint 3C-3 / 3C-4A limit the readout/detection claim: direct MLP readout and approximate J-lens are diagnostic but do not beat final-logits margin and do not justify returning to blind steering.
+
+New mainline: in cybersecurity tasks with structured labels, train or evaluate a domain-supervised direction probe/controller that maps reasoning-aware features to label or correction directions:
+
+```text
+span / activation / trace -> correct direction / label direction
+```
+
+Files changed: `docs/codex_tasks/sprint_4A_cyber_direction_probe_mainline_reset.md`, `docs/reference/STORY.md`, `docs/reference/CYBER_DIRECTION_PROBE_PLAN.md`, `docs/reference/CODE_REUSE_AUDIT_SPRINT4A.md`, `docs/progress/sprint_4_history.md`, `docs/progress/sprint_4_artifact_manifest.md`, and `PROGRESS.md`. Gitignored outputs were written under `outputs/logs/sprint_4A_cyber_direction_probe_mainline_reset/`.
+
+Inputs: Sprint 3C-1 / 3C-2 / 3C-3 / 3C-4A task cards, progress records, artifact manifest, and source modules for causal tracing, MLP readout direction, MLP readout attribution, answer proxy metrics, and approximate J-lens readout.
+
+Outputs: Sprint 4A task card, cyber direction-probe plan, code reuse audit, Sprint 4 history, Sprint 4 artifact manifest, preflight report, and review gate.
+
+Commands:
+```bash
+conda run -n recover_attention python -m pytest tests/test_dataset_audit.py tests/test_stage_summary.py -q
+conda run -n recover_attention python -m pytest tests/test_mlp_readout_attribution.py tests/test_approx_j_lens_readout.py -q
+```
+
+Checks: `tests/test_dataset_audit.py tests/test_stage_summary.py` passed 14 tests; `tests/test_mlp_readout_attribution.py tests/test_approx_j_lens_readout.py` passed 15 tests.
+
+Boundary flags: `ready_for_2000_rerun=false`, `do_not_enter_full_sprint_3C=true`, `hallucination_reduction_proven=false`, `answer_accuracy_improvement_proven=false`, `steering_continued=false`, `domain_supervised_probe_planned=true`.
+
+Next: Sprint 4B Cyber Dataset Selection and Domain Schema Implementation. Do not train a probe until a structured cyber dataset, label space, leakage boundary, and domain answer proxy are defined.
+
 ## Current Status Update: Sprint 3C-4A Approximate J-lens Readout Sanity Check
 
 Sprint 3C-4A is completed as a small readout-method sanity check. It reused the 34 Sprint 3C-0-Fix corrected pairs and the Sprint 3C-3 attribution substrate, recaptured answer-readout MLP outputs at layers 20 and 24, and compared direct logit-lens readout (`m @ W_U`) against a directional finite-difference approximate J-lens estimate (`delta_logits / epsilon`) for epsilons 0.01, 0.03, and 0.1. This is not full Workspace J-lens, not steering, not training, not full Sprint 3C, and not a 2000-scale run.
