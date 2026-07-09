@@ -212,3 +212,43 @@ Tracked documentation artifact:
 - `docs/reference/STORY.md` - long-form project story and baseline-boundary narrative.
 
 No new `outputs/` artifacts were produced. Existing 3C-3 output manifests remain under `outputs/logs/sprint_3C_3_mlp_readout_attribution_probe/` and are gitignored / not committed.
+
+## Sprint 3C-4A - Approximate J-lens Readout Sanity Check
+
+Directory: `outputs/logs/sprint_3C_4A_approx_j_lens_readout_sanity_check/`
+(under gitignored `outputs/`; detailed manifests are not committed).
+
+Aggregate reports and manifests:
+
+| file | exists | tracked | reason if untracked |
+| --- | --- | --- | --- |
+| preflight_report.md | yes | no | under gitignored `outputs/` |
+| approx_j_lens_config.json | yes | no | under gitignored `outputs/` |
+| approx_j_lens_forward_manifest.jsonl | yes | no | under gitignored `outputs/` |
+| direct_vs_approx_readout_manifest.jsonl | yes | no | under gitignored `outputs/` |
+| topk_overlap_report.json | yes | no | under gitignored `outputs/` |
+| rank_correlation_report.json | yes | no | under gitignored `outputs/` |
+| token_ordering_report.json | yes | no | under gitignored `outputs/` |
+| diagnostic_comparison_report.json | yes | no | under gitignored `outputs/` |
+| epsilon_stability_report.json | yes | no | under gitignored `outputs/` |
+| failure_case_report.jsonl | yes | no | under gitignored `outputs/` |
+| success_case_report.jsonl | yes | no | under gitignored `outputs/` |
+| review_gate_approx_j_lens_readout_sanity_check.md | yes | no | under gitignored `outputs/` |
+
+What it did: reused the 34 3C-0-Fix corrected pairs and built 68 trace-level
+examples. It compared direct MLP readout scores (`m @ W_U`) with a directional
+finite-difference approximate J-lens estimate (`delta_logits / epsilon`) at
+layers 20 and 24, epsilons 0.01 / 0.03 / 0.1. This is a readout-method sanity
+check, not full Workspace J-lens and not steering.
+
+Key conclusion (Case C): direct and approximate readouts are weakly aligned.
+At the primary cell `L24|epsilon=0.03`, top-1 match rate is 0.074, top-10
+overlap is 0.206, and Spearman over number-like tokens is 0.122. Approximate
+J-lens does not improve the 3C-3 diagnostic judgement: direct readout AUROC is
+0.653, approximate J-lens AUROC is 0.637 at epsilon 0.03 and 0.648 at epsilon
+0.1, while final-logits margin remains stronger at AUROC 0.712.
+
+Boundary: `ready_for_2000_rerun=false`, `do_not_enter_full_sprint_3C=true`,
+`hallucination_reduction_proven=false`, `answer_accuracy_improvement_proven=false`,
+`steering_continued=false`. No accuracy / hallucination / full-J-lens / steering
+claim is made.

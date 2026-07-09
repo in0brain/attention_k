@@ -337,3 +337,42 @@ Checks:
 - Targeted markdown/basic-adjacent tests and 3C-3 attribution tests passed.
 
 Boundary: no new model calls, no training, no steering, no new hidden-state or attention cache, no new `outputs/` artifacts committed.
+
+## Sprint 3C-4A - Approximate J-lens Readout Sanity Check
+
+Goal: sanity-check the Sprint 3C-3 direct MLP unembedding readout by comparing it with a small directional finite-difference approximation to the final-logit Jacobian. This sprint is a readout-method check only. It is not full Workspace J-lens, not steering, not patching as a claim, not training, not full Sprint 3C, and not a 2000-scale run.
+
+Implementation:
+- Added `src/recover_attention/approx_j_lens_readout.py` for selected-token unembedding projection, MLP-output finite-difference hooks, top-k overlap, rank correlation, token-ranking, and gold-free readout risk helpers.
+- Added `scripts/sprint_3C_4A_approx_j_lens_readout_sanity_check.py`.
+- Added `tests/test_approx_j_lens_readout.py` with 6 targeted tests.
+
+Setup:
+- Reused 34 Sprint 3C-0-Fix corrected pairs, producing 68 trace-level examples.
+- Re-captured answer-readout MLP outputs at layers 20 and 24.
+- Compared direct readout `m @ W_U` against directional approximate J-lens scores `delta_logits / epsilon` from `mlp_output[readout] += epsilon * ||m|| * unit(m)`.
+- Epsilon sweep: 0.01, 0.03, 0.1.
+- Outputs written under `outputs/logs/sprint_3C_4A_approx_j_lens_readout_sanity_check/`.
+
+Key result - Case C:
+- Direct and approximate readouts are weakly aligned.
+- Primary cell `L24|epsilon=0.03`: top-1 match rate 0.074, top-10 overlap 0.206, Spearman over number-like tokens 0.122.
+- Epsilon 0.1 improves approximate diagnostic AUROC only to 0.648, still below direct readout AUROC 0.653 and final-logits margin AUROC 0.712.
+- Approximate J-lens does not change the Sprint 3C-3 judgement and does not rescue direct unembedding readout into a stronger detector.
+
+Commands:
+```bash
+conda run -n recover_attention python -m pytest tests/test_approx_j_lens_readout.py -q
+conda run -n recover_attention python scripts/sprint_3C_4A_approx_j_lens_readout_sanity_check.py --input-dir outputs/logs/sprint_3C_3_mlp_readout_attribution_probe --fix-input-dir outputs/logs/sprint_3C_0_fix_answer_proxy_recheck --output-dir outputs/logs/sprint_3C_4A_approx_j_lens_readout_sanity_check --layers 20 24 --epsilons 0.01 0.03 0.1 --top-k 20 --max-pairs 34 --overwrite
+conda run -n recover_attention python -m pytest -q
+```
+
+Checks:
+- Targeted pytest: 6 passed.
+- Full pytest: 657 passed, 2 skipped.
+- Review gate answered 18 questions and records `ready_for_2000_rerun=false`, `do_not_enter_full_sprint_3C=true`, `hallucination_reduction_proven=false`, `answer_accuracy_improvement_proven=false`, `steering_continued=false`.
+
+Boundary and workspace notes:
+- Gold/wrong token ordering is eval-only and not used as feature input.
+- No accuracy, hallucination-reduction, steering, full-J-lens, or ready-for-2000 claim is made.
+- `docs/codex_tasks/sprint_3C_4A_approx_j_lens_readout_sanity_check.md` had pre-existing `AM` status before this sprint (index empty file, working tree populated). It was preserved and not rewritten.

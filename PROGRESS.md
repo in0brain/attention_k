@@ -1,30 +1,27 @@
 ﻿# 实验进度记录：Reasoning-Aware Attention Guidance
 
-## Current Status Update: Sprint 3C-3R Story and Baseline Cleanup
+## Current Status Update: Sprint 3C-4A Approximate J-lens Readout Sanity Check
 
-Sprint 3C-3R is completed as a documentation / baseline-boundary cleanup commit. No new model calls, no new training, no steering, no hidden-state or attention caching, and no new experimental outputs were produced.
+Sprint 3C-4A is completed as a small readout-method sanity check. It reused the 34 Sprint 3C-0-Fix corrected pairs and the Sprint 3C-3 attribution substrate, recaptured answer-readout MLP outputs at layers 20 and 24, and compared direct logit-lens readout (`m @ W_U`) against a directional finite-difference approximate J-lens estimate (`delta_logits / epsilon`) for epsilons 0.01, 0.03, and 0.1. This is not full Workspace J-lens, not steering, not training, not full Sprint 3C, and not a 2000-scale run.
 
-What changed: `docs/reference/STORY.md` now holds the long-form STORY document. The story now records the completed Sprint 3C-3 readout-attribution results and the baseline boundary: MLP risk AUROC 0.653 / AUPRC 0.638; logistic probe AUROC 0.623 / AUPRC 0.661; high-risk bucket wrong rate 0.786; low-risk bucket correct rate 0.692; risk ECE 0.286. MLP risk beats random but does not beat the final-logits margin baseline.
+Core result: Case C. Direct and approximate readouts are weakly aligned under this check. At the primary cell `L24|epsilon=0.03`, top-1 match rate is 0.074, top-10 overlap is 0.206, and Spearman over the number-like token subset is 0.122. Approximate J-lens does not improve the 3C-3 diagnostic judgement: direct readout AUROC is 0.653, approximate J-lens AUROC is 0.637 at epsilon 0.03 and 0.648 at epsilon 0.1, while final-logits margin remains stronger at AUROC 0.712.
 
-Current conclusion: MLP readout attribution is a mechanistic diagnostic signal and can provide gold-free answer-risk evidence, but it is not a practical detector superior to final logits. It is not evidence of answer accuracy improvement or hallucination reduction.
+Interpretation: keep the 3C-1 / 3C-2 mechanistic finding that the final-answer readout MLP site matters, but limit readout/detection claims. Approximate J-lens does not rescue direct unembedding readout into a stronger detector and does not justify returning to steering.
 
-NLA boundary added: Sprint 3C-2's clearest mechanism signal is at L24, while the available NLA checkpoint is only L20. NLA may verbalize residual stream content, whereas the current project object is the answer-readout MLP output. Therefore an NLA L20 null result cannot refute the L24 MLP readout finding.
-
-J-lens boundary added: J-lens should be a priority sanity check for 3C-3R / 3C-4, but not a main-path dependency. The first check should be small-pair finite-difference / approximate J-lens compared against logit-lens top-k.
-
-Files changed: `docs/reference/STORY.md`, `PROGRESS.md`, `docs/progress/sprint_3_history.md`, and `docs/progress/sprint_3_artifact_manifest.md`.
+Files changed: `src/recover_attention/approx_j_lens_readout.py`, `scripts/sprint_3C_4A_approx_j_lens_readout_sanity_check.py`, `tests/test_approx_j_lens_readout.py`, `PROGRESS.md`, `docs/progress/sprint_3_history.md`, and `docs/progress/sprint_3_artifact_manifest.md`. Outputs were written under `outputs/logs/sprint_3C_4A_approx_j_lens_readout_sanity_check/` and remain gitignored.
 
 Commands:
 ```bash
-conda run -n recover_attention python -m pytest tests/test_dataset_audit.py tests/test_stage_summary.py -q
-conda run -n recover_attention python -m pytest tests/test_mlp_readout_attribution.py -q
+conda run -n recover_attention python -m pytest tests/test_approx_j_lens_readout.py -q
+conda run -n recover_attention python scripts/sprint_3C_4A_approx_j_lens_readout_sanity_check.py --input-dir outputs/logs/sprint_3C_3_mlp_readout_attribution_probe --fix-input-dir outputs/logs/sprint_3C_0_fix_answer_proxy_recheck --output-dir outputs/logs/sprint_3C_4A_approx_j_lens_readout_sanity_check --layers 20 24 --epsilons 0.01 0.03 0.1 --top-k 20 --max-pairs 34 --overwrite
+conda run -n recover_attention python -m pytest -q
 ```
 
-Checks: targeted markdown/basic-adjacent tests and the 3C-3 attribution tests passed. No `outputs/` files were staged or committed.
+Checks: targeted pytest 6 passed; full pytest 657 passed, 2 skipped. Review gate `outputs/logs/sprint_3C_4A_approx_j_lens_readout_sanity_check/review_gate_approx_j_lens_readout_sanity_check.md` records `ready_for_2000_rerun=false`, `do_not_enter_full_sprint_3C=true`, `hallucination_reduction_proven=false`, `answer_accuracy_improvement_proven=false`, and `steering_continued=false`.
 
-Boundary: `ready_for_2000_rerun=false`, `do_not_enter_full_sprint_3C=true`, `hallucination_reduction_proven=false`, `answer_accuracy_improvement_proven=false`, `steering_continued=false`.
+Workspace note: `docs/codex_tasks/sprint_3C_4A_approx_j_lens_readout_sanity_check.md` had pre-existing `AM` status before this sprint (index empty file, working tree populated). It was preserved and not rewritten.
 
-Next: use J-lens only as a small sanity check, or continue with detection-only / mechanism write-up. Do not resume steering from this result and do not claim final-logit superiority.
+Next: mechanism write-up or detection-only follow-up if needed. Do not run 2000, do not enter full Sprint 3C, and do not resume steering from this result.
 
 ## Current Status Update: Sprint 3C-2 MLP Readout Direction Analysis and Donor-Free Nudge
 
