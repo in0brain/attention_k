@@ -1,4 +1,4 @@
-# Sprint 3 Artifact Manifest
+﻿# Sprint 3 Artifact Manifest
 
 Purpose: `outputs/` is fully ignored by Git (`.gitignore:14 outputs/`), so the
 detailed Sprint 3 aggregate reports are not directly auditable from the GitHub
@@ -205,3 +205,10 @@ What it did: reused the 34 3C-0-Fix corrected pairs and built 68 trace-level exa
 Key conclusion: MLP readout attribution provides a modest gold-free diagnostic signal but is not a direct answer decoder. MLP top-number vs parsed model answer top-1 match is 0.162 (top-k 0.426). Rule risk AUROC/AUPRC are 0.653/0.638; logistic probe AUROC/AUPRC are 0.623/0.661. High-risk bucket wrong rate is 0.786 and low-risk bucket correct rate is 0.692. It beats random AUROC (0.481) but does not beat final-logits margin (delta -0.059). The result supports mechanism-level attribution / detection, not steering.
 
 Boundary: `ready_for_2000_rerun=false`, `do_not_enter_full_sprint_3C=true`, `hallucination_reduction_proven=false`, `answer_accuracy_improvement_proven=false`, `steering_continued=false`.
+
+## Sprint 3C-3R Story artifact move
+
+Tracked documentation artifact:
+- `docs/reference/STORY.md` - long-form project story and baseline-boundary narrative.
+
+No new `outputs/` artifacts were produced. Existing 3C-3 output manifests remain under `outputs/logs/sprint_3C_3_mlp_readout_attribution_probe/` and are gitignored / not committed.

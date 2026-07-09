@@ -1,4 +1,4 @@
-# Sprint 3 History — Attention Guidance / Steering
+﻿# Sprint 3 History — Attention Guidance / Steering
 
 本文件记录 Sprint 3（attention steering / guidance）阶段的实验历史。Sprint 0–2 见 `sprint_0_history.md` / `sprint_1_history.md` / `sprint_2_history.md`。
 
@@ -319,3 +319,21 @@ Checks: targeted pytest 9 passed; full pytest 651 passed, 2 skipped.
 Decision: `ready_for_2000_rerun=false`, `do_not_enter_full_sprint_3C=true`, `hallucination_reduction_proven=false`, `answer_accuracy_improvement_proven=false`, `steering_continued=false`.
 
 Next: detection-only expansion or mechanism write-up if useful. Do not resume steering from this result, and do not claim accuracy / hallucination improvement.
+
+## Sprint 3C-3R - Story and Baseline Cleanup
+
+Goal: cleanup the story / baseline boundary after Sprint 3C-3 without creating new experiment outputs.
+
+Changes:
+- Moved the long-form STORY document into `docs/reference/STORY.md`.
+- Added the completed Sprint 3C-3 results to STORY: MLP risk AUROC/AUPRC 0.653/0.638; logistic probe AUROC/AUPRC 0.623/0.661; high-risk wrong rate 0.786; low-risk correct rate 0.692; risk ECE 0.286.
+- Clarified that MLP risk beats random but does not beat the final-logits margin baseline.
+- Clarified the current conclusion: MLP readout attribution is a mechanistic diagnostic signal, not a practical detector superior to final logits.
+- Added NLA boundary: the clearest 3C-2 signal is L24; available NLA checkpoint is L20; NLA may verbalize residual stream while the project object is MLP output; an NLA L20 null cannot refute the L24 MLP readout finding.
+- Added J-lens boundary: use J-lens as a priority sanity check for 3C-3R / 3C-4, not as a main-path dependency; start with small-pair finite-difference / approximate J-lens vs logit-lens top-k.
+
+Checks:
+- Path scan found no remaining exact references to the former STORY location.
+- Targeted markdown/basic-adjacent tests and 3C-3 attribution tests passed.
+
+Boundary: no new model calls, no training, no steering, no new hidden-state or attention cache, no new `outputs/` artifacts committed.

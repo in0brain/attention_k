@@ -1,4 +1,4 @@
-# 项目故事线：从 Reasoning-Aware Attention Guidance 到 MLP Readout Attribution
+﻿# 项目故事线：从 Reasoning-Aware Attention Guidance 到 MLP Readout Attribution
 
 > 本文件是项目的故事线与研究叙事备忘。
 > 它用于记录当前研究脉络、阶段性结论，以及 Workspace / J-lens / NLA 等外部论文的接入计划。
@@ -336,6 +336,36 @@ gold answer 只能作为 evaluation label，不能作为 feature。
 MLP readout attribution 提供一个机制化、gold-free 的诊断信号，
 用于分析模型当前的答案 commitment 和 answer risk。
 ```
+### Sprint 3C-3 已完成结果
+
+3C-3 已按 attribution / detection probe 完成。核心结果是：
+
+```text
+MLP risk AUROC = 0.653
+MLP risk AUPRC = 0.638
+logistic probe AUROC = 0.623
+logistic probe AUPRC = 0.661
+high-risk bucket wrong rate = 0.786
+low-risk bucket correct rate = 0.692
+risk ECE = 0.286
+```
+
+解释边界：
+
+```text
+MLP risk beats random baseline；
+但 MLP risk does not beat final-logits margin baseline。
+```
+
+因此当前更精确的结论是：
+
+```text
+MLP readout attribution 是机制化诊断信号；
+它能提供 gold-free 的 answer-risk evidence；
+但它不是优于 final logits 的实用 detector。
+```
+
+这意味着 3C-3 的价值主要是解释模型在 answer-readout MLP 处“往哪个答案 token 写”，而不是替代 final logits 做部署级错误检测。
 
 ---
 
@@ -389,6 +419,15 @@ intermediate activation
 ```text
 不要让 J-lens 成为 3C-3 的主路径依赖。
 ```
+3C-3R / 3C-4 中，J-lens 应作为优先 sanity check，但不作为主路径依赖。建议优先做小规模、低成本版本：
+
+```text
+small-pair finite-difference / approximate J-lens；
+对比 J-lens top-k 与 logit-lens top-k；
+检查二者是否在 answer-readout MLP attribution 上给出一致或互补读数。
+```
+
+如果 J-lens 与 logit-lens 分歧，也不应立即推翻 3C-1/3C-2 的 causal tracing 结果；它首先是读出方法的 sanity check，而不是新的主证据链。
 
 ---
 
@@ -433,6 +472,22 @@ NLA 是 qualitative / auxiliary evidence；
 NLA explanation 不是 primary causal evidence；
 不要把 L20 NLA 直接套到 L24 activation；
 使用前必须做 sanity check。
+```
+3C-3R 后需要额外明确：
+
+```text
+3C-2 最清晰的机制信号在 L24；
+当前可用 NLA checkpoint 只有 L20；
+NLA 可能 verbalize 的是 residual stream；
+而本项目当前对象是 answer-readout 位置的 MLP output。
+```
+
+因此：
+
+```text
+NLA L20 空结果不能反证 L24 MLP readout 发现；
+NLA verbalization 空结果也不能直接反证 MLP-output attribution；
+它最多说明“该 L20 / 该 verbalizer / 该 residual 读出未复现文本化证据”。
 ```
 
 ---
@@ -482,7 +537,7 @@ Sprint 5：
 7. direction analysis 说明有效方向指向 gold answer token；
 8. 但 gold-free donor-free steering 仍然很弱；
 9. 因此项目从 steering 转向 attribution / detection；
-10. MLP readout attribution 成为当前最实际、最可交付的正向结果。
+10. MLP readout attribution 成为当前最清晰的机制化诊断结果，但不是优于 final logits 的实用 detector。
 ```
 
 简短版本：
@@ -491,7 +546,7 @@ Sprint 5：
 blind steering failed；
 answer-readout MLP causal path is real；
 gold-free steering is weak；
-MLP readout attribution is the practical diagnostic target。
+MLP readout attribution is a mechanistic diagnostic signal, but not a practical detector superior to final logits。
 ```
 
 中文总结：
@@ -500,7 +555,7 @@ MLP readout attribution is the practical diagnostic target。
 盲目干预失败；
 答案读出位的 MLP 因果路径成立；
 无 gold 的 steering 仍不稳健；
-MLP readout attribution 是当前最合理的诊断方向。
+MLP readout attribution 是当前最合理的机制化诊断方向，但不是优于 final logits 的实用 detector。
 ```
 
 ---
@@ -511,7 +566,12 @@ MLP readout attribution 是当前最合理的诊断方向。
 
 ```text
 Sprint 3C-3：
-  MLP Readout Attribution Probe。
+  MLP Readout Attribution Probe（已完成）。
+
+Sprint 3C-3R / 3C-4：
+  story / baseline cleanup；
+  small-pair finite-difference / approximate J-lens sanity check；
+  NLA L20 sanity check（仅辅助，不反证 L24 MLP readout）。
 
 3C-3 optional extension：
   logit-lens / J-lens comparison；
@@ -547,5 +607,5 @@ answer commitment 的选择性因果写路径。
 
 gold-free donor-free steering 仍然较弱。
 
-MLP readout attribution 是一个有前景的诊断方向。
+MLP readout attribution 是一个有前景的机制化诊断方向；当前证据不支持把它写成优于 final logits 的实用 detector。
 ```
