@@ -13,6 +13,7 @@ env/
 # Local outputs
 outputs/
 data/processed/
+data/raw/cyber/
 
 # IDE / OS
 .vscode/

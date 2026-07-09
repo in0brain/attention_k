@@ -88,7 +88,7 @@ Tracked script:
 scripts/sprint_4B_download_and_audit_cyber_datasets.py
 ```
 
-Raw data artifacts:
+Local/gitignored raw data artifacts:
 
 ```text
 data/raw/cyber/cybermetric/CyberMetric-500-v1.json
@@ -110,6 +110,10 @@ data/raw/cyber/cs_eval/submission_example.json
 data/raw/cyber/cs_eval/github_tree_manifest.json
 ```
 
+These raw files are local artifacts under `data/raw/cyber/` and are ignored by
+Git. They should be regenerated with
+`scripts/sprint_4B_download_and_audit_cyber_datasets.py` rather than committed.
+
 Audit output artifacts:
 
 ```text
@@ -118,6 +122,6 @@ outputs/logs/sprint_4B_dataset_download_audit/raw_file_manifest.json
 outputs/logs/sprint_4B_dataset_download_audit/sample_records_preview.jsonl
 ```
 
-Raw data note: `data/raw/` is not ignored by the current `.gitignore`; do not
-commit large raw data files unless explicitly intended. `outputs/` remains
-gitignored.
+Audit outputs under `outputs/logs/sprint_4B_dataset_download_audit/` remain
+gitignored. The download script is tracked; raw data and generated audit outputs
+are local artifacts.
