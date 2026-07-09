@@ -60,12 +60,14 @@ New or newly required Sprint 4B artifacts:
 ```text
 outputs/logs/sprint_4B_cyber_dataset_baseline_and_site_transfer/option_position_bias_report.json
 outputs/logs/sprint_4B_cyber_dataset_baseline_and_site_transfer/site_transfer_check_report.json
+outputs/logs/sprint_4B_cyber_dataset_baseline_and_site_transfer/module_patch_fidelity_report.json
 ```
 
-`site_transfer_check_report.json` may be skipped with explicit `skipped_reason`
-when the Stage 5 gate fails. If `--allow-small-site-transfer` is used, the report
-must record it and any result must be labeled exploratory / underpowered
-diagnostic.
+`option_position_bias_report.json` is required for Stage 1. `site_transfer_check_report.json`
+may have `status="skipped"` with explicit `skipped_reason` when the Stage 5 gate
+fails. `module_patch_fidelity_report.json` is only required if Stage 5 actually
+runs. If `--allow-small-site-transfer` is used, the report must record it and any
+result must be labeled exploratory / underpowered diagnostic.
 
 Documentation cleanup boundary:
 

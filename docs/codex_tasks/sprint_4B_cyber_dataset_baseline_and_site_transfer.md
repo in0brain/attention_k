@@ -129,6 +129,42 @@ gold_label = 选项字母
 label_space = "mcq_option_letter"
 ```
 
+A/B/C/D 只作为 label-readout token 和 F5 scoring 的主标签；原始 cyber
+语义标签必须保留，不能把任务退化成 option-letter-only。
+
+canonical record 必须保留 option letter 与 semantic label 的对应关系：
+
+```json
+{
+  "candidate_labels": ["A", "B", "C", "D"],
+  "gold_label": "B",
+  "gold_label_id": "original dataset label id, if available",
+  "gold_label_text": "original semantic label text",
+  "label_space": "mcq_option_letter",
+  "candidate_choices": [
+    {
+      "choice": "A",
+      "label_id": "original id or null",
+      "label_text": "semantic option text"
+    },
+    {
+      "choice": "B",
+      "label_id": "original id or null",
+      "label_text": "semantic option text"
+    }
+  ]
+}
+```
+
+字段边界：
+
+```text
+- `gold_label` 是 option letter，用于 readout / scoring；
+- `gold_label_id` 和 `gold_label_text` 是原始 cyber semantic label，用于后续错误分析、held-out transfer、case study、semantic grouping；
+- `candidate_choices` 必须在 option shuffle 后仍能保留每个选项字母对应的 semantic label；
+- 不得把 option-letter pattern 误写成 cyber semantic direction。
+```
+
 硬性教训（来自 3C-0）：
 
 ```text
@@ -160,6 +196,15 @@ gold_label 只能作 eval label 与（4C 起的）训练目标，绝不能作 in
   license 与来源记录
 输出 label_space_report.json：
   选项字母 tokenization 验证（单 token、互异）
+输出 option_position_bias_report.json：
+  gold choice distribution over A/B/C/D；
+  greedy predicted choice distribution over A/B/C/D；
+  sampled predicted choice distribution over A/B/C/D；
+  majority-position baseline accuracy；
+  position-only baseline accuracy；
+  whether option order is fixed-seed randomized；
+  whether the same semantic label is always mapped to the same option letter；
+  warnings if any option letter dominates gold labels or model predictions。
 输出 cyber_sample_manifest.jsonl（canonical schema）
 ```
 
@@ -234,8 +279,31 @@ label   = greedy 答案是否错误（wrong=1, correct=0）
 同题配对（复用 3C-0 的 build pair 逻辑）：
   至少 1 条 correct trace + 1 条 wrong trace（解析成功且非 gold）；
 输出 correct_wrong_pair_manifest.jsonl；
+必报 num_pairs；若 < 20 对，如实记录 insufficient_pairs，并触发 Stage 5 gate failure。
 ```
 
+### Stage 5：3C-1 位点迁移验证（Q3，gated optional）
+
+Stage 5 site-transfer check only runs if all gates pass:
+
+```text
+1. parse_failure_rate <= 0.10；
+2. 0.05 <= wrong_rate <= 0.95；
+3. num_questions_with_correct_and_wrong >= 20；
+4. label tokenization passed；
+5. option_position_bias_report.json has no severe warning。
+```
+
+如果任一条件不满足：
+
+```text
+- skip Stage 5；
+- write site_transfer_check_report.json with status = "skipped"；
+- record skipped_reason；
+- do not run available-pairs-only by default；
+- only run underpowered diagnostic if user explicitly sets --allow-small-site-transfer；
+- if --allow-small-site-transfer is used, report must mark the result as exploratory / underpowered diagnostic。
+```
 
 在 pair 子集（上限 34 对，与 3C-1 可比）上复用
 `module_causal_tracing.py`，patch 目标改为 **label-readout 位置**：
@@ -268,6 +336,9 @@ conditions = no_patch / correct_donor / random_donor /
 - 不要 full Sprint 3C；
 - 不要把 gold_label 用作 inference feature；
 - 不要用 ATT&CK/CWE id 作标签 token；
+- 不要把 option-letter bias 写成 cyber semantic signal；
+- Stage 5 gate 不通过时不要强行运行 site-transfer；
+- 不要用 underpowered site-transfer result 支撑正式结论；
 - 不要声称 hallucination reduction / answer accuracy improvement；
 - 不要覆盖任何既有 sprint 输出目录；
 - 数据集不可得时不要伪造数据或结果。
@@ -279,7 +350,7 @@ conditions = no_patch / correct_donor / random_donor /
 - 下载/转换公开 cyber MCQ 数据集；
 - 冻结模型采样与 greedy 前向；
 - 输出层特征计算与分组 bootstrap / 分组 CV（仅 F5 特征）；
-- 诊断性 module activation patching（Stage 5，复用 3C-1 代码）；
+- 诊断性 module activation patching（Stage 5，仅当 gate 通过；否则 skipped）；
 - 输出 review gate；更新 PROGRESS / sprint_4_history / artifact manifest。
 ```
 
@@ -297,10 +368,13 @@ outputs/logs/sprint_4B_cyber_dataset_baseline_and_site_transfer/
 preflight_report.md
 dataset_audit_report.json
 label_space_report.json
+option_position_bias_report.json
 cyber_sample_manifest.jsonl
 trace_sampling_manifest.jsonl
 f5_baseline_report.json
 correct_wrong_pair_manifest.jsonl
+site_transfer_check_report.json（may have status="skipped" + skipped_reason）
+module_patch_fidelity_report.json（only required when Stage 5 actually runs）
 high_risk_case_report.jsonl（F5 风险分最高的 20 例，含 completion 摘要）
 low_risk_wrong_case_report.jsonl（F5 认为低风险但答错的 20 例——4C 的靶子）
 review_gate_cyber_dataset_baseline_site_transfer.md
@@ -357,6 +431,10 @@ classify_trace_by_option()
 1. canonical schema 字段齐全且类型正确；
 2. 分组切分不泄漏（同 group 不跨 split）；
 3. 标签分布审计正确；
+4. prompt 构造包含全部选项且顺序稳定；
+5. option order randomization is deterministic given seed；
+6. gold option positions are auditable；
+7. candidate_choices preserve semantic label id/text after shuffling。
 ```
 
 `tests/test_domain_label_proxy.py` 至少覆盖：
@@ -396,6 +474,12 @@ classify_trace_by_option()
 15. 是否允许进入 4C？（仅当 Stage 1-3 完成且 pair >= 20 或已如实降级）
 16. 是否允许声称 hallucination reduction / accuracy improvement？（恒 no）
 17. 下一步 4C 的特征族清单与门槛数字是什么？
+18. model_path 来源是什么？是否参数化而非写死？
+19. 是否保留 semantic label id/text，而不只是 A/B/C/D？
+20. 是否生成 option_position_bias_report.json？
+21. option-position baseline 是否低于主要模型 baseline？若不是，是否标记 position-bias risk？
+22. Stage 5 gate 是否通过？若未通过，是否正确 skipped 并记录 skipped_reason？
+23. 是否没有把 option-letter pattern 误写成 cyber semantic direction？
 ```
 
 ---
@@ -416,6 +500,14 @@ classify_trace_by_option()
 
 情况 D：数据集不可得
   → preflight 停止，输出手动下载指引，本 sprint 标记 blocked。
+
+情况 E：option-position bias severe
+  → F5 / 4C 结果必须标记为 potentially position-confounded；
+    需要重新 shuffle options 或换数据集，不得写成 cyber semantic signal。
+
+情况 F：Stage 5 skipped
+  → 不影响 Stage 1-3/F5 baseline 交付；
+    4C 可以继续，但 F1 causal-site feature 的动机应标记为 not yet transferred。
 ```
 
 ---

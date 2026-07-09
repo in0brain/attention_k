@@ -80,3 +80,17 @@ deterministic option-order and semantic-preservation test requirements;
 Stage 5 gate and skipped site_transfer_check_report.json behavior;
 review gate questions 18-23.
 ```
+
+## Merge Guardrail Repair before Sprint 4B Execution
+
+Documentation-only repair after merge conflict resolution. Restored:
+
+```text
+- semantic label preservation alongside option-letter readout labels;
+- option-position bias audit requirements;
+- gated optional Stage 5 site-transfer;
+- Review gate items 18-23;
+- updated Sprint 4 control plan wording.
+```
+
+No experiment was run.

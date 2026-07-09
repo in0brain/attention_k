@@ -15,6 +15,11 @@ option-position bias auditing, and gated optional site-transfer execution.
 No model was called, no data was downloaded, no probe was trained, and no
 steering or 4B experiment was run.
 
+Merge guardrail repair: after resolving the remote/local merge, the 4B task card
+was repaired to restore semantic-label preservation, option-position bias
+auditing, and gated optional site-transfer. No model call, data download, probe
+training, steering, or 4B experiment was run.
+
 Files changed in this documentation cleanup: `PROGRESS.md`,
 `docs/codex_tasks/sprint_4B_cyber_dataset_baseline_and_site_transfer.md`,
 `docs/reference/CYBER_HALLUCINATION_CONTROL_PLAN.md`,

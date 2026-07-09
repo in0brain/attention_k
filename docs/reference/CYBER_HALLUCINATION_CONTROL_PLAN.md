@@ -194,6 +194,11 @@ enforced:
    the probe is single-forward per trace, so scaling is cheap and justified).
 ```
 
+Option letters are token-level readout targets only. Original cyber semantic
+labels must be retained in `candidate_choices` as `label_id` and `label_text`
+for semantic analysis, transfer evaluation, error taxonomy, and case studies.
+Sprint 4 must not collapse into an option-letter-only task.
+
 For H1 (fabricated identifiers): a free-generation slice where emitted ids are
 verified against the public ontology; internal-feature hypothesis to test:
 fabricated ids show diffuse readout projections (low margin, high entropy,
@@ -250,6 +255,10 @@ claims.
     Cheap add-on: replicate the 3C-1 site finding on the label-readout position
     (module tracing, no training) — if the causal site does not transfer
     beyond GSM8K, F1's motivation weakens and we know early.
+    4B must include option-position bias auditing and gated site-transfer
+    execution. The 3C-1 site-transfer add-on runs only if parsing, wrong-rate,
+    pair-count, tokenization, and option-position gates pass; otherwise it is
+    skipped with an explicit skipped_reason.
 
 4C  feature bake-off (Gate 1 + 2)
     F1-F4 vs F5, grouped CV, seed-averaged;
