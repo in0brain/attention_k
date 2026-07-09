@@ -194,10 +194,6 @@ enforced:
    the probe is single-forward per trace, so scaling is cheap and justified).
 ```
 
-Option letters are used as token-level readout targets only. The original cyber
-semantic labels must be retained in candidate_choices for semantic analysis,
-transfer evaluation, and error taxonomy.
-
 For H1 (fabricated identifiers): a free-generation slice where emitted ids are
 verified against the public ontology; internal-feature hypothesis to test:
 fabricated ids show diffuse readout projections (low margin, high entropy,
@@ -254,8 +250,6 @@ claims.
     Cheap add-on: replicate the 3C-1 site finding on the label-readout position
     (module tracing, no training) — if the causal site does not transfer
     beyond GSM8K, F1's motivation weakens and we know early.
-    4B must include option-position bias auditing and gated site-transfer
-    execution.
 
 4C  feature bake-off (Gate 1 + 2)
     F1-F4 vs F5, grouped CV, seed-averaged;

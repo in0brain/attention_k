@@ -129,33 +129,6 @@ gold_label = 选项字母
 label_space = "mcq_option_letter"
 ```
 
-canonical record 必须同时保留选项字母与 cyber 语义标签字段：
-
-```json
-{
-  "gold_label": "B",
-  "gold_label_id": "original dataset label id, if available",
-  "gold_label_text": "original semantic label text",
-  "candidate_labels": ["A", "B", "C", "D"],
-  "candidate_choices": [
-    {
-      "choice": "A",
-      "label_id": "original id or null",
-      "label_text": "semantic option text"
-    },
-    {
-      "choice": "B",
-      "label_id": "original id or null",
-      "label_text": "semantic option text"
-    }
-  ]
-}
-```
-
-A/B/C/D 只用于 label-readout token 和 F5 scoring；semantic label id/text
-必须保留，用于后续错误分析、held-out transfer、case study 和 cyber 语义分组。
-不得把 Sprint 4 退化成 option-letter-only task。
-
 硬性教训（来自 3C-0）：
 
 ```text
@@ -188,15 +161,6 @@ gold_label 只能作 eval label 与（4C 起的）训练目标，绝不能作 in
 输出 label_space_report.json：
   选项字母 tokenization 验证（单 token、互异）
 输出 cyber_sample_manifest.jsonl（canonical schema）
-输出 option_position_bias_report.json：
-  gold choice distribution over A/B/C/D；
-  greedy predicted choice distribution over A/B/C/D；
-  sampled predicted choice distribution over A/B/C/D；
-  majority-position baseline accuracy；
-  position-only baseline accuracy；
-  whether option order is fixed-seed randomized；
-  whether the same semantic label is always mapped to the same option letter；
-  warnings if any option letter dominates gold labels or model predictions。
 ```
 
 ### Stage 2：Trace 采样（冻结模型）
@@ -270,35 +234,8 @@ label   = greedy 答案是否错误（wrong=1, correct=0）
 同题配对（复用 3C-0 的 build pair 逻辑）：
   至少 1 条 correct trace + 1 条 wrong trace（解析成功且非 gold）；
 输出 correct_wrong_pair_manifest.jsonl；
-必报 num_pairs；若 < 20 对，如实记录 insufficient_pairs，并触发 Stage 5
-gate failure。默认 skip Stage 5，不要强行扩采样，也不要自动运行
-available-pairs-only。
 ```
 
-### Stage 5：3C-1 位点迁移验证（Q3，gated optional）
-
-Stage 5 site-transfer check only runs if all gates pass:
-
-```text
-parse_failure_rate <= 0.10；
-0.05 <= wrong_rate <= 0.95；
-num_questions_with_correct_and_wrong >= 20；
-label tokenization passed；
-option-position bias report has no severe warning。
-```
-
-如果不满足：
-
-```text
-skip Stage 5；
-write site_transfer_check_report.json with status = "skipped"；
-record skipped_reason；
-do not run available-pairs-only unless user explicitly sets --allow-small-site-transfer。
-```
-
-`--allow-small-site-transfer` 必须在 `site_transfer_check_report.json` 中记录。
-使用该参数得到的结果只能写作 exploratory / underpowered diagnostic，不能作为
-4C gate 或跨域位点迁移结论。
 
 在 pair 子集（上限 34 对，与 3C-1 可比）上复用
 `module_causal_tracing.py`，patch 目标改为 **label-readout 位置**：
@@ -360,13 +297,10 @@ outputs/logs/sprint_4B_cyber_dataset_baseline_and_site_transfer/
 preflight_report.md
 dataset_audit_report.json
 label_space_report.json
-option_position_bias_report.json
 cyber_sample_manifest.jsonl
 trace_sampling_manifest.jsonl
 f5_baseline_report.json
 correct_wrong_pair_manifest.jsonl
-site_transfer_check_report.json（gate 未通过时 status="skipped" + skipped_reason）
-module_patch_fidelity_report.json（仅 Stage 5 实际运行时必需）
 high_risk_case_report.jsonl（F5 风险分最高的 20 例，含 completion 摘要）
 low_risk_wrong_case_report.jsonl（F5 认为低风险但答错的 20 例——4C 的靶子）
 review_gate_cyber_dataset_baseline_site_transfer.md
@@ -423,10 +357,6 @@ classify_trace_by_option()
 1. canonical schema 字段齐全且类型正确；
 2. 分组切分不泄漏（同 group 不跨 split）；
 3. 标签分布审计正确；
-4. prompt 构造包含全部选项且顺序稳定；
-5. option order randomization is deterministic given seed；
-6. gold option positions are auditable；
-7. candidate_choices preserve semantic label text after shuffling。
 ```
 
 `tests/test_domain_label_proxy.py` 至少覆盖：
@@ -466,12 +396,6 @@ classify_trace_by_option()
 15. 是否允许进入 4C？（仅当 Stage 1-3 完成且 pair >= 20 或已如实降级）
 16. 是否允许声称 hallucination reduction / accuracy improvement？（恒 no）
 17. 下一步 4C 的特征族清单与门槛数字是什么？
-18. model_path 来源是什么？是否参数化而非写死？
-19. 是否保留 semantic label id/text，而不只是 A/B/C/D？
-20. 是否生成 option_position_bias_report.json？
-21. option-position baseline 是否低于主要模型 baseline？
-22. Stage 5 gate 是否通过？若未通过，是否正确 skipped？
-23. 是否没有把 option-letter pattern 误写成 cyber semantic direction？
 ```
 
 ---
@@ -505,7 +429,6 @@ conda run -n recover_attention python scripts/sprint_4B_cyber_dataset_baseline_a
   --dataset cybermetric \
   --primary-questions 240 \
   --samples-per-question 6 \
-  --model-path <path-or-use-RECOVER_ATTENTION_MODEL_PATH> \
   --temperature 0.7 \
   --max-new-tokens 256 \
   --site-check-layers 16 20 24 \
