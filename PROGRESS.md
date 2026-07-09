@@ -1,5 +1,40 @@
 # 实验进度记录：Reasoning-Aware Attention Guidance
 
+## Current Status Update: Sprint 3C-2 MLP Readout Direction Analysis and Donor-Free Nudge
+
+Sprint 3C-2 is completed as an MLP readout-direction analysis. It is not full Sprint 3C, not a 2000-scale rerun, not training, not a deployable steering method, and not evidence of answer accuracy improvement or hallucination reduction. Teacher-forced (plus a minimal first-step) single-forward proxy only.
+
+Question: 3C-1 localized the selective, low-harm answer-readout write to the MLP output. This sprint asks whether that write is a stable direction that (a) aligns with the gold-vs-wrong unembedding and (b) survives as a **donor-free** direction (without the correct donor).
+
+Setup: reused the 34 3C-0-Fix pairs (no re-sampling). Captured MLP output at the answer-readout position for correct/wrong traces; built the correct−wrong delta at layers {20,24}. Donor-free directions constructed **leave-one-out** (mean_delta, pc1_delta, negative, shuffled excluding the eval pair) plus gold_unembed (eval-only, per-pair), random, zero. Nudge: `mlp_output[readout] += α·‖mlp_output[readout]‖·unit(direction)`, α∈{0.05,0.1,0.2,0.4}. 1904 nudge cells. Metric: corrected answer-sequence clean_direction + a first-step (prefix-only) generation-style proxy. New: `src/recover_attention/mlp_readout_direction.py`, `scripts/sprint_3C_2_mlp_readout_direction_analysis.py`, `tests/test_mlp_readout_direction.py` (9 tests).
+
+Core result — **mixed: a clean mechanistic finding, but no robust donor-free direction**:
+- Geometry: the correct−wrong MLP delta has a very stable principal axis (PC1 leave-one-out cosine 0.99 @L20, 0.98 @L24; PC1 explained variance ~0.12–0.13, ≈4× uniform). A shared direction exists.
+- Unembedding alignment: at **L24** the per-pair delta aligns with the gold-vs-wrong unembedding direction, cosine +0.091 CI95 [+0.064, +0.117] (stable positive); at L20 it does not (~0). So the L24 MLP write is (weakly but stably) toward the gold token's unembedding.
+- gold-unembedding direction (**eval-only**, uses the gold answer): a strong, low-harm, first-step-surviving steering axis — L24 clean +0.34→+2.93 across α (gold up, wrong down), harm ≤0.12, stable at every α; beats random by +0.93 CI95 [+0.73, +1.13]. This is an oracle upper bound, not deployable.
+- Donor-free mean_delta direction: at L24 stably positive vs no-op (clean +0.13/+0.09/+0.15/+0.31, harm 0.0) and beats random only **marginally** (+0.062 CI95 [+0.0005, +0.130]); it does **not** stably beat its own negation (+0.062 CI95 [-0.029, +0.166]) and barely survives the first-step check (stable only at α0.4). At L20 it fails. PC1 direction does not beat random.
+- Control note: the `shuffled` control is **degenerate here** — shuffling the correct/wrong pairing and then averaging returns the same mean direction (`mean_delta − shuffled ≡ 0`), so shuffle is uninformative for a global mean direction (it is only meaningful per-pair). The meaningful controls for a global direction are random and negative.
+
+Reading: the answer-readout MLP write is a real, stable, low-rank direction aligned (at L24) with the gold-token unembedding — mechanistically this is "the MLP nudges the residual toward the gold answer token." But the effective axis essentially **requires knowing the gold answer** (gold_unembed works; a gold-free mean/PC1 direction is only marginally effective and not robust). We do NOT have a deployable donor-free steering handle. This echoes the project's recurring theme: the signal is strong for attribution/detection (which token the MLP pushes toward) but not yet a blind steering control.
+
+Commands:
+```bash
+conda run -n recover_attention python -m pytest tests/test_mlp_readout_direction.py -q
+conda run -n recover_attention python scripts/sprint_3C_2_mlp_readout_direction_analysis.py \
+  --input-dir outputs/logs/sprint_3C_1_final_answer_compression_value_mlp_tracing \
+  --fix-input-dir outputs/logs/sprint_3C_0_fix_answer_proxy_recheck \
+  --output-dir outputs/logs/sprint_3C_2_mlp_readout_direction_analysis \
+  --layers 20 24 --alphas 0.05 0.1 0.2 0.4 \
+  --directions mean_delta pc1_delta gold_unembed random shuffled negative zero --overwrite
+conda run -n recover_attention python -m pytest -q
+```
+
+Checks: targeted pytest 9 passed; full pytest 642 passed, 2 skipped. Review gate `outputs/logs/sprint_3C_2_mlp_readout_direction_analysis/review_gate_mlp_readout_direction_analysis.md` (MLP readout carries causal info aligned with gold unembedding, but current extraction is insufficient for clean donor-free steering).
+
+Boundary: `ready_for_2000_rerun=false`, `do_not_enter_full_sprint_3C=true`, `hallucination_reduction_proven=false`, `answer_accuracy_improvement_proven=false`.
+
+Next: either (a) improve gold-free direction extraction (per-layer whitening / a linear probe trained on more pairs / a Fisher-style contrast) to close the gap to gold_unembed, or (b) accept that the effective axis is the gold-unembedding direction and pivot this into an attribution/detection use (report which answer token the readout MLP is being pushed toward) rather than blind steering. Still no 2000 / full 3C / generation-accuracy claim.
+
 ## Current Status Update: Sprint 3C-1 Final-Answer Compression Value/MLP Causal Tracing
 
 Sprint 3C-1 is completed as a module-level causal tracing sprint. It is not full Sprint 3C, not a 2000-scale rerun, not training, not a deployable steering method, and not evidence of answer accuracy improvement or hallucination reduction. Teacher-forced single-forward proxy only.

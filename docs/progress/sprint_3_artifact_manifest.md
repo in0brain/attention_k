@@ -157,3 +157,39 @@ high-harm; attention output moves the answer generically but not site-specifical
 `ready_for_2000_rerun=false`, `do_not_enter_full_sprint_3C=true`,
 `hallucination_reduction_proven=false`, `answer_accuracy_improvement_proven=false`.
 Next: Sprint 3C-2 — MLP readout-direction analysis / harm-controlled steering probe.
+
+## Sprint 3C-2 — MLP Readout Direction Analysis and Donor-Free Nudge
+
+Directory: `outputs/logs/sprint_3C_2_mlp_readout_direction_analysis/` (under
+gitignored `outputs/`; large `donor_free_nudge_forward_manifest.jsonl` not committed).
+
+Aggregate reports (auditable; mirrored in `PROGRESS.md` / `sprint_3_history.md`):
+`preflight_report.md`, `mlp_direction_config.json`,
+`mlp_direction_geometry_report.json`, `mlp_unembedding_alignment_report.json`,
+`donor_free_nudge_report.json`, `generation_survival_report.json`,
+`harm_control_report.json`, `mlp_readout_delta_manifest.jsonl`,
+`donor_free_direction_manifest.jsonl`, `success_case_report.jsonl`,
+`failure_case_report.jsonl`, `review_gate_mlp_readout_direction_analysis.md`.
+All exist locally, untracked.
+
+What it did: extracted the correct−wrong MLP-output delta at the answer-readout
+position (3C-1 site), analysed geometry + gold-vs-wrong unembedding alignment, and
+tested leave-one-out donor-free directional nudges (mean/PC1/gold-unembed vs
+random/shuffled/negative/zero) with the corrected sequence proxy + a first-step
+check. Reused the 34 3C-0-Fix pairs.
+
+Key conclusion (mixed): the MLP readout write is a stable low-rank direction (PC1
+LOO cosine 0.98–0.99) that at L24 aligns with the gold-vs-wrong unembedding
+(per-pair cosine +0.091 CI95 `[+0.064,+0.117]`, stable). The gold-unembedding
+direction (eval-only) is a strong low-harm surviving steering axis (beats random
++0.93). But the donor-free mean_delta direction only marginally beats random
+(+0.062 CI95 `[+0.0005,+0.130]`), does not beat its own negation, and barely
+survives the first-step check; PC1 does not beat random. Note: the `shuffled`
+control is degenerate for a global mean direction (`mean_delta − shuffled ≡ 0`
+because shuffle-then-average restores the same mean) — random/negative are the
+meaningful controls. So the effective axis essentially requires the gold answer;
+no deployable donor-free steering handle was found.
+`ready_for_2000_rerun=false`, `do_not_enter_full_sprint_3C=true`,
+`hallucination_reduction_proven=false`, `answer_accuracy_improvement_proven=false`.
+Next: improve gold-free direction extraction (whitening / probe) or pivot the
+gold-unembedding alignment into an attribution/detection use.
