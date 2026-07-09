@@ -120,3 +120,40 @@ no_patch +6.12 stable, but vs same-trace random position not stable, and harm ri
 read-out/compression stage, not explicit reasoning steps.
 `ready_for_2000_rerun=false`, `do_not_enter_full_sprint_3C=true`,
 `hallucination_reduction_proven=false`, `answer_accuracy_improvement_proven=false`.
+
+## Sprint 3C-1 — Final-Answer Compression Value/MLP Causal Tracing
+
+Directory: `outputs/logs/sprint_3C_1_final_answer_compression_value_mlp_tracing/`
+(under gitignored `outputs/`; large `module_patching_forward_manifest.jsonl`,
+`module_activation_capture_manifest.jsonl` not committed).
+
+Aggregate reports (auditable; numbers mirrored in `PROGRESS.md` and
+`docs/progress/sprint_3_history.md`): `preflight_report.md`,
+`module_patching_config.json`, `module_patching_fidelity_report.json`,
+`module_patching_effect_report.json`, `module_control_comparison_report.json`,
+`donor_specificity_report.json`, `site_specificity_report.json`,
+`layer_module_heatmap_report.json`, `harm_control_report.json`,
+`success_case_report.jsonl`, `failure_case_report.jsonl`,
+`review_gate_final_answer_compression_tracing.md`. All exist locally, untracked.
+
+What it did: decomposed the 3C-0-Fix whole-residual patch at the answer-readout
+position into per-module writes (self-attention output / MLP output / residual
+output), interpolation-patched each (α∈{0.25,0.5,0.75,1.0}, layers {16,20,24})
+with correct-run donor activation, and tested donor- and site-specificity with
+harm control. Reused the 34 3C-0-Fix pairs (no re-sampling). Consistency check:
+`residual_output|L24|α1.0` reproduces the 3C-0-Fix whole-residual result
+(+12.67, harm 0.88).
+
+Key conclusion (Case A — a selective, low-harm causal site exists): the correct
+answer direction at the readout is written primarily by the **MLP**. Donor-
+specificity (correct − random donor) stable positive for all modules (attention
++0.093, mlp +0.141, residual +1.703). Site-specificity (correct at readout −
+correct at random position) stable positive **only for mlp_output**
+(+0.353 CI95 `[+0.242, +0.476]`); attention_output (-0.006) and residual_output
+(-0.547) are not site-specific. Harm-controlled MLP regime: `mlp_output|L24|α0.25`
+clean +0.319 (gold +0.327, wrong +0.040) at harm 0.06; `mlp_output|L20|α0.25`
+clean +0.131 at harm 0.06. Whole residual is largest but non-selective and
+high-harm; attention output moves the answer generically but not site-specifically.
+`ready_for_2000_rerun=false`, `do_not_enter_full_sprint_3C=true`,
+`hallucination_reduction_proven=false`, `answer_accuracy_improvement_proven=false`.
+Next: Sprint 3C-2 — MLP readout-direction analysis / harm-controlled steering probe.

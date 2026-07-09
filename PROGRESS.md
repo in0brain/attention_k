@@ -1,5 +1,39 @@
 # 实验进度记录：Reasoning-Aware Attention Guidance
 
+## Current Status Update: Sprint 3C-1 Final-Answer Compression Value/MLP Causal Tracing
+
+Sprint 3C-1 is completed as a module-level causal tracing sprint. It is not full Sprint 3C, not a 2000-scale rerun, not training, not a deployable steering method, and not evidence of answer accuracy improvement or hallucination reduction. Teacher-forced single-forward proxy only.
+
+Question: 3C-0-Fix found a correct-run repair signal at the final-answer readout position but could not establish which module writes it. This sprint decomposes the whole-residual patch at the readout position (answer-number prefix token) into per-module writes — self-attention output, MLP output, and whole-residual output — interpolation-patches each with correct-run donor activation, and tests donor-specificity and site-specificity with harm control.
+
+Setup: reused the 3C-0-Fix corrected pairs (34), no re-sampling. Captured per-module outputs via forward hooks; interpolation patch `(1-α)·recipient + α·donor` at the readout position. Grid: modules {attention_output, mlp_output, residual_output} × layers {16,20,24} × α {0.25,0.5,0.75,1.0} × 6 conditions (no_patch, correct_donor, random_donor, same_trace_random_position, same_pair_wrong_position, wrong_donor_self). 7308 forward rows. Metric: corrected answer-sequence clean_direction (3C-0-Fix proxy). New: `src/recover_attention/module_causal_tracing.py`, `scripts/sprint_3C_1_final_answer_compression_value_mlp_tracing.py`, `tests/test_module_causal_tracing.py` (7 tests).
+
+Fidelity: hooks registered/triggered/removed = 1.0. `wrong_donor_self` is not an exact no-op (donor captured from full-trace forward, injected into shorter prefix+answer forward → attention kernels not bit-identical across lengths), but its floor is small: self mean|clean| 0.087 vs correct-donor 1.632 (ratio 0.05), and it cancels in the specificity contrasts (all donors share it). `residual_output|L24|α1.0` reproduces 3C-0-Fix's whole-residual result (+12.67, harm 0.88) — a consistency check.
+
+Core result — **Case A: the answer direction at the final-answer readout is written primarily by the MLP, and that write is donor-specific, site-specific, and harm-controllable**:
+- Donor-specificity (correct − random donor, paired) stable positive for all three modules: attention +0.093 CI95 [+0.014,+0.181], mlp +0.141 [+0.044,+0.252], residual +1.703 [+1.24,+2.19].
+- Site-specificity (correct at readout − correct at random position, paired): **mlp_output +0.353 CI95 [+0.242,+0.476] stable positive** — the only per-module stable site signal. attention_output -0.006 [-0.076,+0.062] (not site-specific); residual_output -0.547 [-1.13,+0.064] (not site-specific).
+- So attention output moves the answer generically (donor-specific but not site-specific); whole residual is largest but non-selective and high-harm; **only the MLP output passes both donor- and site-specificity.**
+- Harm-controlled MLP regime (α sweep, L24): clean +0.319/+0.590/+0.943/+1.290 as α 0.25→1.0, harm 0.06/0.18/0.24/0.24; gold +0.327/+0.584/+0.912/+1.228, wrong ~flat. Best low-harm selective cells: `mlp_output|L24|α0.25` (clean +0.319, gold +0.327, wrong +0.040, harm 0.06) and `mlp_output|L20|α0.25` (clean +0.131, harm 0.06).
+
+Reading: 3A/3B/3C-0 negatives are now explained — span-level and whole-residual interventions are too coarse; the selective, low-harm causal handle is the MLP write at the answer-readout position. This localizes a mechanism under a teacher-forced proxy; it is NOT an accuracy or generation result.
+
+Commands:
+```bash
+conda run -n recover_attention python -m pytest tests/test_module_causal_tracing.py -q
+conda run -n recover_attention python scripts/sprint_3C_1_final_answer_compression_value_mlp_tracing.py \
+  --input-dir outputs/logs/sprint_3C_0_fix_answer_proxy_recheck \
+  --output-dir outputs/logs/sprint_3C_1_final_answer_compression_value_mlp_tracing \
+  --layers 16 20 24 --modules attention_output mlp_output residual_output --alphas 0.25 0.5 0.75 1.0 --overwrite
+conda run -n recover_attention python -m pytest -q
+```
+
+Checks: targeted pytest 7 passed; full pytest 633 passed, 2 skipped. Review gate `outputs/logs/sprint_3C_1_final_answer_compression_value_mlp_tracing/review_gate_final_answer_compression_tracing.md` (Case A, selective low-harm site found).
+
+Boundary: `ready_for_2000_rerun=false`, `do_not_enter_full_sprint_3C=true`, `hallucination_reduction_proven=false`, `answer_accuracy_improvement_proven=false`.
+
+Next (Case A): Sprint 3C-2 — analyze the MLP readout write direction at `mlp_output|L24|α0.25` (and L20): is there a low-rank/interpretable "answer" direction; does a low-harm α-scaled MLP-output nudge survive autoregressive generation; establish a harm-controlled steering probe before any generation-level correctness eval. Still no 2000 / full 3C.
+
 ## Current Status Update: Sprint 3C-0-Fix Answer-Position Proxy Recheck
 
 Sprint 3C-0-Fix is completed as a low-cost proxy repair and recheck of Sprint 3C-0. It is not full Sprint 3C, not a 2000-scale rerun, not training, not a new steering mechanism, and not evidence of answer accuracy improvement or hallucination reduction. Teacher-forced single-forward proxy only.

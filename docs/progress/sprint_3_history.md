@@ -230,3 +230,29 @@ Preflight（Fix 1/2/3 全部完成）：
 
 - 全程 teacher-forced single-forward proxy；未做 autoregressive generation / 正确率。
 - 下一步（Case B）：围绕 **final-answer compression** 做 activation patching / causal tracing（answer 读出位的 value/MLP 写路径），**不**回到 span-level residual injection，也不再在 reasoning step 做整段 residual replace。需先建立 donor-特异性（跑赢 same-trace random position）与可控 harm 的 regime，再谈任何 generation-level eval。
+
+## Sprint 3C-1：Final-Answer Compression Value/MLP Causal Tracing（本轮）
+
+目标：3C-0-Fix 发现 final-answer 读出位有 correct-run 修复信号，但没定位是哪个模块写的。本轮把读出位（答案数字前一位）的整段 residual patch 拆成三条 module 写路径——self-attn output / MLP output / whole-residual output——各自做 interpolation activation patching，用 **donor-specificity** 与 **site-specificity** + harm 控制来判定真正的 causal write。**不是** full 3C / 2000 / 训练 / 可部署 steering，全程 teacher-forced single-forward proxy。默认四标记 false。
+
+复用与设置：复用 3C-0-Fix 的 34 对 corrected pair（不重采样）。forward hook 抓每层每模块 output；patch = `(1-α)·recipient + α·donor` 打在读出位。网格：modules {attention_output, mlp_output, residual_output} × layers {16,20,24} × α {0.25,0.5,0.75,1.0} × 6 conditions（no_patch / correct_donor / random_donor / same_trace_random_position / same_pair_wrong_position / wrong_donor_self）。7308 forward rows。指标沿用 3C-0-Fix corrected answer-sequence clean_direction。
+
+新增：`src/recover_attention/module_causal_tracing.py`（capture_module_outputs / register_module_patch_hook / sequence_logprob_with_module_patch / build_answer_readout / module_vector / compute_donor_specificity / compute_site_specificity）、`scripts/sprint_3C_1_final_answer_compression_value_mlp_tracing.py`、`tests/test_module_causal_tracing.py`（7 测试）。
+
+Fidelity：hook registered/triggered/removed = 1.0。`wrong_donor_self` 非严格 no-op——donor 抓自 full-trace forward、注入到较短的 prefix+answer forward，attention kernel 在不同序列长度下非逐位一致——但 floor 很小：self mean|clean| 0.087 vs correct-donor 1.632（比 0.05），且在 specificity 差分中抵消（所有 donor 共享）。`residual_output|L24|α1.0` 复现 3C-0-Fix 整段 residual 结果（+12.67，harm 0.88），作一致性校验。
+
+核心结果——**Case A：答案读出位的正确答案方向主要由 MLP 写入，且该写入 donor-特异、site-特异、harm 可控**：
+
+- donor-specificity（correct − random donor，paired）三模块都稳定为正：attention +0.093 CI95 [+0.014,+0.181]，mlp +0.141 [+0.044,+0.252]，residual +1.703 [+1.24,+2.19]。
+- site-specificity（correct 读出位 − correct 随机位，paired）：**mlp_output +0.353 CI95 [+0.242,+0.476] 稳定为正**——唯一 per-module 稳定的 site 信号。attention_output -0.006 [-0.076,+0.062]（无 site 特异）；residual_output -0.547 [-1.13,+0.064]（无 site 特异）。
+- 即：attention output 泛泛地推答案（donor-特异但非 site-特异）；whole residual 幅度最大但非选择性且 harm 高；**只有 MLP output 同时通过 donor + site 特异性**。
+- MLP harm-controlled regime（α sweep，L24）：clean +0.319/+0.590/+0.943/+1.290（α 0.25→1.0），harm 0.06/0.18/0.24/0.24；gold +0.327/+0.584/+0.912/+1.228，wrong 近平。最优低 harm 选择性 cell：`mlp_output|L24|α0.25`（clean +0.319，gold +0.327，wrong +0.040，harm 0.06）与 `mlp_output|L20|α0.25`（clean +0.131，harm 0.06）。
+
+读法：3A/3B/3C-0 的负结果得到解释——span-level 与 whole-residual 干预太粗；选择性、低 harm 的因果 handle 是**答案读出位的 MLP 写入**。这是在 teacher-forced proxy 下定位到一个机制，**不是** accuracy / generation 结果。
+
+检查：定向 pytest 7 passed；full pytest 633 passed, 2 skipped。review gate 17 问全答，verdict 四项 false，判定 Case A（找到选择性低 harm causal site）。
+
+边界与遗留：
+
+- 全程 teacher-forced single-forward proxy；未做 autoregressive generation / 正确率；MLP-output patch 用 correct donor（eval-only），不作可部署方法。
+- 下一步（Case A → Sprint 3C-2）：分析 `mlp_output|L24|α0.25`（及 L20）的 MLP 读出写方向——是否存在低秩/可解释的「答案」方向；低 α 的 MLP-output nudge 是否在 autoregressive generation 下存活；先建立 harm-controlled steering probe，再谈任何 generation-level 正确率 eval。仍不进 2000 / full 3C。
