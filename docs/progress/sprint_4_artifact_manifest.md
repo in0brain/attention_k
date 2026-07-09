@@ -1,4 +1,4 @@
-# Sprint 4 Artifact Manifest
+﻿# Sprint 4 Artifact Manifest
 
 ## Sprint 4A - Cybersecurity Direction-Probe Mainline Reset
 
@@ -125,3 +125,39 @@ outputs/logs/sprint_4B_dataset_download_audit/sample_records_preview.jsonl
 Audit outputs under `outputs/logs/sprint_4B_dataset_download_audit/` remain
 gitignored. The download script is tracked; raw data and generated audit outputs
 are local artifacts.
+
+## Sprint 4B CyberMetric smoke baseline artifacts
+
+Tracked implementation artifacts:
+```text
+src/recover_attention/cyber_data.py
+src/recover_attention/domain_label_proxy.py
+scripts/sprint_4B_cyber_dataset_baseline_and_site_transfer.py
+tests/test_cyber_data.py
+tests/test_domain_label_proxy.py
+```
+
+Local/gitignored raw data artifacts:
+```text
+data/raw/cyber/cybermetric/CyberMetric-500-v1.json
+data/raw/cyber/cybermetric/CyberMetric-2000-v1.json
+data/raw/cyber/cybermetric/CyberMetric-10000-v1.json
+```
+
+Local/gitignored smoke output artifacts:
+```text
+outputs/logs/sprint_4B_cyber_dataset_baseline_and_site_transfer_smoke/preflight_report.md
+outputs/logs/sprint_4B_cyber_dataset_baseline_and_site_transfer_smoke/dataset_audit_report.json
+outputs/logs/sprint_4B_cyber_dataset_baseline_and_site_transfer_smoke/label_space_report.json
+outputs/logs/sprint_4B_cyber_dataset_baseline_and_site_transfer_smoke/option_position_bias_report.json
+outputs/logs/sprint_4B_cyber_dataset_baseline_and_site_transfer_smoke/cyber_sample_manifest.jsonl
+outputs/logs/sprint_4B_cyber_dataset_baseline_and_site_transfer_smoke/trace_sampling_manifest.jsonl
+outputs/logs/sprint_4B_cyber_dataset_baseline_and_site_transfer_smoke/f5_baseline_report.json
+outputs/logs/sprint_4B_cyber_dataset_baseline_and_site_transfer_smoke/correct_wrong_pair_manifest.jsonl
+outputs/logs/sprint_4B_cyber_dataset_baseline_and_site_transfer_smoke/site_transfer_check_report.json
+outputs/logs/sprint_4B_cyber_dataset_baseline_and_site_transfer_smoke/high_risk_case_report.jsonl
+outputs/logs/sprint_4B_cyber_dataset_baseline_and_site_transfer_smoke/low_risk_wrong_case_report.jsonl
+outputs/logs/sprint_4B_cyber_dataset_baseline_and_site_transfer_smoke/review_gate_cyber_dataset_baseline_site_transfer.md
+```
+
+Artifact boundary: do not commit `data/raw/cyber/` or `outputs/logs/`; both are local artifacts. Stage 5 was skipped in the smoke because only 7 correct/wrong pairs were found, below the 20-pair gate.

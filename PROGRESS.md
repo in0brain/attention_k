@@ -1,5 +1,30 @@
 ﻿# 实验进度记录：Reasoning-Aware Attention Guidance
 
+## Current Status Update: Sprint 4B CyberMetric Smoke Baseline
+
+Sprint 4B smoke is completed on CyberMetric with the minimal chain requested: raw local/gitignored CyberMetric data -> canonical option-letter schema -> label-token proxy -> option-position bias audit -> trace sampling -> F5 output-level baseline -> review gate. This was a smoke run only: no full primary run, no probe training, no steering/nudge, no LoRA/finetuning, no full Sprint 3C, and no 2000-scale run. Gold labels were used only as eval labels, not inference features.
+
+Run setup: `--dataset cybermetric --primary-questions 30 --samples-per-question 2 --temperature 0.7 --max-new-tokens 128 --output-dir outputs/logs/sprint_4B_cyber_dataset_baseline_and_site_transfer_smoke --overwrite`. The default local model fallback `D:/models/Qwen2.5-7B-Instruct` was used. Raw cyber data stayed under `data/raw/cyber/` and remains gitignored; smoke outputs stayed under `outputs/logs/` and remain gitignored.
+
+Smoke result: 30 canonical questions, 90 traces, parse_failure_rate 0.100, sampled wrong_rate 0.315, and 7 same-question correct/wrong pairs. Option-position audit found no severe warning; gold distribution A/B/C/D = 6/7/10/7 and majority-position baseline accuracy = 0.333. Label space passed single non-whitespace token and distinct token-id checks for A/B/C/D.
+
+F5 baseline result on 28 scored greedy examples: label-margin risk AUROC/AUPRC 0.741/0.553; label entropy 0.748/0.558; full entropy 0.374/0.244; self-consistency risk 0.823/0.497; fixed non-trained F5 combination 0.776/0.532. These are smoke-scale estimates only, with wide bootstrap CIs in `f5_baseline_report.json`.
+
+Stage 5 site-transfer was skipped as required because the gate failed: `num_questions_with_correct_and_wrong >= 20` was false (7 pairs). `site_transfer_check_report.json` records `status="skipped"` and the skipped reason. No module patching, steering, or site-transfer diagnostic was run.
+
+Files changed for this smoke implementation: `src/recover_attention/cyber_data.py`, `src/recover_attention/domain_label_proxy.py`, `scripts/sprint_4B_cyber_dataset_baseline_and_site_transfer.py`, `tests/test_cyber_data.py`, `tests/test_domain_label_proxy.py`, `PROGRESS.md`, `docs/progress/sprint_4_history.md`, and `docs/progress/sprint_4_artifact_manifest.md`.
+
+Commands:
+```bash
+conda run -n recover_attention python -m pytest tests/test_cyber_data.py tests/test_domain_label_proxy.py -q
+conda run -n recover_attention python scripts/sprint_4B_cyber_dataset_baseline_and_site_transfer.py --dataset cybermetric --primary-questions 30 --samples-per-question 2 --temperature 0.7 --max-new-tokens 128 --output-dir outputs/logs/sprint_4B_cyber_dataset_baseline_and_site_transfer_smoke --overwrite
+conda run -n recover_attention python -m pytest tests/test_dataset_audit.py tests/test_stage_summary.py -q
+```
+
+Boundary flags: `probe_trained=false`, `steering_continued=false`, `hallucination_reduction_proven=false`, `answer_accuracy_improvement_proven=false`, `ready_for_2000_rerun=false`, `do_not_enter_full_sprint_3C=true`.
+
+Next: if continuing to 4C, treat the fixed F5 smoke AUROC as a preliminary baseline only; run a larger non-training primary baseline before any feature-family bake-off. Do not infer cyber semantic signal from option-letter position patterns.
+
 ## Current Status Update: Post-4A Mainline Refinement and Sprint 4B Ready
 
 Current mainline: `CYBER_HALLUCINATION_CONTROL_PLAN.md` now supersedes

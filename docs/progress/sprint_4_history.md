@@ -1,4 +1,4 @@
-# Sprint 4 History - Cyber Hallucination Control
+﻿# Sprint 4 History - Cyber Hallucination Control
 
 ## Sprint 4A - Cybersecurity Direction-Probe Mainline Reset
 
@@ -144,3 +144,48 @@ conda run -n recover_attention python -m pytest tests/test_dataset_audit.py test
 
 Check result: audit script completed, syntax check passed, and lightweight
 pytest passed 14 tests.
+
+## Sprint 4B CyberMetric Smoke Baseline
+
+Goal: execute the minimal CyberMetric smoke chain without a full primary run, probe training, steering, LoRA/finetuning, full Sprint 3C, or 2000-scale execution.
+
+Setup:
+```bash
+conda run -n recover_attention python scripts/sprint_4B_cyber_dataset_baseline_and_site_transfer.py --dataset cybermetric --primary-questions 30 --samples-per-question 2 --temperature 0.7 --max-new-tokens 128 --output-dir outputs/logs/sprint_4B_cyber_dataset_baseline_and_site_transfer_smoke --overwrite
+```
+
+Implementation:
+- Added `src/recover_attention/cyber_data.py` for CyberMetric raw loading, deterministic option shuffle, canonical MCQ schema, prompt construction, grouped split summary, dataset audit, and option-position bias audit.
+- Added `src/recover_attention/domain_label_proxy.py` for option-letter tokenization, answer parsing, label-readout locating, F5 margin/entropy/self-consistency helpers, fixed F5 risk scoring, and gold-feature leakage checks.
+- Added `scripts/sprint_4B_cyber_dataset_baseline_and_site_transfer.py` for the smoke chain. The script uses CPU-side token sampling to avoid CUDA multinomial failures in sampled generation; it does not train a probe.
+- Added `tests/test_cyber_data.py` and `tests/test_domain_label_proxy.py`.
+
+Smoke outputs:
+```text
+outputs/logs/sprint_4B_cyber_dataset_baseline_and_site_transfer_smoke/preflight_report.md
+outputs/logs/sprint_4B_cyber_dataset_baseline_and_site_transfer_smoke/dataset_audit_report.json
+outputs/logs/sprint_4B_cyber_dataset_baseline_and_site_transfer_smoke/label_space_report.json
+outputs/logs/sprint_4B_cyber_dataset_baseline_and_site_transfer_smoke/option_position_bias_report.json
+outputs/logs/sprint_4B_cyber_dataset_baseline_and_site_transfer_smoke/cyber_sample_manifest.jsonl
+outputs/logs/sprint_4B_cyber_dataset_baseline_and_site_transfer_smoke/trace_sampling_manifest.jsonl
+outputs/logs/sprint_4B_cyber_dataset_baseline_and_site_transfer_smoke/f5_baseline_report.json
+outputs/logs/sprint_4B_cyber_dataset_baseline_and_site_transfer_smoke/correct_wrong_pair_manifest.jsonl
+outputs/logs/sprint_4B_cyber_dataset_baseline_and_site_transfer_smoke/site_transfer_check_report.json
+outputs/logs/sprint_4B_cyber_dataset_baseline_and_site_transfer_smoke/review_gate_cyber_dataset_baseline_site_transfer.md
+```
+
+Results:
+- Canonical schema: 30 CyberMetric questions.
+- Trace sampling: 90 traces (30 greedy + 60 sampled), parse_failure_rate 0.100, sampled wrong_rate 0.315.
+- Pair construction: 7 same-question correct/wrong pairs.
+- Option-position audit: no severe warning; gold A/B/C/D distribution 6/7/10/7; majority-position baseline accuracy 0.333.
+- F5 smoke baseline on 28 scored greedy examples: label-margin risk AUROC/AUPRC 0.741/0.553; label entropy 0.748/0.558; full entropy 0.374/0.244; self-consistency risk 0.823/0.497; fixed non-trained F5 combination 0.776/0.532.
+- Stage 5: skipped. Gate failed because `num_questions_with_correct_and_wrong >= 20` was false (7 pairs). `site_transfer_check_report.json` records `status="skipped"` and the skipped reason.
+
+Checks:
+```bash
+conda run -n recover_attention python -m pytest tests/test_cyber_data.py tests/test_domain_label_proxy.py -q
+conda run -n recover_attention python -m pytest tests/test_dataset_audit.py tests/test_stage_summary.py -q
+```
+
+Boundary: raw data and smoke outputs remain local/gitignored artifacts. No probe training, steering, nudge, LoRA/finetuning, full Sprint 3C, or 2000-scale run occurred. No hallucination-reduction or accuracy-improvement claim is made.
