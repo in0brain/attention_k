@@ -193,3 +193,15 @@ no deployable donor-free steering handle was found.
 `hallucination_reduction_proven=false`, `answer_accuracy_improvement_proven=false`.
 Next: improve gold-free direction extraction (whitening / probe) or pivot the
 gold-unembedding alignment into an attribution/detection use.
+
+## Sprint 3C-3 - MLP Readout Attribution Probe
+
+Directory: `outputs/logs/sprint_3C_3_mlp_readout_attribution_probe/` (under gitignored `outputs/`; large `mlp_readout_attribution_manifest.jsonl` is not committed).
+
+Aggregate reports (auditable; numbers mirrored in `PROGRESS.md` and `docs/progress/sprint_3_history.md`): `preflight_report.md`, `mlp_attribution_config.json`, `mlp_unembedding_projection_report.json`, `answer_token_attribution_report.json`, `correct_wrong_detection_report.json`, `risk_score_report.json`, `baseline_comparison_report.json`, `calibration_report.json`, `success_case_report.jsonl`, `failure_case_report.jsonl`, `review_gate_mlp_readout_attribution_probe.md`. All exist locally, untracked because `outputs/` is gitignored.
+
+What it did: reused the 34 3C-0-Fix corrected pairs and built 68 trace-level examples. It captured final-answer readout module outputs at layers {20,24}, projected MLP output to number-like lm_head / unembedding rows, built gold-free attribution features, and evaluated a rule risk score plus a small question-grouped numpy logistic probe. Gold answers are eval-only labels and are not used as features.
+
+Key conclusion: MLP readout attribution provides a modest gold-free diagnostic signal but is not a direct answer decoder. MLP top-number vs parsed model answer top-1 match is 0.162 (top-k 0.426). Rule risk AUROC/AUPRC are 0.653/0.638; logistic probe AUROC/AUPRC are 0.623/0.661. High-risk bucket wrong rate is 0.786 and low-risk bucket correct rate is 0.692. It beats random AUROC (0.481) but does not beat final-logits margin (delta -0.059). The result supports mechanism-level attribution / detection, not steering.
+
+Boundary: `ready_for_2000_rerun=false`, `do_not_enter_full_sprint_3C=true`, `hallucination_reduction_proven=false`, `answer_accuracy_improvement_proven=false`, `steering_continued=false`.

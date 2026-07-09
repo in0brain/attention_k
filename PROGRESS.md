@@ -1,4 +1,36 @@
-# 实验进度记录：Reasoning-Aware Attention Guidance
+﻿# 实验进度记录：Reasoning-Aware Attention Guidance
+
+## Current Status Update: Sprint 3C-3 MLP Readout Attribution Probe
+
+Sprint 3C-3 is completed as an attribution / detection probe after the Sprint 3C-2 mixed result. It is not full Sprint 3C, not a 2000-scale rerun, not training, not steering / patching / nudge, and not evidence of answer accuracy improvement or hallucination reduction. Gold answers are used only as eval labels, not as feature inputs.
+
+Question: 3C-2 found that the final-answer readout MLP write is mechanistically real and aligned with gold-vs-wrong unembedding at L24, but simple donor-free directions are not robust steering handles. This sprint asks whether the same MLP readout output can be used as a gold-free answer-risk attribution signal: which number token does the MLP output project toward, and can the resulting features distinguish correct vs wrong traces?
+
+Setup: reused the 34 3C-0-Fix corrected pairs (68 trace-level examples: correct and wrong traces), no re-sampling. Captured final-answer readout module outputs at layers {20,24}; projected MLP output to lm_head / unembedding over a number-like token subset; built gold-free features including number margin, entropy, sharpness, model-answer agreement, and L20/L24 agreement. Compared a rule risk score and a small numpy logistic probe with question-grouped CV against final logits, residual projection, attention-output projection, surface parse confidence, and random baselines. New: `src/recover_attention/mlp_readout_attribution.py`, `scripts/sprint_3C_3_mlp_readout_attribution_probe.py`, `tests/test_mlp_readout_attribution.py` (9 tests).
+
+Core result: **diagnostic signal exists, but top-token attribution is weak**:
+- MLP top number token matches the model's parsed final answer only 0.162 top-1, but model-answer top-k coverage is 0.426. So the projection is interpretable but not a direct top-1 answer decoder.
+- Gold eval-only correspondence is weak top-1 (gold match 0.132), consistent with this being a diagnostic signal rather than a deployable gold direction.
+- Gold-free MLP risk score distinguishes wrong vs correct traces above random: AUROC 0.653, AUPRC 0.638. Numpy logistic probe with question-grouped CV gives AUROC 0.623, AUPRC 0.661.
+- High-risk bucket wrong rate is 0.786; low-risk bucket correct rate is 0.692. Calibration exists but is rough (risk ECE 0.286).
+- MLP risk beats random AUROC (random 0.481) but does not beat final-logits margin AUROC (delta -0.059). Reading: final logits remain a strong direct baseline; MLP attribution's value is mechanistic / module-level diagnosis, not superiority over final logits.
+
+Commands:
+```bash
+conda run -n recover_attention python -m pytest tests/test_mlp_readout_attribution.py -q
+conda run -n recover_attention python scripts/sprint_3C_3_mlp_readout_attribution_probe.py \
+  --input-dir outputs/logs/sprint_3C_2_mlp_readout_direction_analysis \
+  --fix-input-dir outputs/logs/sprint_3C_0_fix_answer_proxy_recheck \
+  --output-dir outputs/logs/sprint_3C_3_mlp_readout_attribution_probe \
+  --layers 20 24 --top-k 20 --overwrite
+conda run -n recover_attention python -m pytest -q
+```
+
+Checks: targeted pytest 9 passed; full pytest 651 passed, 2 skipped. Review gate `outputs/logs/sprint_3C_3_mlp_readout_attribution_probe/review_gate_mlp_readout_attribution_probe.md`.
+
+Boundary: `ready_for_2000_rerun=false`, `do_not_enter_full_sprint_3C=true`, `hallucination_reduction_proven=false`, `answer_accuracy_improvement_proven=false`, `steering_continued=false`.
+
+Next: if continuing, expand detection-only evaluation or write up the mechanism narrative. Do not resume steering from this result, do not claim answer accuracy or hallucination improvement, and do not enter a 2000-scale rerun from this sprint alone.
 
 ## Current Status Update: Sprint 3C-2 MLP Readout Direction Analysis and Donor-Free Nudge
 
@@ -955,3 +987,5 @@ Primary outputs:
 
 Next recommended sprint:
 - Formula validation or reasoning-signal sprint, especially answer-logprob / semantic-role / trajectory evidence before any steering implementation.
+
+

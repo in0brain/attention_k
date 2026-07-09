@@ -281,3 +281,41 @@ Fidelity：hook registered/triggered/removed = 1.0。`wrong_donor_self` 非严�
 
 - 全程 teacher-forced（+first-step）proxy；未做 autoregressive generation / 正确率；gold_unembed 与 correct-donor delta 用 gold 仅作 eval-only 分析，不作可部署方法。
 - 下一步：要么 (a) 改进 gold-free 方向提取（per-layer whitening / 用更多 pair 训练线性 probe / Fisher-style contrast）以逼近 gold_unembed 的效果；要么 (b) 接受有效轴就是 gold-unembedding 方向、把它转成 attribution/detection 用途（报告读出 MLP 被推向哪个答案 token），而非盲 steering。仍不进 2000 / full 3C / 不作 generation-accuracy 声明。
+
+## Sprint 3C-3: MLP Readout Attribution Probe
+
+Goal: pivot from Sprint 3C-2 donor-free steering to detection / diagnosis. This sprint asks whether the final-answer readout MLP output can provide a gold-free attribution signal for answer risk: which number-like token is the MLP write projecting toward, and can projection features distinguish correct vs wrong traces?
+
+Boundary: not full Sprint 3C, not 2000-scale rerun, not model training, not LoRA / finetuning, not steering, patching, or nudge. Gold answers are eval-only labels and are not used as feature inputs. No claim is made about answer accuracy improvement or hallucination reduction.
+
+Implemented:
+- `src/recover_attention/mlp_readout_attribution.py`: number-like token filtering, unembedding projection, projection features, gold-free risk score, AUROC/AUPRC, question-grouped numpy logistic CV, calibration buckets, random baseline.
+- `scripts/sprint_3C_3_mlp_readout_attribution_probe.py`: reuses 3C-0-Fix corrected pairs, captures final-answer readout module outputs at layers 20/24, projects MLP/attention/residual/readout logits to number-token space, writes all required reports.
+- `tests/test_mlp_readout_attribution.py`: 9 tests covering token filtering, projection, no eval-only feature leakage, risk score, layer agreement, grouped CV, calibration, and random baseline reproducibility.
+
+Setup and outputs: reused 34 corrected 3C-0-Fix pairs, producing 68 trace-level examples (correct + wrong traces). Outputs are under `outputs/logs/sprint_3C_3_mlp_readout_attribution_probe/` and include `preflight_report.md`, `mlp_attribution_config.json`, `mlp_readout_attribution_manifest.jsonl`, `mlp_unembedding_projection_report.json`, `answer_token_attribution_report.json`, `correct_wrong_detection_report.json`, `risk_score_report.json`, `baseline_comparison_report.json`, `calibration_report.json`, `success_case_report.jsonl`, `failure_case_report.jsonl`, and `review_gate_mlp_readout_attribution_probe.md`.
+
+Results:
+- MLP top number token matches the model's parsed final answer at 0.162 top-1; model-answer top-k coverage is 0.426. The projection is interpretable but not a direct top-1 answer decoder.
+- Gold eval-only top-1 match is 0.132. This remains attribution / diagnosis, not a deployable gold direction.
+- Gold-free rule risk score: AUROC 0.653, AUPRC 0.638 for wrong-vs-correct trace detection.
+- Question-grouped numpy logistic probe: AUROC 0.623, AUPRC 0.661.
+- High-risk bucket wrong rate 0.786; low-risk bucket correct rate 0.692; risk ECE 0.286.
+- MLP risk beats random (random AUROC 0.481) but does not beat final-logits margin (AUROC delta -0.059). Final logits remain a strong direct baseline; MLP attribution's value is mechanistic / module-level diagnosis rather than final-logit superiority.
+
+Commands:
+```bash
+conda run -n recover_attention python -m pytest tests/test_mlp_readout_attribution.py -q
+conda run -n recover_attention python scripts/sprint_3C_3_mlp_readout_attribution_probe.py \
+  --input-dir outputs/logs/sprint_3C_2_mlp_readout_direction_analysis \
+  --fix-input-dir outputs/logs/sprint_3C_0_fix_answer_proxy_recheck \
+  --output-dir outputs/logs/sprint_3C_3_mlp_readout_attribution_probe \
+  --layers 20 24 --top-k 20 --overwrite
+conda run -n recover_attention python -m pytest -q
+```
+
+Checks: targeted pytest 9 passed; full pytest 651 passed, 2 skipped.
+
+Decision: `ready_for_2000_rerun=false`, `do_not_enter_full_sprint_3C=true`, `hallucination_reduction_proven=false`, `answer_accuracy_improvement_proven=false`, `steering_continued=false`.
+
+Next: detection-only expansion or mechanism write-up if useful. Do not resume steering from this result, and do not claim accuracy / hallucination improvement.
