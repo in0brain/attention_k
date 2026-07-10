@@ -199,3 +199,9 @@ Directory: `outputs/logs/sprint_4B_2_small_model_smoke/` (gitignored).
 | review_gate_small_model_smoke.md | yes | no | 17 items answered |
 
 Key conclusions: chat prompt eliminates the raw-completion degeneration (0.0 vs 0.094+0.094); two instrumentation bugs (BatchEncoding duck-typing in locate; bare-vs-space option token form) found by dry runs and fixed with regression tests before the official run; chat completions carry zero reasoning text (has_reasoning_text 0.00) - F2 substrate decision deferred to 4B-3 with a gated reasoning-forcing mini-test. No kill bar declared. `probe_trained=false`, `steering_continued=false`.
+
+## Sprint 4B-3 full F5 baseline artifacts
+
+Directory: `outputs\logs\sprint_4B_3_full_f5_baseline_and_site_transfer` (gitignored).
+
+Required artifacts: preflight_report.md, trace_sampling_manifest.jsonl, reasoning_substrate_report.json, f5_baseline_report.json, option_position_bias_report.json, high_risk_case_report.jsonl, low_risk_wrong_case_report.jsonl, correct_wrong_pair_manifest.jsonl, site_transfer_check_report.json, equivalence_spot_check_report.json, review_gate_full_f5_baseline_and_site_transfer.md. module_patch_fidelity_report.json is present only if Stage E executed.

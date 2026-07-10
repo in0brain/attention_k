@@ -246,3 +246,12 @@ Checks: targeted pytest 51 passed; full pytest 723 passed, 2 skipped.
 Boundary: no kill bar declared; no accuracy/hallucination claim; outputs gitignored under `outputs/logs/sprint_4B_2_small_model_smoke/` with this manifest as audit record.
 
 Next: Sprint 4B-3 full 240-question F5 dual-kill-bar run + site-transfer check (card drafted).
+
+## Sprint 4B-3 Full F5 Baseline and Site-Transfer Diagnostic
+
+- Output dir: `outputs\logs\sprint_4B_3_full_f5_baseline_and_site_transfer`
+- kill_bar_single_forward: `{"score_name": "f5_combo_single_forward_z", "num_examples": 239, "num_positive_wrong": 47, "auroc": 0.8156028368794326, "auroc_ci95": [0.7462170655064057, 0.871379088089075], "auprc": 0.48176965150975914, "auprc_ci95": [0.3342258393392229, 0.6492906000587156]}`
+- kill_bar_sampling: `{"score_name": "f5_combo_sampling_z", "num_examples": 239, "num_positive_wrong": 47, "auroc": 0.815270390070922, "auroc_ci95": [0.7620344115039633, 0.8715600575894694], "auprc": 0.48279740626091816, "auprc_ci95": [0.3531971769514906, 0.64021080732525]}`
+- reasoning F2 plan: `downgrade_or_drop_f2_and_prioritize_f3_plus_f1_f4`
+- site-transfer conclusion: `not_evaluated_gate_skipped`
+- Boundary: no probe training, no steering, no hallucination/accuracy improvement claim.

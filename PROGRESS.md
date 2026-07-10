@@ -1,3 +1,22 @@
+# 瀹為獙杩涘害璁板綍锛歊easoning-Aware Attention Guidance
+
+## Current Status Update: Sprint 4B-3 Full F5 Baseline and Site-Transfer Diagnostic
+
+Sprint 4B-3 is completed on the 240-question CyberMetric smoke manifest using the 4B-2 winning prompt. The dual F5 bars were measured with fixed, non-trained z-score combinations; Stage E site-transfer was gate-skipped as recorded in `site_transfer_check_report.json`. No probe was trained, no steering was continued, and no hallucination-reduction or accuracy-improvement claim is made.
+
+Measured bars: `kill_bar_single_forward` AUROC=0.8156028368794326 CI95=[0.7462170655064057, 0.871379088089075]; `kill_bar_sampling` AUROC=0.815270390070922 CI95=[0.7620344115039633, 0.8715600575894694]. Reasoning substrate plan for 4C F2: `downgrade_or_drop_f2_and_prioritize_f3_plus_f1_f4`. Site-transfer conclusion: `not_evaluated_gate_skipped`.
+
+Outputs are under `outputs\logs\sprint_4B_3_full_f5_baseline_and_site_transfer` and remain gitignored. Commands:
+```bash
+conda run -n recover_attention python -m pytest tests/test_domain_label_proxy.py tests/test_cyber_data.py -q
+conda run -n recover_attention python scripts/sprint_4B_3_full_f5_baseline_and_site_transfer.py --processed-path data/processed/cyber/cybermetric.jsonl --smoke-manifest outputs/logs/sprint_4B_1_cybermetric_schema_and_label_proxy/cyber_sample_smoke_manifest.jsonl --ab-report outputs/logs/sprint_4B_2_small_model_smoke/prompt_ab_report.json --samples-per-question 6 --temperature 0.7 --max-new-tokens 256 --site-check-layers 16 20 24 --site-check-alphas 0.25 1.0 --site-check-max-pairs 34 --output-dir outputs/logs/sprint_4B_3_full_f5_baseline_and_site_transfer --overwrite
+conda run -n recover_attention python -m pytest -q
+```
+
+Checks: targeted label/cyber tests, the full 4B-3 script command, and full pytest were run for this sprint. Boundary flags: `ready_for_2000_rerun=false`, `do_not_enter_full_sprint_3C=true`, `hallucination_reduction_proven=false`, `answer_accuracy_improvement_proven=false`, `steering_continued=false`, `probe_trained=false`.
+
+Next: open Sprint 4C against these measured F5 bars; use F3 and F1/F4 as the stable baseline families and follow the recorded F2 substrate plan.
+
 ﻿# 实验进度记录：Reasoning-Aware Attention Guidance
 
 ## Current Status Update: Sprint 4B-2 Small-Model Smoke and F5 Feature Plumbing
