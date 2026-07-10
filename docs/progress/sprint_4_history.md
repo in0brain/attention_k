@@ -181,6 +181,7 @@ Results:
 - Option-position audit: no severe warning; gold A/B/C/D distribution 6/7/10/7; majority-position baseline accuracy 0.333.
 - F5 smoke baseline on 28 scored greedy examples: label-margin risk AUROC/AUPRC 0.741/0.553; label entropy 0.748/0.558; full entropy 0.374/0.244; self-consistency risk 0.823/0.497; fixed non-trained F5 combination 0.776/0.532.
 - Stage 5: skipped. Gate failed because `num_questions_with_correct_and_wrong >= 20` was false (7 pairs). `site_transfer_check_report.json` records `status="skipped"` and the skipped reason.
+- Rerun verification on 2026-07-09: repeated the same smoke command with `--overwrite`; required artifacts were regenerated locally; Stage 5 remained skipped for the same 7-pair gate failure.
 
 Checks:
 ```bash

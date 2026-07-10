@@ -12,6 +12,8 @@ F5 baseline result on 28 scored greedy examples: label-margin risk AUROC/AUPRC 0
 
 Stage 5 site-transfer was skipped as required because the gate failed: `num_questions_with_correct_and_wrong >= 20` was false (7 pairs). `site_transfer_check_report.json` records `status="skipped"` and the skipped reason. No module patching, steering, or site-transfer diagnostic was run.
 
+Rerun verification on 2026-07-09: the same smoke command completed again with `--overwrite`; required smoke artifacts were present; targeted pytest checks passed (`13 passed` and `14 passed`).
+
 Files changed for this smoke implementation: `src/recover_attention/cyber_data.py`, `src/recover_attention/domain_label_proxy.py`, `scripts/sprint_4B_cyber_dataset_baseline_and_site_transfer.py`, `tests/test_cyber_data.py`, `tests/test_domain_label_proxy.py`, `PROGRESS.md`, `docs/progress/sprint_4_history.md`, and `docs/progress/sprint_4_artifact_manifest.md`.
 
 Commands:

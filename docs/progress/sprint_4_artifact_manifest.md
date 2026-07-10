@@ -161,3 +161,5 @@ outputs/logs/sprint_4B_cyber_dataset_baseline_and_site_transfer_smoke/review_gat
 ```
 
 Artifact boundary: do not commit `data/raw/cyber/` or `outputs/logs/`; both are local artifacts. Stage 5 was skipped in the smoke because only 7 correct/wrong pairs were found, below the 20-pair gate.
+
+Rerun verification: the smoke directory was regenerated locally with `--overwrite`; it remains gitignored and is not a tracked artifact.
