@@ -1,5 +1,36 @@
 ﻿# 实验进度记录：Reasoning-Aware Attention Guidance
 
+## Current Status Update: Sprint 4B-1 CyberMetric Canonical Schema and Domain Label Proxy
+
+Sprint 4B-1 is completed as a data/label-interface engineering sub-sprint (task card `docs/codex_tasks/sprint_4B_1_cybermetric_schema_and_label_proxy.md`). No causal LM was called, no completion was generated, no F5 was computed, no site-transfer, no probe training, no steering. The only model asset touched was a tokenizer-only load of the local Qwen2.5-7B-Instruct tokenizer, which the card explicitly allows.
+
+Deliverables: CyberMetric-2000 converted to the canonical `cyber_sample` schema with deterministic per-example option shuffle (sha256-derived seeds), grouped train/dev/test split, and a tested pure-function option-letter label proxy. 2000/2000 raw records converted, 0 invalid, 0 duplicate ids. Splits: train 1400 / dev 300 / test 300 (group = normalized-question hash proxy, honestly labeled as such; 0 group leakage). Post-shuffle gold distribution A/B/C/D = 465/503/529/503 (no severe position imbalance). Fixed-seed shuffle reproducible; different seed changes order; gold semantic mapping verified intact after shuffle. Smoke manifest: 240 records sampled split-aware (not first-N).
+
+Label space: option letters verified unique single-character; real Qwen2.5 tokenizer check **passed** — A/B/C/D map to distinct single non-whitespace tokens 362/425/356/422.
+
+Execution finding (bug fixed during this session): the tokenizer-only check was initially skipped with a spurious `ValueError: invalid literal for int() ... 'input_ids'`. Root cause: HuggingFace `BatchEncoding` subclasses `UserDict`, not `dict`, so `isinstance(encoded, dict)` in `domain_label_proxy._tokenizer_ids` missed it and the code iterated the mapping's key names as if they were token ids. Fixed by duck-typing on mapping behaviour; added a regression test with a UserDict-style fake tokenizer.
+
+Code: `src/recover_attention/schemas.py` (`cyber_sample` + `validate_cyber_sample_record`), `src/recover_attention/cyber_data.py` (normalize/shuffle/group-split/prompt/audit), `src/recover_attention/domain_label_proxy.py` (option_token_ids / parse_option_answer / locate_label_readout_position / margin / entropy / self-consistency / gold-leakage checker; all pure functions), `scripts/sprint_4B_1_prepare_cybermetric.py`, minimal `data_io.py` additions. The 4B smoke script was adapted to the new APIs (compat option 1 from the card; compile-checked, not run). Leftover `*.patch` / `tmp_patch/` scratch files were archived out of the repo root (they broke pytest collection).
+
+Outputs (gitignored, under `outputs/logs/sprint_4B_1_cybermetric_schema_and_label_proxy/`): preflight_report.md, dataset_audit_report.json, label_space_report.json, option_position_bias_pre_model_report.json, cyber_sample_manifest.jsonl, cyber_sample_smoke_manifest.jsonl, review_gate_cybermetric_schema_and_label_proxy.md; plus `data/processed/cyber/cybermetric.jsonl`.
+
+Commands:
+```bash
+conda run -n recover_attention python -m pytest tests/test_schemas.py tests/test_cyber_data.py tests/test_domain_label_proxy.py tests/test_data_io.py -q
+conda run -n recover_attention python scripts/sprint_4B_1_prepare_cybermetric.py \
+  --input-path data/raw/cyber/cybermetric/CyberMetric-2000-v1.json \
+  --processed-output data/processed/cyber/cybermetric.jsonl \
+  --output-dir outputs/logs/sprint_4B_1_cybermetric_schema_and_label_proxy \
+  --smoke-questions 240 --shuffle-seed 42 --split-seed 42 --overwrite
+conda run -n recover_attention python -m pytest -q
+```
+
+Checks: targeted pytest 187 passed (4 files); full pytest 708 passed, 2 skipped. All Sprint 4B-2 entry conditions in the task card (Section 22) are met, including the real-tokenizer check (stronger than the allowed skip path).
+
+Boundary flags: `probe_trained=false`, `steering_continued=false`, `hallucination_reduction_proven=false`, `answer_accuracy_improvement_proven=false`, `ready_for_2000_rerun=false`, `do_not_enter_full_sprint_3C=true`.
+
+Next: Sprint 4B-2 (CyberMetric small-model smoke + F5 feature plumbing, ~32 questions) with the three carryover items from the task card Section 23: prompt A/B (raw vs chat template) with the degeneration detector, sampling-protection check, and (for 4B-3) the F5 cost-tier split.
+
 ## Current Status Update: Sprint 4B CyberMetric Smoke Baseline
 
 Sprint 4B smoke is completed on CyberMetric with the minimal chain requested: raw local/gitignored CyberMetric data -> canonical option-letter schema -> label-token proxy -> option-position bias audit -> trace sampling -> F5 output-level baseline -> review gate. This was a smoke run only: no full primary run, no probe training, no steering/nudge, no LoRA/finetuning, no full Sprint 3C, and no 2000-scale run. Gold labels were used only as eval labels, not inference features.

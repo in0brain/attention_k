@@ -284,6 +284,22 @@ REQUIRED_FIELDS = {
         "planned_operation",
         "evidence",
     ],
+    "cyber_sample": [
+        "example_id",
+        "dataset",
+        "source",
+        "group_id",
+        "task_type",
+        "input_text",
+        "question",
+        "candidate_labels",
+        "candidate_choices",
+        "gold_label",
+        "gold_label_id",
+        "gold_label_text",
+        "label_space",
+        "metadata",
+    ],
 }
 
 # Top-level fields that must NOT appear (stale or future-stage fields).
@@ -399,6 +415,107 @@ def validate_question_record(record: dict) -> None:
     _require_non_empty_str(record, "dataset", name)
     _require_non_empty_str(record, "question", name)
     _require_non_empty_str(record, "gold_answer", name)
+
+
+
+def validate_cyber_sample_record(record: dict) -> None:
+    name = "cyber sample record"
+    _require_dict(record, name)
+    _require_fields(record, REQUIRED_FIELDS["cyber_sample"], name)
+    for field in ("example_id", "dataset", "source", "group_id", "task_type", "question"):
+        _require_non_empty_str(record, field, name)
+    _require_str(record, "input_text", name)
+    if record["dataset"] != "cybermetric":
+        raise ValueError(f"{name} field 'dataset' must equal 'cybermetric'")
+    if record["task_type"] != "multiple_choice_qa":
+        raise ValueError(f"{name} field 'task_type' must equal 'multiple_choice_qa'")
+    if record["label_space"] != "mcq_option_letter":
+        raise ValueError(f"{name} field 'label_space' must equal 'mcq_option_letter'")
+
+    labels = record["candidate_labels"]
+    if not isinstance(labels, list) or len(labels) < 2:
+        raise ValueError(f"{name} field 'candidate_labels' must contain at least two labels")
+    if not all(isinstance(label, str) and len(label) == 1 and label.strip() for label in labels):
+        raise ValueError(f"{name} field 'candidate_labels' must contain one-character strings")
+    if len(labels) != len(set(labels)):
+        raise ValueError(f"{name} field 'candidate_labels' must contain unique values")
+
+    choices = record["candidate_choices"]
+    if not isinstance(choices, list) or len(choices) != len(labels):
+        raise ValueError(
+            f"{name} field 'candidate_choices' must have the same length as 'candidate_labels'"
+        )
+    original_positions: list[int] = []
+    for index, choice in enumerate(choices):
+        choice_name = f"{name} candidate_choices[{index}]"
+        _require_dict(choice, choice_name)
+        _require_fields(
+            choice,
+            ["choice", "label_id", "label_text", "original_position"],
+            choice_name,
+        )
+        _require_non_empty_str(choice, "choice", choice_name)
+        _require_non_empty_str(choice, "label_text", choice_name)
+        _require_int(choice, "original_position", choice_name, min_value=0)
+        if choice["choice"] != labels[index]:
+            raise ValueError(
+                f"{name} candidate_labels order must match candidate_choices.choice order"
+            )
+        label_id = choice["label_id"]
+        if label_id is not None and (
+            not isinstance(label_id, (str, int)) or isinstance(label_id, bool)
+        ):
+            raise ValueError(f"{choice_name} field 'label_id' must be null, str, or int")
+        original_positions.append(choice["original_position"])
+    if len(original_positions) != len(set(original_positions)):
+        raise ValueError(f"{name} candidate choice original_position values must be unique")
+
+    _require_non_empty_str(record, "gold_label", name)
+    if record["gold_label"] not in labels:
+        raise ValueError(f"{name} field 'gold_label' must belong to candidate_labels")
+    _require_non_empty_str(record, "gold_label_text", name)
+    gold_choice = choices[labels.index(record["gold_label"])]
+    if record["gold_label_text"] != gold_choice["label_text"]:
+        raise ValueError(f"{name} field 'gold_label_text' must match the gold choice text")
+    if record["gold_label_id"] != gold_choice["label_id"]:
+        raise ValueError(f"{name} field 'gold_label_id' must match the gold choice label_id")
+
+    metadata = record["metadata"]
+    metadata_name = f"{name} metadata"
+    _require_dict(metadata, metadata_name)
+    _require_fields(
+        metadata,
+        [
+            "original_index",
+            "original_gold_position",
+            "shuffled_gold_position",
+            "option_shuffle_seed",
+            "split_seed",
+            "split",
+            "raw_category",
+        ],
+        metadata_name,
+    )
+    for field in (
+        "original_index",
+        "original_gold_position",
+        "shuffled_gold_position",
+        "option_shuffle_seed",
+        "split_seed",
+    ):
+        _require_int(metadata, field, metadata_name, min_value=0)
+    _require_enum(metadata, "split", {"train", "dev", "test"}, metadata_name)
+    if metadata["original_gold_position"] >= len(labels):
+        raise ValueError(f"{metadata_name} field 'original_gold_position' is outside choices")
+    if metadata["shuffled_gold_position"] != labels.index(record["gold_label"]):
+        raise ValueError(
+            f"{metadata_name} field 'shuffled_gold_position' must match gold_label position"
+        )
+    raw_category = metadata["raw_category"]
+    if raw_category is not None and (
+        not isinstance(raw_category, str) or not raw_category.strip()
+    ):
+        raise ValueError(f"{metadata_name} field 'raw_category' must be null or non-empty str")
 
 
 def validate_candidate_span_record(record: dict) -> None:

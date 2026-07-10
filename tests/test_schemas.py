@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from copy import deepcopy
 import sys
 from pathlib import Path
 
@@ -16,6 +17,7 @@ from recover_attention.schemas import (
     validate_ablation_unit_record,
     validate_attention_anchor_label_record,
     validate_candidate_span_record,
+    validate_cyber_sample_record,
     validate_intervention_manifest_record,
     validate_masked_question_record,
     validate_nli_score_record,
@@ -1462,3 +1464,109 @@ def test_intervention_manifest_planned_operation_not_dict_raises_value_error() -
 
     with pytest.raises(ValueError, match="planned_operation"):
         validate_intervention_manifest_record(record)
+
+
+def valid_cyber_sample_record() -> dict:
+    return {
+        "example_id": "cybermetric_000001",
+        "dataset": "cybermetric",
+        "source": "CyberMetric-2000-v1",
+        "group_id": "cybermetric_question_abc",
+        "task_type": "multiple_choice_qa",
+        "input_text": "",
+        "question": "Which option is correct?",
+        "candidate_labels": ["A", "B", "C", "D"],
+        "candidate_choices": [
+            {"choice": "A", "label_id": None, "label_text": "One", "original_position": 2},
+            {"choice": "B", "label_id": None, "label_text": "Two", "original_position": 0},
+            {"choice": "C", "label_id": None, "label_text": "Three", "original_position": 3},
+            {"choice": "D", "label_id": None, "label_text": "Four", "original_position": 1},
+        ],
+        "gold_label": "B",
+        "gold_label_id": None,
+        "gold_label_text": "Two",
+        "label_space": "mcq_option_letter",
+        "metadata": {
+            "original_index": 1,
+            "original_gold_position": 0,
+            "shuffled_gold_position": 1,
+            "option_shuffle_seed": 42,
+            "split_seed": 42,
+            "split": "train",
+            "raw_category": None,
+        },
+    }
+
+
+def test_valid_cyber_sample_record_passes() -> None:
+    assert validate_cyber_sample_record(valid_cyber_sample_record()) is None
+
+
+def test_cyber_sample_missing_required_field_fails() -> None:
+    record = valid_cyber_sample_record()
+    del record["source"]
+    with pytest.raises(ValueError, match="missing required field"):
+        validate_cyber_sample_record(record)
+
+
+def test_cyber_sample_candidate_order_mismatch_fails() -> None:
+    record = valid_cyber_sample_record()
+    record["candidate_choices"][0]["choice"] = "B"
+    with pytest.raises(ValueError, match="order"):
+        validate_cyber_sample_record(record)
+
+
+def test_cyber_sample_gold_label_outside_candidates_fails() -> None:
+    record = valid_cyber_sample_record()
+    record["gold_label"] = "Z"
+    with pytest.raises(ValueError, match="candidate_labels"):
+        validate_cyber_sample_record(record)
+
+
+def test_cyber_sample_gold_text_mismatch_fails() -> None:
+    record = valid_cyber_sample_record()
+    record["gold_label_text"] = "Wrong"
+    with pytest.raises(ValueError, match="gold_label_text"):
+        validate_cyber_sample_record(record)
+
+
+def test_cyber_sample_duplicate_candidate_label_fails() -> None:
+    record = valid_cyber_sample_record()
+    record["candidate_labels"][1] = "A"
+    with pytest.raises(ValueError, match="unique"):
+        validate_cyber_sample_record(record)
+
+
+def test_cyber_sample_invalid_label_space_fails() -> None:
+    record = valid_cyber_sample_record()
+    record["label_space"] = "semantic_id"
+    with pytest.raises(ValueError, match="mcq_option_letter"):
+        validate_cyber_sample_record(record)
+
+
+def test_cyber_sample_invalid_split_fails() -> None:
+    record = valid_cyber_sample_record()
+    record["metadata"]["split"] = "validation"
+    with pytest.raises(ValueError, match="invalid value"):
+        validate_cyber_sample_record(record)
+
+
+def test_cyber_sample_non_integer_original_position_fails() -> None:
+    record = valid_cyber_sample_record()
+    record["candidate_choices"][0]["original_position"] = "2"
+    with pytest.raises(ValueError, match="must be an int"):
+        validate_cyber_sample_record(record)
+
+
+@pytest.mark.parametrize(
+    ("field_path", "value"),
+    [(("question",), ""), (("candidate_choices", 0, "label_text"), "")],
+)
+def test_cyber_sample_empty_text_fails(field_path: tuple, value: str) -> None:
+    record = deepcopy(valid_cyber_sample_record())
+    if len(field_path) == 1:
+        record[field_path[0]] = value
+    else:
+        record[field_path[0]][field_path[1]][field_path[2]] = value
+    with pytest.raises(ValueError, match="non-empty"):
+        validate_cyber_sample_record(record)

@@ -163,3 +163,21 @@ outputs/logs/sprint_4B_cyber_dataset_baseline_and_site_transfer_smoke/review_gat
 Artifact boundary: do not commit `data/raw/cyber/` or `outputs/logs/`; both are local artifacts. Stage 5 was skipped in the smoke because only 7 correct/wrong pairs were found, below the 20-pair gate.
 
 Rerun verification: the smoke directory was regenerated locally with `--overwrite`; it remains gitignored and is not a tracked artifact.
+
+
+## Sprint 4B-1 canonical schema and label proxy artifacts
+
+Directory: `outputs/logs/sprint_4B_1_cybermetric_schema_and_label_proxy/` (gitignored) plus `data/processed/cyber/cybermetric.jsonl` (gitignored).
+
+| file | exists | tracked | note |
+| --- | --- | --- | --- |
+| preflight_report.md | yes | no | gitignored outputs/ |
+| dataset_audit_report.json | yes | no | 2000/2000 converted, 0 leakage |
+| label_space_report.json | yes | no | real Qwen tokenizer check passed (A/B/C/D = 362/425/356/422) |
+| option_position_bias_pre_model_report.json | yes | no | gold A/B/C/D = 465/503/529/503, no severe imbalance |
+| cyber_sample_manifest.jsonl | yes | no | full 2000-record canonical snapshot |
+| cyber_sample_smoke_manifest.jsonl | yes | no | 240 records, split-aware |
+| review_gate_cybermetric_schema_and_label_proxy.md | yes | no | 30 questions answered |
+| data/processed/cyber/cybermetric.jsonl | yes | no | standard pipeline input for 4B-2/4B-3 |
+
+Key conclusion: CyberMetric is converted into a validated canonical MCQ schema with deterministic option randomization, preserved semantic option labels, and a tested option-letter label proxy; ready for the Sprint 4B-2 small-model smoke. A `BatchEncoding`-vs-`dict` duck-typing bug in the tokenizer check was found and fixed with a regression test. No model generation, F5, probe, or steering occurred in this sub-sprint.

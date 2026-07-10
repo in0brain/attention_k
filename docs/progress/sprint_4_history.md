@@ -190,3 +190,30 @@ conda run -n recover_attention python -m pytest tests/test_dataset_audit.py test
 ```
 
 Boundary: raw data and smoke outputs remain local/gitignored artifacts. No probe training, steering, nudge, LoRA/finetuning, full Sprint 3C, or 2000-scale run occurred. No hallucination-reduction or accuracy-improvement claim is made.
+
+
+## Sprint 4B-1 - CyberMetric Canonical Schema and Domain Label Proxy
+
+Goal: establish the data/label interface for the hallucination-control mainline before any model-generation stage. Task card: `docs/codex_tasks/sprint_4B_1_cybermetric_schema_and_label_proxy.md`. Strictly no causal LM calls, no completions, no F5, no site-transfer, no probe, no steering; tokenizer-only load of the local Qwen2.5 tokenizer was the sole model asset touched (explicitly allowed by the card).
+
+Implemented:
+- `schemas.py`: `cyber_sample` record type + `validate_cyber_sample_record` (field rules for candidate_labels/candidate_choices alignment, gold mapping, label_space, metadata splits).
+- `cyber_data.py`: CyberMetric loading/normalization, deterministic per-example option shuffle (sha256-derived per-example seeds; no builtin hash; no in-place mutation), question-hash `group_id` proxy, grouped split, MCQ prompt builder, audits.
+- `domain_label_proxy.py`: pure option-letter proxy - `option_token_ids` (whitespace-marker stripping, single-token and collision enforcement), `parse_option_answer` (explicit `Answer: X` > isolated-letter fallback > parse_failure; negative cases like Aes/BERT/CVE/DNS covered), `locate_label_readout_position`, `label_margin`/`label_entropy`/`full_entropy`, `self_consistency_features` (gold-free by construction), recursive gold-leakage checker.
+- `scripts/sprint_4B_1_prepare_cybermetric.py`: raw -> canonical -> shuffle -> grouped split -> validation -> manifests -> pre-model audits -> review gate.
+- The 4B smoke script was adapted to the new APIs (card compat option 1; compile-checked only).
+
+Results:
+- 2000/2000 CyberMetric-2000 records converted, 0 invalid, 0 duplicate example_ids.
+- Grouped split train/dev/test = 1400/300/300, group leakage 0 (group_id honestly labeled a question-derived proxy).
+- Post-shuffle gold distribution A/B/C/D = 465/503/529/503; fixed-seed reproducible, different-seed order changes verified; gold semantic mapping intact after shuffle.
+- Real Qwen2.5 tokenizer check passed: A/B/C/D -> 362/425/356/422, distinct single non-whitespace tokens.
+- Smoke manifest: 240 records, split-aware sampling.
+
+Execution bug found and fixed: the tokenizer check was initially skipped with `ValueError: invalid literal for int(): 'input_ids'`. HuggingFace `BatchEncoding` subclasses `UserDict`, not `dict`, so `isinstance(encoded, dict)` in `_tokenizer_ids` fell through and iterated key names as token ids. Fixed via mapping duck-typing; regression test with a UserDict-style fake tokenizer added. Leftover `*.patch`/`tmp_patch/` scratch files (which broke pytest collection) were archived out of the repo root.
+
+Checks: targeted pytest 187 passed; full pytest 708 passed, 2 skipped. All Section-22 entry conditions for Sprint 4B-2 are met.
+
+Boundary: no hallucination-reduction or accuracy claim; gold labels remain eval-only; raw data and outputs stay gitignored with this manifest as the audit record.
+
+Next: Sprint 4B-2 small-model smoke (~32 questions) carrying the three Section-23 carryover items (prompt A/B + degeneration detector; sampling-protection check; F5 cost-tier split in 4B-3).

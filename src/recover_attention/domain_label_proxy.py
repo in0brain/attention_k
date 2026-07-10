@@ -1,166 +1,344 @@
-"""Domain label proxy helpers for finite-label cyber MCQ tasks."""
+"""Pure option-letter proxy helpers for finite-label cyber MCQ tasks."""
 
 from __future__ import annotations
 
 import math
 import re
-from typing import Any
+from collections import Counter
+from typing import Any, Iterable
 
-import numpy as np
-
-LABEL_RE = re.compile(r"\b(?:Answer|Final answer)\s*:\s*([A-Z])\b", re.IGNORECASE)
-LETTER_RE = re.compile(r"(?<![A-Za-z])([A-D])(?![A-Za-z])", re.IGNORECASE)
-
-EVAL_ONLY_FIELD_NAMES = {
+FORBIDDEN_INFERENCE_FEATURE_FIELDS = {
     "gold_label",
     "gold_label_id",
     "gold_label_text",
-    "is_correct",
-    "wrong_label",
+    "correct_option",
+    "answer_key",
+    "target_label",
 }
+_EXPLICIT_ANSWER_RE = re.compile(r"\b(?:final\s+)?answer\s*:\s*([A-Z])\b", re.IGNORECASE)
+_ISOLATED_LETTER_RE = re.compile(r"(?<![A-Za-z])([A-Z])(?![A-Za-z])", re.IGNORECASE)
+_TRAILING_PUNCTUATION_RE = re.compile(r"^[\s.,;:!?()\[\]{}]*$")
+_TOKEN_WHITESPACE_MARKERS = ("Ġ", "▁", "Ċ", "ĉ", "▏")
 
 
-def _is_whitespace_token(piece: str | None) -> bool:
+def _tokenizer_ids(tokenizer: Any, text: str) -> list[int]:
+    encoded = tokenizer(text, add_special_tokens=False)
+    # HuggingFace returns BatchEncoding (a UserDict, NOT a dict subclass), so an
+    # isinstance(encoded, dict) check misses it and iterating yields key names.
+    # Duck-type on mapping behaviour instead.
+    if isinstance(encoded, dict) or hasattr(encoded, "keys"):
+        ids = encoded["input_ids"]
+    else:
+        ids = encoded
+    if ids and isinstance(ids[0], list):
+        ids = ids[0]
+    return [int(token_id) for token_id in ids]
+
+
+def _token_piece_content(piece: str | None) -> str:
     if piece is None:
-        return False
-    return piece.replace("臓", "").replace("膴", "").replace("鈻?", "").strip() == ""
+        return ""
+    normalized = str(piece)
+    for marker in _TOKEN_WHITESPACE_MARKERS:
+        normalized = normalized.replace(marker, "")
+    return normalized.strip()
 
 
 def option_token_ids(tokenizer: Any, labels: list[str]) -> dict[str, int]:
-    """Map option letters to single non-whitespace token ids."""
+    """Resolve each label to one distinct non-whitespace tokenizer token."""
+    if len(labels) != len(set(labels)):
+        raise ValueError(f"option labels must be unique: {labels!r}")
+    result: dict[str, int] = {}
+    for raw_label in labels:
+        label = str(raw_label).strip().upper()
+        if len(label) != 1:
+            raise ValueError(f"option label must be one character: {raw_label!r}")
+        token_ids = _tokenizer_ids(tokenizer, f" {label}")
+        valid_ids = [
+            token_id
+            for token_id in token_ids
+            if _token_piece_content(tokenizer.convert_ids_to_tokens(token_id))
+        ]
+        if len(valid_ids) != 1:
+            raise ValueError(
+                f"option label {label!r} must map to one non-whitespace token; "
+                f"token_ids={token_ids}, valid_token_ids={valid_ids}"
+            )
+        result[label] = valid_ids[0]
+    collisions = {
+        token_id: sorted(label for label, candidate in result.items() if candidate == token_id)
+        for token_id in set(result.values())
+        if sum(candidate == token_id for candidate in result.values()) > 1
+    }
+    if collisions:
+        raise ValueError(f"option label token-id collision: labels={result}, collisions={collisions}")
+    return result
 
-    out: dict[str, int] = {}
-    for label in labels:
-        ids = tokenizer(str(label).strip(), add_special_tokens=False)["input_ids"]
-        clean: list[int] = []
-        for token_id in ids:
-            piece = tokenizer.convert_ids_to_tokens(int(token_id))
-            if _is_whitespace_token(piece):
-                continue
-            clean.append(int(token_id))
-        if len(clean) != 1:
-            raise ValueError(f"option label {label!r} is not a single non-whitespace token: {clean}")
-        out[str(label)] = clean[0]
-    if len(set(out.values())) != len(out):
-        raise ValueError(f"option labels do not have distinct token ids: {out}")
-    return out
+
+def _valid_label_set(valid_labels: list[str]) -> tuple[list[str], set[str]]:
+    normalized = [str(label).strip().upper() for label in valid_labels]
+    if len(normalized) < 2 or len(normalized) != len(set(normalized)):
+        raise ValueError("valid_labels must contain at least two unique labels")
+    if any(len(label) != 1 for label in normalized):
+        raise ValueError("valid_labels must contain single-character labels")
+    return normalized, set(normalized)
 
 
-def parse_option_answer(text: str, candidate_labels: list[str] | None = None) -> dict[str, Any]:
-    """Parse an option-letter answer without forcing a label on failure."""
-
-    labels = {str(x).upper() for x in (candidate_labels or ["A", "B", "C", "D"])}
-    for match in LABEL_RE.finditer(text):
+def _trailing_isolated_matches(text: str, valid: set[str]) -> list[re.Match[str]]:
+    matches: list[re.Match[str]] = []
+    for match in _ISOLATED_LETTER_RE.finditer(text):
         label = match.group(1).upper()
-        if label in labels:
-            return {"parsed_label": label, "parse_method": "answer_prefix", "parse_failed": False}
-    last = None
-    for match in LETTER_RE.finditer(text):
-        label = match.group(1).upper()
-        if label in labels:
-            last = label
-    if last is not None:
-        return {"parsed_label": last, "parse_method": "last_standalone_letter", "parse_failed": False}
-    return {"parsed_label": None, "parse_method": "parse_failure", "parse_failed": True}
+        if label in valid and _TRAILING_PUNCTUATION_RE.fullmatch(text[match.end() :]):
+            matches.append(match)
+    return matches
 
 
-def locate_label_readout_position(tokenizer: Any, text: str, label: str) -> dict[str, Any]:
-    """Locate the token slot immediately before a label occurrence after Answer:"""
-
-    encoded = tokenizer(text, return_offsets_mapping=True, add_special_tokens=False)
-    offsets = [[int(s), int(e)] for s, e in encoded["offset_mapping"]]
-    pattern = re.compile(r"(?:Answer|Final answer)\s*:\s*" + re.escape(label), re.IGNORECASE)
-    match = None
-    for match in pattern.finditer(text):
-        pass
-    if match is None:
-        return {"found": False, "label_token_position": None, "readout_position": None}
-    label_start = match.end() - len(label)
-    label_token_position = None
-    for idx, (start, end) in enumerate(offsets):
-        if end > start and start <= label_start < end:
-            label_token_position = idx
-            break
-    if label_token_position is None or label_token_position <= 0:
-        return {"found": False, "label_token_position": label_token_position, "readout_position": None}
+def parse_option_answer(text: str, valid_labels: list[str]) -> dict:
+    """Parse an explicit answer marker, then a final isolated option letter."""
+    if not isinstance(text, str):
+        raise ValueError("text must be a str")
+    _, valid = _valid_label_set(valid_labels)
+    explicit = [
+        match for match in _EXPLICIT_ANSWER_RE.finditer(text)
+        if match.group(1).upper() in valid
+    ]
+    if explicit:
+        label = explicit[-1].group(1).upper()
+        return {
+            "parsed_label": label,
+            "parse_method": "explicit_answer_marker",
+            "parse_failure": False,
+        }
+    trailing = _trailing_isolated_matches(text, valid)
+    if trailing:
+        return {
+            "parsed_label": trailing[-1].group(1).upper(),
+            "parse_method": "last_isolated_label",
+            "parse_failure": False,
+        }
     return {
-        "found": True,
-        "label_token_position": int(label_token_position),
-        "readout_position": int(label_token_position) - 1,
+        "parsed_label": None,
+        "parse_method": "parse_failure",
+        "parse_failure": True,
     }
 
 
-def _softmax(values: np.ndarray) -> np.ndarray:
-    shifted = values - float(np.max(values))
-    exp = np.exp(shifted)
-    return exp / max(float(exp.sum()), 1e-12)
+def locate_label_readout_position(
+    tokenizer: Any,
+    prompt: str,
+    completion: str,
+    parsed_label: str,
+) -> int:
+    """Return the token position immediately before the parsed answer label."""
+    label = str(parsed_label).strip().upper()
+    if not label:
+        raise ValueError("parsed_label must be non-empty")
+    parsed = parse_option_answer(completion, [label, "_"])
+    if parsed["parsed_label"] != label:
+        raise ValueError(f"parsed label {label!r} cannot be located in completion")
+    explicit = [
+        match for match in _EXPLICIT_ANSWER_RE.finditer(completion)
+        if match.group(1).upper() == label
+    ]
+    if explicit:
+        candidates = [match.start(1) for match in explicit]
+    else:
+        candidates = [match.start(1) for match in _trailing_isolated_matches(completion, {label})]
+    if len(candidates) != 1:
+        raise ValueError(
+            f"parsed label {label!r} must have exactly one answer occurrence; "
+            f"found {len(candidates)}"
+        )
+    combined = prompt + completion
+    encoded = tokenizer(
+        combined,
+        add_special_tokens=False,
+        return_offsets_mapping=True,
+    )
+    offsets = encoded.get("offset_mapping") if isinstance(encoded, dict) else None
+    if offsets is None:
+        raise ValueError("tokenizer must provide offset_mapping")
+    if offsets and isinstance(offsets[0], list) and offsets[0] and isinstance(offsets[0][0], (list, tuple)):
+        offsets = offsets[0]
+    label_start = len(prompt) + candidates[0]
+    token_positions = [
+        index
+        for index, (start, end) in enumerate(offsets)
+        if int(end) > int(start) and int(start) <= label_start < int(end)
+    ]
+    if len(token_positions) != 1:
+        raise ValueError(
+            f"answer label must map to exactly one token position; found {token_positions}"
+        )
+    label_position = token_positions[0]
+    if label_position == 0:
+        raise ValueError("answer label has no preceding readout position")
+    return label_position - 1
 
 
-def label_distribution(logits: Any, token_ids: dict[str, int]) -> dict[str, float]:
-    arr = np.asarray([float(logits[int(tid)]) for tid in token_ids.values()], dtype=float)
-    probs = _softmax(arr)
-    return {label: float(prob) for label, prob in zip(token_ids.keys(), probs)}
+def _finite_values(values: Iterable[Any], *, name: str, minimum: int) -> list[float]:
+    converted = [float(value) for value in values]
+    if len(converted) < minimum:
+        raise ValueError(f"{name} requires at least {minimum} values")
+    if any(not math.isfinite(value) for value in converted):
+        raise ValueError(f"{name} values must be finite real numbers")
+    return converted
 
 
-def label_margin(logits: Any, token_ids: dict[str, int]) -> dict[str, Any]:
-    scores = {label: float(logits[int(token_id)]) for label, token_id in token_ids.items()}
-    ordered = sorted(scores.items(), key=lambda item: item[1], reverse=True)
-    top1 = ordered[0] if ordered else (None, None)
-    top2 = ordered[1] if len(ordered) > 1 else (None, None)
-    return {
-        "top1_label": top1[0],
-        "top2_label": top2[0],
-        "top1_score": top1[1],
-        "top2_score": top2[1],
-        "margin": (top1[1] - top2[1]) if top1[1] is not None and top2[1] is not None else None,
-    }
+def label_margin(option_logits: dict[str, float]) -> float:
+    """Return top-1 minus top-2 over candidate option logits."""
+    if not isinstance(option_logits, dict):
+        raise ValueError("option_logits must be a dict")
+    ordered = sorted(
+        _finite_values(option_logits.values(), name="label_margin", minimum=2),
+        reverse=True,
+    )
+    return ordered[0] - ordered[1]
 
 
-def label_entropy(logits: Any, token_ids: dict[str, int]) -> float:
-    arr = np.asarray([float(logits[int(tid)]) for tid in token_ids.values()], dtype=float)
-    probs = _softmax(arr)
-    return float(-(probs * np.log(np.clip(probs, 1e-12, 1.0))).sum())
+def _softmax(values: list[float]) -> list[float]:
+    maximum = max(values)
+    exponentials = [math.exp(value - maximum) for value in values]
+    denominator = sum(exponentials)
+    return [value / denominator for value in exponentials]
+
+
+def label_entropy(option_logits: dict[str, float]) -> float:
+    """Compute entropy after normalizing only candidate option logits."""
+    if not isinstance(option_logits, dict):
+        raise ValueError("option_logits must be a dict")
+    values = _finite_values(option_logits.values(), name="label_entropy", minimum=2)
+    probabilities = _softmax(values)
+    return -sum(probability * math.log(probability) for probability in probabilities)
+
+
+def _flatten_logits(logits: Any) -> list[float]:
+    if hasattr(logits, "detach") and hasattr(logits, "reshape"):
+        logits = logits.detach().float().cpu().reshape(-1).tolist()
+    elif hasattr(logits, "reshape") and hasattr(logits, "tolist"):
+        logits = logits.reshape(-1).tolist()
+    elif hasattr(logits, "tolist"):
+        logits = logits.tolist()
+
+    def walk(value: Any) -> Iterable[Any]:
+        if isinstance(value, (list, tuple)):
+            for child in value:
+                yield from walk(child)
+        else:
+            yield value
+
+    return _finite_values(walk(logits), name="full_entropy", minimum=2)
 
 
 def full_entropy(logits: Any) -> float:
-    arr = np.asarray(logits, dtype=float)
-    probs = _softmax(arr)
-    return float(-(probs * np.log(np.clip(probs, 1e-12, 1.0))).sum())
+    """Compute numerically stable full-vocabulary softmax entropy."""
+    probabilities = _softmax(_flatten_logits(logits))
+    return -sum(probability * math.log(probability) for probability in probabilities)
 
 
-def self_consistency_features(sampled_labels: list[str | None], greedy_label: str | None) -> dict[str, Any]:
-    clean = [x for x in sampled_labels if x is not None]
-    if not clean or greedy_label is None:
-        return {"f5_self_consistency": None, "f5_sc_majority_agree": None, "sample_majority_label": None}
-    counts = {label: clean.count(label) for label in sorted(set(clean))}
-    majority = sorted(counts.items(), key=lambda item: (-item[1], item[0]))[0][0]
+def self_consistency_features(
+    greedy_label: str | None,
+    sampled_labels: list[str | None],
+    valid_labels: list[str],
+) -> dict:
+    """Summarize parsed samples without accepting any evaluation label."""
+    ordered_labels, valid = _valid_label_set(valid_labels)
+    normalized_greedy = None if greedy_label is None else str(greedy_label).upper()
+    if normalized_greedy is not None and normalized_greedy not in valid:
+        raise ValueError(f"greedy_label {greedy_label!r} is outside valid_labels")
+    normalized_samples = [
+        None if label is None else str(label).upper() for label in sampled_labels
+    ]
+    invalid = [label for label in normalized_samples if label is not None and label not in valid]
+    if invalid:
+        raise ValueError(f"sampled label(s) outside valid_labels: {invalid}")
+    counts = Counter(label for label in normalized_samples if label is not None)
+    majority_label = None
+    if counts:
+        majority_label = max(
+            ordered_labels,
+            key=lambda label: (counts.get(label, 0), -ordered_labels.index(label)),
+        )
+    parsed_count = sum(counts.values())
+    sample_count = len(normalized_samples)
+    agreement = (
+        counts.get(normalized_greedy, 0) / parsed_count
+        if normalized_greedy is not None and parsed_count
+        else None
+    )
     return {
-        "f5_self_consistency": clean.count(greedy_label) / len(clean),
-        "f5_sc_majority_agree": 1.0 if majority == greedy_label else 0.0,
-        "sample_majority_label": majority,
+        "num_samples": sample_count,
+        "num_parsed_samples": parsed_count,
+        "parse_failure_count": sample_count - parsed_count,
+        "parse_failure_rate": (
+            (sample_count - parsed_count) / sample_count if sample_count else 0.0
+        ),
+        "greedy_label": normalized_greedy,
+        "sample_vote_counts": {
+            label: counts.get(label, 0) for label in ordered_labels
+        },
+        "sample_majority_label": majority_label,
+        "self_consistency_with_greedy": agreement,
+        "majority_agrees_with_greedy": (
+            majority_label == normalized_greedy
+            if majority_label is not None and normalized_greedy is not None
+            else None
+        ),
     }
 
 
+
 def fixed_f5_risk_score(features: dict[str, Any]) -> float | None:
-    values = [
-        -float(features["f5_label_margin"]) if features.get("f5_label_margin") is not None else None,
-        float(features["f5_label_entropy"]) if features.get("f5_label_entropy") is not None else None,
-        1.0 - float(features["f5_self_consistency"]) if features.get("f5_self_consistency") is not None else None,
-        1.0 - float(features["f5_sc_majority_agree"]) if features.get("f5_sc_majority_agree") is not None else None,
+    """Compatibility fixed combination for the superseded Sprint 4B smoke."""
+    raw_values = [
+        -float(features["f5_label_margin"])
+        if features.get("f5_label_margin") is not None
+        else None,
+        float(features["f5_label_entropy"])
+        if features.get("f5_label_entropy") is not None
+        else None,
+        1.0 - float(features["f5_self_consistency"])
+        if features.get("f5_self_consistency") is not None
+        else None,
+        1.0 - float(features["f5_sc_majority_agree"])
+        if features.get("f5_sc_majority_agree") is not None
+        else None,
     ]
-    clean = [v for v in values if v is not None and math.isfinite(v)]
-    return float(sum(clean) / len(clean)) if clean else None
+    values = [value for value in raw_values if value is not None and math.isfinite(value)]
+    return sum(values) / len(values) if values else None
+
+
+def assert_no_gold_label_leakage(feature_record: dict) -> None:
+    """Reject evaluation-label keys anywhere inside a feature record."""
+    if not isinstance(feature_record, dict):
+        raise ValueError("feature_record must be a dict")
+
+    def visit(value: Any, path: str) -> None:
+        if isinstance(value, dict):
+            for key, child in value.items():
+                normalized_key = str(key).casefold()
+                child_path = f"{path}.{key}" if path else str(key)
+                if normalized_key in FORBIDDEN_INFERENCE_FEATURE_FIELDS:
+                    raise ValueError(f"forbidden inference feature field at {child_path}")
+                visit(child, child_path)
+        elif isinstance(value, list):
+            for index, child in enumerate(value):
+                visit(child, f"{path}[{index}]")
+
+    visit(feature_record, "")
+
+
+def classify_trace_by_option(parsed_label: str | None, gold_label: str) -> str:
+    """Classify a parsed trace for evaluation only."""
+    if parsed_label is None:
+        return "parse_failure"
+    return (
+        "correct"
+        if str(parsed_label).strip().upper() == str(gold_label).strip().upper()
+        else "wrong"
+    )
 
 
 def assert_no_gold_feature_leakage(feature_names: list[str]) -> None:
-    leaked = sorted(set(feature_names) & EVAL_ONLY_FIELD_NAMES)
-    leaked += sorted(name for name in feature_names if name.startswith("gold_") or "gold_label" in name)
-    if leaked:
-        raise ValueError(f"eval-only fields leaked into feature list: {sorted(set(leaked))}")
-
-
-def classify_trace_by_option(parsed_label: str | None, gold_label: str) -> dict[str, Any]:
-    if parsed_label is None:
-        return {"is_correct": None, "wrong_label": None}
-    is_correct = str(parsed_label).upper() == str(gold_label).upper()
-    return {"is_correct": bool(is_correct), "wrong_label": 0 if is_correct else 1}
+    """Compatibility wrapper for the superseded Sprint 4B smoke script."""
+    assert_no_gold_label_leakage({name: None for name in feature_names})

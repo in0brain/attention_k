@@ -11,7 +11,7 @@ SRC_DIR = PROJECT_ROOT / "src"
 if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 
-from recover_attention.data_io import read_jsonl, write_jsonl
+from recover_attention.data_io import read_json, read_jsonl, write_json, write_jsonl, write_text
 
 
 def test_write_jsonl_then_read_jsonl_roundtrip(tmp_path: Path) -> None:
@@ -52,3 +52,16 @@ def test_write_jsonl_creates_parent_directory(tmp_path: Path) -> None:
 
     assert path.exists()
     assert read_jsonl(path) == [{"id": "q1"}]
+
+
+def test_write_json_then_read_json_roundtrip(tmp_path: Path) -> None:
+    path = tmp_path / "nested" / "report.json"
+    payload = {"count": 2, "labels": ["A", "B"]}
+    write_json(payload, path)
+    assert read_json(path) == payload
+
+
+def test_write_text_creates_parent_directory(tmp_path: Path) -> None:
+    path = tmp_path / "nested" / "report.md"
+    write_text("# Report\n", path)
+    assert path.read_text(encoding="utf-8") == "# Report\n"

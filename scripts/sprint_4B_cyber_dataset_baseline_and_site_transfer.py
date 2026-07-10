@@ -1,4 +1,4 @@
-﻿"""Sprint 4B smoke: CyberMetric schema, trace sampling, and F5 baseline.
+"""Sprint 4B smoke: CyberMetric schema, trace sampling, and F5 baseline.
 
 This script runs the minimal 4B chain for a finite-label cyber MCQ dataset:
 canonical schema -> option-letter label proxy -> option-position audit -> trace
@@ -210,16 +210,18 @@ def sample_and_score(context: dict[str, Any], records: list[dict[str, Any]], arg
     for idx, record in enumerate(records):
         prompt = cd.build_mcq_prompt(record)
         logits = next_token_logits(context, prompt + "\nAnswer: ")
-        margin = dlp.label_margin(logits, token_ids)
+        option_logits = {
+            label: float(logits[token_id]) for label, token_id in token_ids.items()
+        }
         features = {
-            "f5_label_margin": margin["margin"],
-            "f5_label_entropy": dlp.label_entropy(logits, token_ids),
+            "f5_label_margin": dlp.label_margin(option_logits),
+            "f5_label_entropy": dlp.label_entropy(option_logits),
             "f5_full_entropy": dlp.full_entropy(logits),
         }
         greedy_completion = generate_completion(context, prompt, max_new_tokens=args.max_new_tokens, do_sample=False, seed=args.seed + idx)
         greedy_parse = dlp.parse_option_answer(greedy_completion, record["candidate_labels"])
-        greedy_cls = dlp.classify_trace_by_option(greedy_parse["parsed_label"], record["gold_label"])
-        traces.append(trace_row(record, "greedy", 0, prompt, greedy_completion, greedy_parse, greedy_cls, args))
+        greedy_status = dlp.classify_trace_by_option(greedy_parse["parsed_label"], record["gold_label"])
+        traces.append(trace_row(record, "greedy", 0, prompt, greedy_completion, greedy_parse, greedy_status, args))
 
         sampled: list[str | None] = []
         for sample_idx in range(args.samples_per_question):
@@ -233,17 +235,30 @@ def sample_and_score(context: dict[str, Any], records: list[dict[str, Any]], arg
                 seed=args.seed + 1000 * idx + sample_idx,
             )
             parsed = dlp.parse_option_answer(completion, record["candidate_labels"])
-            cls = dlp.classify_trace_by_option(parsed["parsed_label"], record["gold_label"])
+            status = dlp.classify_trace_by_option(parsed["parsed_label"], record["gold_label"])
             sampled.append(parsed["parsed_label"])
-            traces.append(trace_row(record, "sample", sample_idx, prompt, completion, parsed, cls, args))
-        features.update(dlp.self_consistency_features(sampled, greedy_parse["parsed_label"]))
+            traces.append(trace_row(record, "sample", sample_idx, prompt, completion, parsed, status, args))
+        consistency = dlp.self_consistency_features(
+            greedy_parse["parsed_label"], sampled, record["candidate_labels"]
+        )
+        features.update(
+            {
+                "f5_self_consistency": consistency["self_consistency_with_greedy"],
+                "f5_sc_majority_agree": (
+                    float(consistency["majority_agrees_with_greedy"])
+                    if consistency["majority_agrees_with_greedy"] is not None
+                    else None
+                ),
+                "sample_majority_label": consistency["sample_majority_label"],
+            }
+        )
         features["f5_fixed_combined_risk"] = dlp.fixed_f5_risk_score(features)
         f5_rows.append(
             {
                 "example_id": record["example_id"],
                 "gold_label": record["gold_label"],
                 "greedy_label": greedy_parse["parsed_label"],
-                "wrong_label": greedy_cls["wrong_label"],
+                "wrong_label": 0 if greedy_status == "correct" else 1 if greedy_status == "wrong" else None,
                 **features,
             }
         )
@@ -327,7 +342,7 @@ def choose_next_token(logits: Any, *, do_sample: bool, temperature: float, top_p
     return int(np.searchsorted(cumulative, draw, side="left"))
 
 
-def trace_row(record: dict[str, Any], sample_type: str, sample_index: int, prompt: str, completion: str, parsed: dict[str, Any], cls: dict[str, Any], args: argparse.Namespace) -> dict[str, Any]:
+def trace_row(record: dict[str, Any], sample_type: str, sample_index: int, prompt: str, completion: str, parsed: dict[str, Any], status: str, args: argparse.Namespace) -> dict[str, Any]:
     return {
         "example_id": record["example_id"],
         "sample_type": sample_type,
@@ -336,10 +351,10 @@ def trace_row(record: dict[str, Any], sample_type: str, sample_index: int, promp
         "completion": completion,
         "parsed_label": parsed["parsed_label"],
         "parse_method": parsed["parse_method"],
-        "parse_failure": parsed["parse_failed"],
+        "parse_failure": parsed["parse_failure"],
         "gold_label": record["gold_label"],
-        "is_correct": cls["is_correct"],
-        "wrong_label": cls["wrong_label"],
+        "is_correct": True if status == "correct" else False if status == "wrong" else None,
+        "wrong_label": 0 if status == "correct" else 1 if status == "wrong" else None,
         "temperature": 0.0 if sample_type == "greedy" else args.temperature,
         "max_new_tokens": args.max_new_tokens,
     }
