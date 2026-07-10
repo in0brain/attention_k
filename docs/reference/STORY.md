@@ -1,4 +1,4 @@
-﻿# 项目故事线：从 Reasoning-Aware Attention Guidance 到 MLP Readout Attribution
+# 项目故事线：从 Reasoning-Aware Attention Guidance 到 MLP Readout Attribution
 
 > 本文件是项目的故事线与研究叙事备忘。
 > 它用于记录当前研究脉络、阶段性结论，以及 Workspace / J-lens / NLA 等外部论文的接入计划。

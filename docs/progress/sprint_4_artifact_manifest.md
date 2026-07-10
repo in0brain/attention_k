@@ -181,3 +181,21 @@ Directory: `outputs/logs/sprint_4B_1_cybermetric_schema_and_label_proxy/` (gitig
 | data/processed/cyber/cybermetric.jsonl | yes | no | standard pipeline input for 4B-2/4B-3 |
 
 Key conclusion: CyberMetric is converted into a validated canonical MCQ schema with deterministic option randomization, preserved semantic option labels, and a tested option-letter label proxy; ready for the Sprint 4B-2 small-model smoke. A `BatchEncoding`-vs-`dict` duck-typing bug in the tokenizer check was found and fixed with a regression test. No model generation, F5, probe, or steering occurred in this sub-sprint.
+
+
+## Sprint 4B-2 small-model smoke artifacts
+
+Directory: `outputs/logs/sprint_4B_2_small_model_smoke/` (gitignored).
+
+| file | exists | tracked | note |
+| --- | --- | --- | --- |
+| preflight_report.md | yes | no | worktree/model/dataset spot-check |
+| ab_question_manifest.jsonl | yes | no | 32 train-split questions, seed 4242 |
+| trace_manifest_cond_raw.jsonl | yes | no | 128 traces, degenerate flags per trace |
+| trace_manifest_cond_chat.jsonl | yes | no | 128 traces, all bare-letter single-token |
+| prompt_ab_report.json | yes | no | chat 0.0 vs raw 0.1875; winner=chat; admits 4B-3 |
+| f5_feature_plumbing_report.json | yes | no | 5 features finite, tier fields, assertion 32/32 |
+| option_position_model_bias_report.json | yes | no | no severe warning |
+| review_gate_small_model_smoke.md | yes | no | 17 items answered |
+
+Key conclusions: chat prompt eliminates the raw-completion degeneration (0.0 vs 0.094+0.094); two instrumentation bugs (BatchEncoding duck-typing in locate; bare-vs-space option token form) found by dry runs and fixed with regression tests before the official run; chat completions carry zero reasoning text (has_reasoning_text 0.00) - F2 substrate decision deferred to 4B-3 with a gated reasoning-forcing mini-test. No kill bar declared. `probe_trained=false`, `steering_continued=false`.

@@ -132,6 +132,26 @@ def test_build_mcq_prompt_does_not_emit_gold_metadata() -> None:
     assert prompt.endswith("Answer: <letter>")
 
 
+def test_build_mcq_chat_messages_contains_all_options_and_no_gold_leakage() -> None:
+    record = canonical(RAW[0])
+    messages = cd.build_mcq_chat_messages(record)
+    assert [m["role"] for m in messages] == ["system", "user"]
+    assert messages[0]["content"] == cd.CHAT_SYSTEM_PROMPT
+    user_content = messages[1]["content"]
+    for choice in record["candidate_choices"]:
+        assert f"{choice['choice']}. {choice['label_text']}" in user_content
+    assert "gold_label" not in user_content
+    assert "Correct answer" not in user_content
+
+
+def test_build_mcq_chat_messages_user_body_matches_raw_prompt() -> None:
+    # Only the wrapper differs between conditions; the question rendering
+    # itself must be identical so the A/B test isolates the prompt style.
+    record = canonical(RAW[0])
+    messages = cd.build_mcq_chat_messages(record)
+    assert messages[1]["content"] == cd.build_mcq_prompt(record)
+
+
 def test_grouped_split_has_no_group_leakage() -> None:
     duplicated = canonical(RAW[0], 0)
     duplicate = deepcopy(duplicated)

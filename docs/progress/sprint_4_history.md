@@ -217,3 +217,32 @@ Checks: targeted pytest 187 passed; full pytest 708 passed, 2 skipped. All Secti
 Boundary: no hallucination-reduction or accuracy claim; gold labels remain eval-only; raw data and outputs stay gitignored with this manifest as the audit record.
 
 Next: Sprint 4B-2 small-model smoke (~32 questions) carrying the three Section-23 carryover items (prompt A/B + degeneration detector; sampling-protection check; F5 cost-tier split in 4B-3).
+
+
+## Sprint 4B-2 - Small-Model Smoke and F5 Feature Plumbing
+
+Goal: first model-generation stage on canonical CyberMetric data. Task card: `docs/codex_tasks/sprint_4B_2_small_model_smoke_and_f5_plumbing.md`. 32 questions (train split, seed 4242, not first-N), two prompt conditions (raw completion vs chat template), 1 greedy + 3 samples each, max_new_tokens 256. No probe training, no steering, no patching, no kill-bar claim; gold labels eval-only.
+
+Implemented:
+- `domain_label_proxy.detect_degeneration`: three rules (single-char run >= 30; substring length 6-40 looping >= 5x; truncated_failure = parse failure at >= 0.9 generation budget, exact token count preferred over char heuristic), with REAL degenerate completions from the 4B smoke harvested verbatim (repr round-trip) as test fixtures, including two documented negatives (below-budget multilingual gibberish that no rule fires on).
+- `domain_label_proxy.bare_option_token_ids` + shared `_resolve_option_token_ids`: bare-letter (no leading space) token form with the same single-token / pairwise-distinct / whitespace-stripping validation as the space form.
+- `cyber_data.build_mcq_chat_messages` (system + user; user body identical to the raw prompt so the A/B isolates the wrapper).
+- `scripts/sprint_4B_2_small_model_smoke.py`: preflight (worktree clean, processed-dataset 20-record schema spot-check, model-path resolution), A/B run, decision rule (score = parse_failure + degeneration; lower wins; tie < 0.02 -> chat; both > 0.15 -> stop), tokenizer-only readout-position assertion over EVERY trace with dual-form matching, F5 feature pass with cost-tier fields and gold-leakage checks, option-position model-bias report, review gate.
+
+Two instrumentation bugs found by tiny dry runs and fixed before the official run:
+1. `locate_label_readout_position` raised "tokenizer must provide offset_mapping" with real tokenizers: `BatchEncoding` is a `UserDict`, not a `dict` subclass — the same root cause as the 4B-1 `_tokenizer_ids` fix, in a second call site. Fixed by duck-typing on `.get`; chat-template-style locate test added.
+2. Bare-letter token form: chat completions emit the bare option letter (never restating "Answer: "), which tokenizes to a different id than the space-prefixed form (`" D"` -> 422 vs `"D"` -> 35). The F5 readout assertion initially failed 100% on chat; without the fix every chat-condition margin/entropy would have silently used wrong candidate token ids. Dual-form resolution added, with `token_form_counts` reported instead of papering over.
+
+Official run results (128 traces per condition):
+- chat: parse_failure 0.0, degeneration 0.0, score 0.0, correct_rate 0.875; readout assertion 128/128 pass, token form 128/128 bare.
+- raw: parse_failure 0.094, degeneration 0.094, score 0.1875, correct_rate 0.734; assertion 111/116 pass (93 space / 18 bare / 5 unknown).
+- Decision: chat wins (not a tie); clean 4B-3 admission (0.0 <= 0.08).
+- F5 plumbing: all five features finite, zero missing, tier fields in place, leakage checks pass; smoke AUROC 0.99 (n=32, 4 wrong) marked plumbing_validation_only.
+- Position bias: no severe warning.
+- Reasoning substrate (key finding for 4C): chat completions are 128/128 single-token bare letters; has_reasoning_text = 0.00. F2 trajectory features have no substrate under the winning condition; the 4B-3 card carries a gated reasoning-forcing mini-test (Stage B') and requires an explicit F2 plan.
+
+Checks: targeted pytest 51 passed; full pytest 723 passed, 2 skipped.
+
+Boundary: no kill bar declared; no accuracy/hallucination claim; outputs gitignored under `outputs/logs/sprint_4B_2_small_model_smoke/` with this manifest as audit record.
+
+Next: Sprint 4B-3 full 240-question F5 dual-kill-bar run + site-transfer check (card drafted).

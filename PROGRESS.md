@@ -1,5 +1,34 @@
 ﻿# 实验进度记录：Reasoning-Aware Attention Guidance
 
+## Current Status Update: Sprint 4B-2 Small-Model Smoke and F5 Feature Plumbing
+
+Sprint 4B-2 is completed (task card `docs/codex_tasks/sprint_4B_2_small_model_smoke_and_f5_plumbing.md`): the first model-generation stage on canonical CyberMetric data — a 32-question prompt A/B (raw completion vs chat template), a degeneration detector validated on real 4B-smoke failures, F5 feature-pipeline validation on the winning condition, and an option-position model-bias audit. No probe training, no steering, no patching, no F5 kill bar declared. Gold labels eval-only.
+
+Decision (official 32-question run, 128 traces per condition): **chat wins decisively** — chat parse_failure 0.0 / degeneration 0.0 / score 0.0 vs raw 0.094 / 0.094 / 0.1875. Clean 4B-3 admission (score <= 0.08). Chat correct_rate 0.875 vs raw 0.734.
+
+Two instrumentation bugs found by dry runs and fixed before the official run:
+1. `locate_label_readout_position` crashed with real tokenizers — the same `BatchEncoding`-is-a-`UserDict`-not-`dict` root cause as the 4B-1 `_tokenizer_ids` fix, recurring in a second call site. Fixed by duck-typing; chat-template locate test added.
+2. **Bare-letter token form**: chat completions answer with the bare option letter (no "Answer: " restatement, no leading space), which tokenizes to a DIFFERENT id than the space-prefixed form `option_token_ids` assumes (`" D"` -> 422 vs `"D"` -> 35). Without the fix, every chat-condition F5 margin/entropy would silently read the wrong candidate tokens. Added `bare_option_token_ids` + dual-form resolution at the readout position with an honest `token_form_counts` diagnostic. Official run confirms: chat = 128/128 bare form, assertion pass rate 1.0; raw = 93 space / 18 bare / 5 unknown (pass 0.957).
+
+F5 plumbing validated end-to-end: all five features (margin / label-entropy / full-entropy / self-consistency / majority-agree) finite with zero missing across 32 greedy examples; cost-tier fields (`tier_single_forward` / `tier_sampling`) pre-plumbed for the 4B-3 dual kill bars; gold-leakage checks pass on every feature record. Smoke-scale AUROC 0.99 (n=32, 4 wrong) is plumbing-validation-only, NOT a bar. Position bias: no severe warning (chat greedy dist A/B/C/D = 4/8/11/9 vs gold 5/7/9/11).
+
+**Key finding for 4C (reasoning substrate)**: chat completions are 128/128 single-token bare letters — has_reasoning_text = 0.00. The model ignores "Think briefly step by step" under the chat wrapper. F5/F1/F3/F4 are unaffected, but F2 (trajectory-transition features) has NO substrate under the winning condition. The 4B-3 card now carries this finding plus a gated Stage B' mini-test (reasoning-forcing chat variant) and requires the review gate to commit to an F2 plan (raw traces / forcing variant / downgrade to F3+F1/F4).
+
+Commands:
+```bash
+conda run -n recover_attention python -m pytest tests/test_domain_label_proxy.py tests/test_cyber_data.py -q
+conda run -n recover_attention python scripts/sprint_4B_2_small_model_smoke.py \
+  --num-questions 32 --samples-per-question 3 --temperature 0.7 --max-new-tokens 256 \
+  --question-seed 4242 --output-dir outputs/logs/sprint_4B_2_small_model_smoke --overwrite
+conda run -n recover_attention python -m pytest -q
+```
+
+Checks: targeted pytest 51 passed (label proxy 36 + cyber data 17, incl. new degeneration fixtures, bare-form, chat-locate, tiered-leakage tests); full pytest 723 passed, 2 skipped. Outputs under `outputs/logs/sprint_4B_2_small_model_smoke/` (gitignored): preflight, ab_question_manifest, trace manifests (both conditions), prompt_ab_report, f5_feature_plumbing_report, option_position_model_bias_report, review gate.
+
+Boundary flags: `probe_trained=false`, `steering_continued=false`, `f5_kill_bar_established=false`, `hallucination_reduction_proven=false`, `answer_accuracy_improvement_proven=false`, `ready_for_2000_rerun=false`, `do_not_enter_full_sprint_3C=true`.
+
+Next: Sprint 4B-3 (`docs/codex_tasks/sprint_4B_3_full_f5_baseline_and_site_transfer.md`, drafted): full 240-question run with prompt style read from this sprint's decision, dual F5 kill bars with grouped bootstrap CIs, KV-cache generation path with 5-question equivalence spot-check, Stage E site-transfer vs 3C-1 comparison table, and the reasoning-substrate plan for 4C F2.
+
 ## Current Status Update: Sprint 4B-1 CyberMetric Canonical Schema and Domain Label Proxy
 
 Sprint 4B-1 is completed as a data/label-interface engineering sub-sprint (task card `docs/codex_tasks/sprint_4B_1_cybermetric_schema_and_label_proxy.md`). No causal LM was called, no completion was generated, no F5 was computed, no site-transfer, no probe training, no steering. The only model asset touched was a tokenizer-only load of the local Qwen2.5-7B-Instruct tokenizer, which the card explicitly allows.

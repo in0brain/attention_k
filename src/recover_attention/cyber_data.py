@@ -260,6 +260,24 @@ def build_mcq_prompt(record: dict) -> str:
     return "\n".join(parts)
 
 
+CHAT_SYSTEM_PROMPT = (
+    "You are a cybersecurity expert. Answer the multiple-choice question."
+)
+
+
+def build_mcq_chat_messages(record: dict) -> list[dict[str, str]]:
+    """Build chat messages (system + user) for the Sprint 4B-2 chat condition.
+
+    The user content reuses build_mcq_prompt's body verbatim so the only
+    difference between the raw and chat conditions is the chat wrapper
+    itself, not a different question rendering.
+    """
+    return [
+        {"role": "system", "content": CHAT_SYSTEM_PROMPT},
+        {"role": "user", "content": build_mcq_prompt(record)},
+    ]
+
+
 def select_grouped_smoke_sample(records: list[dict], *, sample_size: int, seed: int) -> list[dict]:
     """Select a reproducible non-prefix sample without splitting groups."""
     if sample_size < 1 or sample_size > len(records):

@@ -19,6 +19,9 @@ _EXPLICIT_ANSWER_RE = re.compile(r"\b(?:final\s+)?answer\s*:\s*([A-Z])\b", re.IG
 _ISOLATED_LETTER_RE = re.compile(r"(?<![A-Za-z])([A-Z])(?![A-Za-z])", re.IGNORECASE)
 _TRAILING_PUNCTUATION_RE = re.compile(r"^[\s.,;:!?()\[\]{}]*$")
 _TOKEN_WHITESPACE_MARKERS = ("Ġ", "▁", "Ċ", "ĉ", "▏")
+_SINGLE_CHAR_RUN_RE = re.compile(r"(.)\1{29,}", re.S)
+_SUBSTRING_LOOP_RE = re.compile(r"(.{6,40}?)\1{4,}", re.S)
+DEFAULT_CHAR_PER_TOKEN_RATIO = 3.0
 
 
 def _tokenizer_ids(tokenizer: Any, text: str) -> list[int]:
@@ -44,8 +47,7 @@ def _token_piece_content(piece: str | None) -> str:
     return normalized.strip()
 
 
-def option_token_ids(tokenizer: Any, labels: list[str]) -> dict[str, int]:
-    """Resolve each label to one distinct non-whitespace tokenizer token."""
+def _resolve_option_token_ids(tokenizer: Any, labels: list[str], *, text_form: str) -> dict[str, int]:
     if len(labels) != len(set(labels)):
         raise ValueError(f"option labels must be unique: {labels!r}")
     result: dict[str, int] = {}
@@ -53,7 +55,8 @@ def option_token_ids(tokenizer: Any, labels: list[str]) -> dict[str, int]:
         label = str(raw_label).strip().upper()
         if len(label) != 1:
             raise ValueError(f"option label must be one character: {raw_label!r}")
-        token_ids = _tokenizer_ids(tokenizer, f" {label}")
+        probe_text = f" {label}" if text_form == "space" else label
+        token_ids = _tokenizer_ids(tokenizer, probe_text)
         valid_ids = [
             token_id
             for token_id in token_ids
@@ -61,7 +64,7 @@ def option_token_ids(tokenizer: Any, labels: list[str]) -> dict[str, int]:
         ]
         if len(valid_ids) != 1:
             raise ValueError(
-                f"option label {label!r} must map to one non-whitespace token; "
+                f"option label {label!r} ({text_form} form) must map to one non-whitespace token; "
                 f"token_ids={token_ids}, valid_token_ids={valid_ids}"
             )
         result[label] = valid_ids[0]
@@ -71,8 +74,32 @@ def option_token_ids(tokenizer: Any, labels: list[str]) -> dict[str, int]:
         if sum(candidate == token_id for candidate in result.values()) > 1
     }
     if collisions:
-        raise ValueError(f"option label token-id collision: labels={result}, collisions={collisions}")
+        raise ValueError(f"option label token-id collision ({text_form} form): labels={result}, collisions={collisions}")
     return result
+
+
+def option_token_ids(tokenizer: Any, labels: list[str]) -> dict[str, int]:
+    """Resolve each label to one distinct non-whitespace tokenizer token.
+
+    Uses the leading-space form (" A", " B", ...), matching the "Answer: X"
+    convention where the letter follows a space. See bare_option_token_ids
+    for completions that emit the letter with no preceding space (e.g. a
+    chat-turn that answers with just the letter, no restated prefix).
+    """
+    return _resolve_option_token_ids(tokenizer, labels, text_form="space")
+
+
+def bare_option_token_ids(tokenizer: Any, labels: list[str]) -> dict[str, int]:
+    """Resolve each label to its token id with NO leading-space prefix.
+
+    Some completion styles emit the option letter as the very first token of
+    a turn (observed on the Sprint 4B-2 chat-template condition: the model
+    treats "Answer: <letter>" in the prompt as a format instruction and
+    answers with the bare letter directly, never restating "Answer: "), which
+    tokenizes to a different id than the " <letter>" form. Same validation as
+    option_token_ids, without the space prefix.
+    """
+    return _resolve_option_token_ids(tokenizer, labels, text_form="bare")
 
 
 def _valid_label_set(valid_labels: list[str]) -> tuple[list[str], set[str]]:
@@ -123,6 +150,60 @@ def parse_option_answer(text: str, valid_labels: list[str]) -> dict:
     }
 
 
+def detect_degeneration(
+    completion: str,
+    *,
+    valid_labels: list[str],
+    max_new_tokens: int,
+    num_generated_tokens: int | None = None,
+    char_per_token_ratio: float = DEFAULT_CHAR_PER_TOKEN_RATIO,
+) -> dict:
+    """Flag a completion as degenerate generation (loop/repeat/gibberish runaway).
+
+    Three independent rules, any one match sets ``degenerate=True``:
+
+    1. single_char_run: one character repeated >= 30 times consecutively
+       (e.g. "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!").
+    2. substring_loop: a substring of length 6-40 repeated >= 5 times
+       consecutively (e.g. ".4922.4922.4922.4922.4922").
+    3. truncated_failure: no option letter could be parsed AND the completion
+       ran to (or near) the generation budget. When ``num_generated_tokens``
+       is supplied (the caller controls the generation loop and knows the
+       exact count) that is used directly -- this is the precise signal and
+       is preferred. Without it, a character-length heuristic is used instead
+       (``len(completion) >= 0.9 * max_new_tokens * char_per_token_ratio``);
+       this is approximate because the chars-per-token ratio for gibberish
+       completions varies widely (~2.3-6.1 observed on real Sprint 4B smoke
+       failures) so the fallback can miss short completions that hit EOS
+       mid-gibberish without exhausting the budget. Such cases still count
+       toward parse_failure_rate even when not flagged degenerate here.
+    """
+
+    single_char_match = _SINGLE_CHAR_RUN_RE.search(completion)
+    substring_match = _SUBSTRING_LOOP_RE.search(completion)
+    parsed_failed = parse_option_answer(completion, valid_labels)["parse_failure"]
+    if num_generated_tokens is not None:
+        truncated = parsed_failed and num_generated_tokens >= 0.9 * max_new_tokens
+    else:
+        truncated = parsed_failed and len(completion) >= 0.9 * max_new_tokens * char_per_token_ratio
+    matched_rules = []
+    if single_char_match:
+        matched_rules.append("single_char_run")
+    if substring_match:
+        matched_rules.append("substring_loop")
+    if truncated:
+        matched_rules.append("truncated_failure")
+    return {
+        "degenerate": bool(matched_rules),
+        "matched_rules": matched_rules,
+        "single_char_run_match": single_char_match.group(0)[:12] if single_char_match else None,
+        "substring_loop_match": substring_match.group(1) if substring_match else None,
+        "truncated_failure_basis": (
+            "token_count" if num_generated_tokens is not None else "char_length_heuristic"
+        ),
+    }
+
+
 def locate_label_readout_position(
     tokenizer: Any,
     prompt: str,
@@ -155,7 +236,13 @@ def locate_label_readout_position(
         add_special_tokens=False,
         return_offsets_mapping=True,
     )
-    offsets = encoded.get("offset_mapping") if isinstance(encoded, dict) else None
+    # HuggingFace BatchEncoding is a UserDict, not a dict subclass; the same
+    # duck-typing fix as _tokenizer_ids applies here (see its docstring).
+    offsets = (
+        encoded.get("offset_mapping")
+        if isinstance(encoded, dict) or hasattr(encoded, "get")
+        else None
+    )
     if offsets is None:
         raise ValueError("tokenizer must provide offset_mapping")
     if offsets and isinstance(offsets[0], list) and offsets[0] and isinstance(offsets[0][0], (list, tuple)):
