@@ -91,6 +91,8 @@ Sprint 4C 已运行真实模型与 exact VJP；详细命令、检查和 artifact
 
 ## 6. 下一步建议
 
-建议下一步转向 H1 fabricated-identifier task 的数据/标签设计；不要在此 MCQ 设置继续扩展内部 readout detector 或直接进入 4D。
+建议下一步转向 H1 fabricated-identifier task 的数据/标签设计；不要在此 MCQ 设置继续扩展内部 readout detector。
+
+任务卡已起草：`docs/codex_tasks/sprint_4D_0_h1_fabricated_identifier_data_design.md`（design + data only：本体快照、标识符抽取/存在性判定、h1_sample schema、诱发问题集、id 空间密度审计、H1-F5 设计文档与 4D-1 预注册门槛；不调用模型）。
 
 边界：不要自动开始 probe training、attention steering、site-transfer patching、2000-scale rerun 或 hallucination-reduction claim；必须先有明确 task card 或用户指令。
