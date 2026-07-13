@@ -81,6 +81,7 @@ tests/
 docs/reasoning-aware-attention-guidance/
 docs/codex_tasks/
 docs/reference/
+graphify-out/
 ```
 
 说明：
@@ -98,6 +99,11 @@ outputs/logs/:
 cache/:
 后续 hidden states / attention maps 的缓存位置，仅在 task card 明确允许时使用。
 ```
+
+`graphify-out/` is a generated project-navigation artifact directory. It is
+separate from experiment inputs, intermediate jsonl records, caches, and
+evaluation outputs. Its contents are described in
+`docs/reasoning-aware-attention-guidance/graphify.md`.
 
 ---
 
@@ -220,4 +226,29 @@ jsonl schema、字段、枚举和标签规则。
 
 docs/reasoning-aware-attention-guidance/prompts.md:
 可复用 Codex 提示词模板。
+
+docs/reasoning-aware-attention-guidance/graphify.md:
+Project knowledge-graph navigation, generated artifact locations, and graph
+integrity caveats. It is not an experiment-pipeline stage or result source.
 ```
+
+---
+
+## 9. Project Knowledge-Graph Boundary
+
+Graphify may summarize source-code and documentation relationships into
+`graphify-out/`. This layer is for repository navigation, impact discovery,
+and documentation audit only.
+
+It must not be treated as:
+
+```text
+an experiment stage
+a source of model-evaluation metrics
+evidence that an intervention is causal
+evidence that attention guidance works
+evidence of hallucination reduction
+```
+
+When a graph relationship is marked INFERRED or AMBIGUOUS, verify the cited
+source file before relying on it for a design or implementation decision.

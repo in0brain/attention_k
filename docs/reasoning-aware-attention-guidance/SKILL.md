@@ -311,6 +311,21 @@ Intervention manifest 的长期接口文档，说明 intervention_manifest.jsonl
 
 ---
 
+### 3.8.11 docs/reasoning-aware-attention-guidance/graphify.md
+
+Use for:
+
+```text
+Project knowledge-graph navigation, including Graphify artifact locations,
+how to query an existing graph, graph-health caveats, and the boundary between
+repository navigation evidence and experimental evidence.
+```
+
+This document does not authorize a new experiment stage, model execution, or
+claims about attention guidance or hallucination reduction.
+
+---
+
 ### 3.9 docs/reference/*
 
 Use for:
