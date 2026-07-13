@@ -280,3 +280,82 @@ Sprint 4A/4A-R prove nothing about the cyber probe working. Sun et al.'s own
 corrections bound expectations: correctness geometry is task-specific,
 detection outruns correction, unconditional intervention is harmful. Every
 positive claim in Sprint 4 must clear its gate first.
+
+## 14. Sprint 4B Findings → 4C Narrowing (2026-07, empirical update)
+
+Sprint 4B (4B-1 schema/proxy, 4B-2 prompt A/B, 4B-3 full run) executed the
+DETECT-layer groundwork on CyberMetric. The measured F5 baseline and the task's
+answer dynamics **collapse the five-family bake-off design of Section 5** for the
+MCQ-option-letter task. This section records the empirical facts and narrows 4C;
+Section 5's five families remain the reference framework for the H1 task (below).
+
+### 14.1 What Sprint 4B measured
+
+```text
+Winning prompt = chat template (4B-2: chat score 0.0 vs raw 0.1875; chat wins).
+240-question run (4B-3):
+  correct_rate 0.802 / wrong_rate 0.195 / parse_failure 0.0036 / degeneration 0.0.
+  F5 kill bars (grouped bootstrap CI95):
+    kill_bar_single_forward = AUROC 0.816 [0.746, 0.871]  (label_entropy strongest)
+    kill_bar_sampling       = AUROC 0.815 [0.762, 0.872]
+```
+
+### 14.2 Structural consequences (why the design collapses)
+
+```text
+A. Chat completions are single-token bare letters (has_reasoning_text = 0.00;
+   4B-3 reasoning-forcing variant Stage B' failed: clean_score 0.406, 31%
+   parse failure). => F2 (trajectory transitions) has NO substrate. Dropped.
+B. Answers are near-deterministic at temp 0.7 (option-token margins 9-18 logits).
+   => sampling adds zero over single-forward (bars 0.815 == 0.816). F3
+   (multi-sample consistency / EigenScore) is near-null; F5 sampling tier gives
+   no increment. The real gate is 0.816 (single-forward).
+C. Near-determinism yields only 8 correct/wrong pairs (< 20 gate). => 3C-1
+   site-transfer validation (F1's causal motivation) could not run. Q3 open.
+D. The 0.816 bar comes from label_entropy — a CALIBRATION signal. On clean MCQ,
+   wrong ≈ uncertain ≈ high entropy, and the output layer calibrates well
+   (the LM-Polygraph lesson). This is narrower than the mainline's stated goal
+   (H1 fabricated-ID / H3 confident-wrong), where output calibration is known
+   to fail — precisely the samples clean MCQ excludes.
+```
+
+### 14.3 Narrowed 4C (the surviving question)
+
+```text
+4C is NOT the five-family bake-off. On the MCQ task only two families survive:
+  F1 (cross-layer L20/L24 readout projection onto the k option tokens, incl.
+      layer-disagreement) and F4 (exact J-lens on the k option tokens).
+Sharp testable claim:
+  does cross-layer / J-lens readout disagreement provide uncertainty signal
+  BEYOND final-layer entropy (0.816)?  This is a real mechanism (mid-layer
+  conflict the final layer washes out; logit-lens-across-layers), cheap
+  (one-position activation capture over 240 greedy), and is the fair test of
+  differentiation B (site-informed). Prior (3C-3) lost to logits margin by
+  0.059 on GSM8K, so a negative is plausible and clean.
+4C Stage 0 folds in the deferred Q3: mine >= 20 correct/wrong pairs by
+  higher-temperature resampling on low-margin / low-self-consistency questions,
+  then run the 3C-1 site-transfer check (kills two birds).
+Outcome contract (unchanged from Section 5 kill gate):
+  F1/F4 beat 0.816 with grouped CV + CIs  -> site-informed readout is real;
+  neither beats 0.816                     -> close internal-feature detection
+                                             for finite-label cyber MCQ; the
+                                             deliverable is the F5 selective-
+                                             prediction system, honestly framed.
+```
+
+### 14.4 The MCQ task is not the mainline's real vehicle (H1 next)
+
+```text
+Regardless of 4C's outcome, "MCQ wrong-vs-correct detection" is a calibration
+task, not a hallucination task. The mainline's full hypothesis (F2 trajectory +
+F3 consistency + site-informed F1 beating output calibration) needs a task
+where reasoning exists, sampling is diverse, and output calibration is poor —
+i.e. the H1 fabricated-identifier setting of Section 3 (free-generation cyber
+Q&A with ontology-verifiable CVE/CWE/ATT&CK answers; hallucination = fabricated
+id, no inference-time gold needed for the fabrication check). MCQ 4B/4C built
+the infrastructure (schema, tokenization discipline, F5 reference bar 0.816) and
+serve as the "easy calibrated task" reference point. H1 is the eventual DETECT
+vehicle. Recommended order: run narrowed 4C first (cheap, closes the MCQ door
+cleanly), then design the H1 task; do not run the full five-family bake-off on
+MCQ.
+```

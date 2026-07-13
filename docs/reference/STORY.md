@@ -744,3 +744,48 @@ NLA 维持 §12 的定位：只对 FLAGGED 高风险样本做 L20 定性 verbali
 ```
 
 全程冻结模型；唯一训练组件是线性探针与校准温度。声明纪律不变：只用 selective-prediction 与 fix/break 术语，不写 unqualified 的 "hallucination reduced"。即使 F1-F4 全部无增量，F5 基础上的 selective-prediction 系统仍是一个诚实可交付的幻觉控制结果——这条路线没有"全输"的分支。
+
+## 22. Sprint 4B 执行结果：任务坍缩了 4C 的设计空间
+
+4B 全程执行完（4B-1 schema/proxy、4B-2 prompt A/B、4B-3 正式 240 题 run），实证结果**坍缩了 §21 里五族 bake-off 的设计**。详见 `CYBER_HALLUCINATION_CONTROL_PLAN.md` §14。
+
+已建成（MCQ 线的价值）：canonical schema、tokenization 纪律（`option_token_ids` 空白剥离 + `bare_option_token_ids` 双形态解析——4B-2 发现 chat 条件模型回裸字母、token id 与空格形态不同，差点让全部 F5 特征读错 token）、退化判定器、F5 参考门槛。
+
+实测门槛：
+
+```text
+胜出 prompt = chat template（4B-2：chat 0.0 vs raw 0.1875）。
+240 题（4B-3）：correct 0.802 / wrong 0.195 / parse_failure 0.0036 / degeneration 0.0。
+F5 kill bars（分组 bootstrap CI95）：
+  single_forward = AUROC 0.816 [0.746, 0.871]（label_entropy 最强）
+  sampling       = AUROC 0.815 [0.762, 0.872]
+```
+
+四条结构性后果：
+
+```text
+A. chat 完成是单 token 裸字母（has_reasoning_text 0.00；强制推理变体 clean_score
+   0.406 被拒）→ F2 轨迹特征无原料，drop。
+B. 答案在 temp 0.7 下近确定（选项 margin 9-18 logits）→ sampling 对 single-forward
+   零增量（0.815 == 0.816），F3 多采样一致性近死，真正门槛就是 0.816。
+C. 近确定性只挖到 8 对 correct/wrong pair（< 20 gate）→ 3C-1 位点迁移验证
+   （F1 的因果动机）没能跑，Q3 悬空。
+D. 0.816 来自 label_entropy——是校准信号不是幻觉信号。MCQ 上"答错≈不确定≈高熵"，
+   输出层校准本来就好；而主线目标 H1/H3（编造/自信错误）恰恰是输出校准失效的场景，
+   干净 MCQ 把这些样本排除了。
+```
+
+主线判断：**MCQ 线建好了基础设施和参照条，但结构上是主线假设的错误载体。** 下一步分两段——
+
+```text
+第一步 4C-narrowed（便宜、关门）：不是五族 bake-off，而是收窄为
+  F1（L20/L24 跨层读出投影，含层间 disagreement）+ F4（4 个选项 token 的 exact
+  J-lens）能否在 0.816 之上给出增量？这是有机制（中层冲突被 final layer 抹平）、
+  便宜（单位置激活捕获）的差异化 B 检验。Stage 0 折入 Q3：在低 margin/低 SC 题上
+  高温挖 pair 到 >=20，顺带跑位点迁移。赢→site-informed 成立；输→对 finite-label
+  cyber MCQ 关闭内部特征假设，交付 F5 selective-prediction 系统。
+第二步 H1 编造标识符任务（真正的载体）：free-generation cyber Q&A + 可验证
+  CVE/CWE/ATT&CK 标识符，reasoning 存在（F2 活）、采样有分歧（F3 活）、幻觉自然定义、
+  输出校准已知差。MCQ 的 0.816 作为"简单校准任务"参照点。
+不在 MCQ 上跑完整五族 bake-off。
+```
