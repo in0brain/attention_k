@@ -130,6 +130,8 @@ fabrication base rate：
   ATT&CK+CWE 合并版为主判定，CVE（全部 / 仅高序号）单列。
 门槛：Route A greedy emission >= 0.7 且 主判定 fabrication ∈ [0.05, 0.60]
   → h1_gate_passed=True。
+每个比率都必须附样本数 n（分子/分母），family×route 分格结论尤其如此
+  （每格约 8 题，只能定性定位问题集，不得把 8 题比例当稳定点估计）。
 ```
 
 ### 6.2 附带诊断（不进门槛，但决定 no-go 时怎么改）
