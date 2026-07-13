@@ -419,6 +419,11 @@ def question_grouped_cv(
         "folds": fold_rows,
         "oof_auroc": auroc([y for y, _ in valid], [p for _, p in valid]) if valid else None,
         "oof_auprc": auprc([y for y, _ in valid], [p for _, p in valid]) if valid else None,
+        "oof_predictions": [
+            {"row_index": int(index), "wrong_label": int(label), "risk_score": float(prediction)}
+            for index, (label, prediction) in enumerate(zip(labels.astype(int).tolist(), predictions.tolist()))
+            if _finite(prediction)
+        ],
     }
 
 
@@ -467,4 +472,3 @@ def calibration_buckets(
 def random_baseline_scores(n: int, *, seed: int = 33071) -> list[float]:
     rng = np.random.default_rng(seed)
     return [float(x) for x in rng.random(int(n))]
-

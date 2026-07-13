@@ -1,5 +1,21 @@
 ﻿# Sprint 4 History - Cyber Hallucination Control
 
+## Sprint 4C - Narrowed Readout Increment and Site Transfer
+
+Goal: test only F1 cross-layer direct projection and F4 exact finite-label VJP J-lens against 4B-3 F5 on CyberMetric MCQ. The only trained component is a grouped-CV linear logistic detector; no controller, steering, LoRA, finetuning, 2000-scale run, or intervention claim is included.
+
+Results:
+
+- 239/240 greedy traces passed dual-form (`bare`) readout assertion and produced gold-free F1/F4 feature records.
+- Three-seed grouped-CV F5-alone AUROC: 0.8343 (4B-3 raw reference: 0.8156); F1-alone: 0.5419; F4-alone: 0.4287.
+- F5+F1 increment CI95: [-0.0429, 0.0202]; F5+F4: [0.0000, 0.0000]; F5+F1+F4: [-0.0429, 0.0202]. No CI lower bound exceeds zero, so `detector_beats_f5=false`.
+- Pair mining used 40 high/low-risk candidates at temperature 1.1 with 12 samples each, reaching 17 merged pairs (from 8). It did not meet the 20-pair gate; site transfer was skipped without reducing pair quality.
+- Best F5-only OOF calibration: ECE 0.0463; selective wrong rate is 0.000 at 20% coverage. This is a selective-prediction diagnostic, not an intervention result.
+
+Checks: targeted Sprint 4C/domain/cyber tests passed (56); full pytest passed with workspace-local pytest temporary directory. Feature records pass recursive gold-leakage assertions.
+
+Next: close internal-feature detection for finite-label MCQ and design H1 fabricated-identifier data/labels before considering any gated intervention.
+
 ## Sprint 4A - Cybersecurity Direction-Probe Mainline Reset
 
 Goal: reset the project mainline from unsupervised span-guided steering to cyber-domain supervised direction probing. This sprint is documentation, requirements clarification, and code reuse audit only. It does not train a probe, call an LLM, run steering, patch/nudge activations, enter 2000-scale, or continue full Sprint 3C.

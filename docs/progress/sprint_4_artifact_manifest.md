@@ -1,5 +1,21 @@
 ﻿# Sprint 4 Artifact Manifest
 
+## Sprint 4C narrowed readout increment artifacts
+
+Directory: `outputs/logs/sprint_4C_narrowed_readout_increment_and_site_transfer/` (local/gitignored).
+
+| file | status | note |
+| --- | --- | --- |
+| `preflight_report.md` | present | 4B-3 inputs, F5 bar, model resolution, boundary checks |
+| `pair_mining_report.json` / `correct_wrong_pair_manifest.jsonl` | present | 17 pairs; below 20-pair site-transfer gate |
+| `site_transfer_check_report.json` | present | skipped for insufficient pairs |
+| `readout_feature_manifest.jsonl` | present | 239 gold-free F1/F4/F5 records |
+| `readout_increment_report.json` | present | grouped-CV matrix and paired-bootstrap increment CIs |
+| `calibration_report.json` | present | F5-only best ECE/risk-coverage diagnostic |
+| `review_gate_readout_increment_and_site_transfer.md` | present | `detector_beats_f5=false` |
+
+Conclusion boundary: F1/F4 do not show stable incremental AUROC over F5 on finite-label CyberMetric MCQ. Site transfer remains unmeasured because the pair-quality gate was not met. No hallucination-reduction, answer-accuracy, or intervention claim is made.
+
 ## Sprint 4A - Cybersecurity Direction-Probe Mainline Reset
 
 Tracked documentation artifacts:

@@ -343,6 +343,22 @@ Outcome contract (unchanged from Section 5 kill gate):
                                              prediction system, honestly framed.
 ```
 
+### 14.3A Sprint 4C result update
+
+```text
+Measured on 239 CyberMetric greedy MCQ records:
+  F5-only grouped-CV logistic AUROC = 0.8343;
+  F1-alone = 0.5419; F4-alone = 0.4287;
+  F5+F1 increment CI95 = [-0.0429, 0.0202];
+  F5+F4 increment CI95 = [0.0000, 0.0000];
+  F5+F1+F4 increment CI95 = [-0.0429, 0.0202].
+No combination passes the lower-CI > 0 kill gate, so
+`detector_beats_f5=false` and finite-label MCQ internal-feature detection is
+closed. Pair mining reached 17, not the required 20, so cyber site transfer is
+honestly recorded as skipped rather than weakened. This is not a hallucination
+reduction or answer-accuracy result.
+```
+
 ### 14.4 The MCQ task is not the mainline's real vehicle (H1 next)
 
 ```text
