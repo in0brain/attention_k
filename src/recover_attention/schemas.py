@@ -300,6 +300,18 @@ REQUIRED_FIELDS = {
         "label_space",
         "metadata",
     ],
+    "h1_sample": [
+        "example_id",
+        "route",
+        "family",
+        "prompt_params",
+        "question_text",
+        "source_entry_id",
+        "source_entry_metadata",
+        "group_id",
+        "split",
+        "label_space",
+    ],
 }
 
 # Top-level fields that must NOT appear (stale or future-stage fields).
@@ -516,6 +528,30 @@ def validate_cyber_sample_record(record: dict) -> None:
         not isinstance(raw_category, str) or not raw_category.strip()
     ):
         raise ValueError(f"{metadata_name} field 'raw_category' must be null or non-empty str")
+
+
+def validate_h1_sample_record(record: dict) -> None:
+    name = "h1 sample record"
+    _require_dict(record, name)
+    _require_fields(record, REQUIRED_FIELDS["h1_sample"], name)
+    for field in ("example_id", "route", "family", "question_text", "group_id", "split"):
+        _require_non_empty_str(record, field, name)
+    _require_enum(record, "route", {"recall", "open_gen"}, name)
+    _require_enum(record, "family", {"cve", "attack", "cwe"}, name)
+    _require_enum(record, "split", {"train", "dev", "test"}, name)
+    if record["label_space"] != "open_identifier":
+        raise ValueError(f"{name} field 'label_space' must equal 'open_identifier'")
+    _require_dict(record["prompt_params"], f"{name} field 'prompt_params'")
+    _require_dict(record["source_entry_metadata"], f"{name} field 'source_entry_metadata'")
+
+    source_entry_id = record["source_entry_id"]
+    if record["route"] == "recall":
+        if not isinstance(source_entry_id, str) or not source_entry_id.strip():
+            raise ValueError(f"{name} recall records require a non-empty source_entry_id")
+    elif source_entry_id is not None and (
+        not isinstance(source_entry_id, str) or not source_entry_id.strip()
+    ):
+        raise ValueError(f"{name} field 'source_entry_id' must be null or non-empty str")
 
 
 def validate_candidate_span_record(record: dict) -> None:

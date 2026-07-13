@@ -1,5 +1,49 @@
 ﻿# Sprint 4 Artifact Manifest
 
+## Sprint 4D-0 H1 fabricated-identifier data design artifacts
+
+Directory: `outputs/logs/sprint_4D_0_h1_data_design/` (local/gitignored).
+
+Tracked implementation artifacts:
+
+```text
+src/recover_attention/h1_identifier.py
+src/recover_attention/h1_data.py
+scripts/sprint_4D_0_download_ontology_snapshots.py
+scripts/sprint_4D_0_build_h1_dataset.py
+tests/test_h1_identifier.py
+tests/test_h1_data.py
+src/recover_attention/schemas.py
+.gitignore
+```
+
+Local/gitignored raw/processed artifacts:
+
+```text
+data/raw/ontology/cve/cvelistV5-main.zip
+data/raw/ontology/cve/ontology_index.jsonl
+data/raw/ontology/attack/enterprise-attack.json
+data/raw/ontology/attack/ontology_index.jsonl
+data/raw/ontology/cwe/cwec_latest.xml.zip
+data/raw/ontology/cwe/ontology_index.jsonl
+data/processed/h1/h1_samples.jsonl
+```
+
+Local/gitignored report artifacts:
+
+| file | status | note |
+| --- | --- | --- |
+| `ontology_snapshot_manifest.json` | present | CVE 364903, ATT&CK 858, CWE 969; URLs, sha256, status rules |
+| `id_space_density_report.json` | present | CVE marked auxiliary/weak in dense low-number ranges; ATT&CK+CWE primary |
+| `h1_dataset_audit_report.json` | present | 480 prompts; route A/B 360/120; split leakage 0 |
+| `h1_f5_design.md` | present | mention/sequence/sampling/verbalized-confidence F5 design + 4D-1 gates |
+| `review_gate_h1_data_design.md` | present | 12 review questions answered |
+
+Conclusion boundary: H1 dataset design exists and is tested. No causal LM was
+called, no completion was generated, no F5 was computed, no probe was trained,
+and no hallucination-reduction, accuracy-improvement, detection-performance, or
+emission-viability claim is made.
+
 ## Sprint 4C narrowed readout increment artifacts
 
 Directory: `outputs/logs/sprint_4C_narrowed_readout_increment_and_site_transfer/` (local/gitignored).

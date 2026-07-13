@@ -1,5 +1,62 @@
 ﻿# Sprint 4 History - Cyber Hallucination Control
 
+## Sprint 4D-0 - H1 Fabricated-Identifier Data Design
+
+Goal: create the H1 fabricated-identifier data/label substrate only: ontology
+snapshots, identifier extraction/normalization/existence logic, `h1_sample`
+schema, deterministic prompt dataset, density audit, H1-F5 design notes, and
+4D-1 preregistered smoke gates. No causal LM was called, no completion was
+generated, no F5 was computed, no probe was trained, and no steering/patching
+was run.
+
+Implementation:
+- Added `src/recover_attention/h1_identifier.py` for CVE/ATT&CK/CWE extraction,
+  normalization, `OntologyIndex`, status-aware existence lookup, echo exclusion,
+  completion-level H1 labels, and H1 gold-leakage checks.
+- Added `src/recover_attention/h1_data.py` for deterministic recall/open-gen
+  question construction, grouped split, full gold-id residual assertions, dataset
+  audit, and id-space density estimates.
+- Added `validate_h1_sample_record` and `REQUIRED_FIELDS["h1_sample"]` in
+  `schemas.py`, parallel to existing cyber MCQ schema.
+- Added the two 4D-0 scripts and targeted tests.
+
+Ontology snapshot results:
+- CVEProject/cvelistV5 zip indexed 364903 ids: PUBLISHED 347246, REJECTED 17657.
+- MITRE enterprise-attack STIX indexed 858 ids: active 697, revoked 149,
+  deprecated 12.
+- CWE latest XML indexed 969 ids: Draft 432, Incomplete 486, Stable 26,
+  Deprecated 25.
+- Manifest records download URLs, snapshot date, source/index sha256, id counts,
+  status rules, and the knowledge-cutoff bias note.
+
+Dataset/audit results:
+- `h1_samples.jsonl`: 480 prompts, Route A recall 360 and Route B open_gen 120.
+- Family counts: ATT&CK 180, CWE 180, CVE 120. ATT&CK/CWE are the primary
+  families; CVE is auxiliary because low-number year buckets are dense.
+- Grouped split: train/dev/test = 336/72/72, group leakage 0.
+- Duplicate normalized questions: 0. Recall gold-id residual check: 360 checked,
+  0 violations.
+- `h1_f5_design.md` records mention/sequence/sampling/verbalized-confidence
+  F5 candidates and the 4D-1 gates: Route A emission rate >= 0.7 and fabrication
+  base rate in [0.05, 0.60].
+
+Checks:
+```bash
+conda run -n recover_attention python scripts/sprint_4D_0_download_ontology_snapshots.py --output-dir data/raw/ontology --manifest-dir outputs/logs/sprint_4D_0_h1_data_design
+conda run -n recover_attention python scripts/sprint_4D_0_build_h1_dataset.py --ontology-dir data/raw/ontology --output-path data/processed/h1/h1_samples.jsonl --report-dir outputs/logs/sprint_4D_0_h1_data_design --seed 4242
+conda run -n recover_attention python -m pytest tests/test_h1_identifier.py tests/test_h1_data.py -q
+conda run -n recover_attention python -m pytest -q
+```
+
+Result: targeted H1 tests passed 12/12; full pytest passed 741, skipped 2.
+
+Boundary: this sprint establishes an H1 dataset design. It does not establish
+detection performance, emission viability, hallucination reduction, answer
+accuracy improvement, or any intervention result.
+
+Next: Sprint 4D-1 should measure only id emission rate and fabrication base rate
+on H1 prompts before any internal-feature engineering.
+
 ## Sprint 4C - Narrowed Readout Increment and Site Transfer
 
 Goal: test only F1 cross-layer direct projection and F4 exact finite-label VJP J-lens against 4B-3 F5 on CyberMetric MCQ. The only trained component is a grouped-CV linear logistic detector; no controller, steering, LoRA, finetuning, 2000-scale run, or intervention claim is included.

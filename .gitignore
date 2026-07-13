@@ -14,6 +14,8 @@ env/
 outputs/
 data/processed/
 data/raw/cyber/
+data/raw/ontology/
+data/processed/h1/
 
 # IDE / OS
 .vscode/
