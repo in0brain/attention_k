@@ -1,5 +1,54 @@
 ﻿# Sprint 4 Artifact Manifest
 
+## Sprint 4D-1 H1 emission/fabrication smoke artifacts
+
+Directory: `outputs/logs/sprint_4D_1_h1_emission_fabrication_smoke/` (local/gitignored).
+
+Tracked implementation artifacts:
+
+```text
+src/recover_attention/h1_data.py
+scripts/sprint_4D_1_h1_emission_fabrication_smoke.py
+tests/test_h1_emission_smoke.py
+docs/progress/sprint_4_history.md
+docs/progress/sprint_4_artifact_manifest.md
+PROGRESS.md
+```
+
+Local/gitignored input artifacts consumed:
+
+```text
+data/processed/h1/h1_samples.jsonl
+data/raw/ontology/cve/ontology_index.jsonl
+data/raw/ontology/attack/ontology_index.jsonl
+data/raw/ontology/cwe/ontology_index.jsonl
+outputs/logs/sprint_4D_0_h1_data_design/ontology_snapshot_manifest.json
+outputs/logs/sprint_4D_0_h1_data_design/id_space_density_report.json
+```
+
+Local/gitignored output artifacts:
+
+| file | status | note |
+| --- | --- | --- |
+| `preflight_report.md` | present | read/modify plan, 4D-0 prerequisites, model path, boundary checks |
+| `sampling_manifest.jsonl` | present | 72 train-split H1 questions, deterministic seed 4242 |
+| `h1_generation_manifest.jsonl` | present | 288 completions; no `source_entry_id` field |
+| `h1_mention_labels.jsonl` | present | extracted mention-level labels; no `source_entry_id` field |
+| `emission_fabrication_report.json` | present | valid rerun: Route A greedy emission 46/48; ATT&CK+CWE mention fabrication 65/775 |
+| `refusal_echo_diagnostic.json` | present | refusal 1/288; embedded vs clean prompt echo diagnostics |
+| `review_gate_h1_emission_fabrication_smoke.md` | present | `h1_gate_passed=true`; no F5/probe/steering claim |
+
+Generation-backend note: the first 4D-1 output set from the hand-written 4-bit
+KV-cache loop is invalidated because the completions were garbled. The script
+now uses `model.generate` plus a fail-fast sanity check. 4-bit long-form
+generation still failed the sanity probe, fp16 was clean but too slow for the
+full smoke, and the valid artifacts above come from the local 8-bit
+`model.generate` rerun.
+
+Conclusion boundary: H1 emission/base-rate smoke gate passes for the local
+Qwen2.5-7B-Instruct 8-bit generation setup, but this is not an F5, detector,
+intervention, hallucination-reduction, or answer-accuracy result.
+
 ## Sprint 4D-0 H1 fabricated-identifier data design artifacts
 
 Directory: `outputs/logs/sprint_4D_0_h1_data_design/` (local/gitignored).

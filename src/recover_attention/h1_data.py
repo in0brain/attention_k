@@ -323,3 +323,20 @@ def build_h1_samples(index: OntologyIndex, *, seed: int = 4242) -> list[dict]:
     records = grouped_split(records, seed=seed)
     assert_no_question_gold_id_leakage(records)
     return records
+
+
+def build_h1_chat_messages(record: dict) -> list[dict[str, str]]:
+    """Build the Sprint 4D-1 chat wrapper without changing the H1 question text."""
+    question_text = record.get("question_text")
+    if not isinstance(question_text, str) or not question_text.strip():
+        raise ValueError("H1 record requires non-empty question_text")
+    return [
+        {
+            "role": "system",
+            "content": (
+                "You are a cybersecurity expert. Answer directly and include exact "
+                "CVE, MITRE ATT&CK, or CWE identifiers when the user asks for them."
+            ),
+        },
+        {"role": "user", "content": question_text},
+    ]

@@ -1,5 +1,92 @@
 ﻿# Sprint 4 History - Cyber Hallucination Control
 
+## Sprint 4D-1 - H1 Emission/Fabrication Smoke
+
+Goal: run only the preregistered H1 emission/base-rate smoke from the 4D-0
+design. The sprint measures whether H1 prompts elicit cybersecurity identifiers
+and whether non-echo fabricated identifiers occur at a usable base rate. It does
+not compute F5, train a probe, capture activations, continue steering, or make
+any hallucination-reduction / answer-accuracy claim.
+
+Implementation:
+- Added `build_h1_chat_messages` in `src/recover_attention/h1_data.py`. The
+  user message preserves `question_text` exactly; the system wrapper only asks
+  for a direct cybersecurity answer with exact CVE/ATT&CK/CWE identifiers.
+- Added `scripts/sprint_4D_1_h1_emission_fabrication_smoke.py` for deterministic
+  train-split sampling, ontology-manifest validation, local causal-LM generation,
+  identifier mention labeling, echo/refusal diagnostics, and the review gate.
+- Replaced the initial hand-written KV-cache token loop with
+  `transformers.model.generate(use_cache=True, renormalize_logits=True,
+  remove_invalid_values=True)` and added a three-question greedy sanity check
+  before the full run. The first 4-bit/KV-cache run is invalidated because its
+  outputs were garbled. A direct 4-bit `model.generate` sanity probe still
+  showed punctuation degeneration on ordinary long-form answers; fp16 was clean
+  but too slow for the full smoke, so the valid rerun uses local 8-bit
+  quantization with `device_map="auto"`.
+- Added `tests/test_h1_emission_smoke.py` for refusal detection, CVE
+  high-sequence logic, prompt embedded-id bucketing, gate boundaries, and chat
+  message preservation.
+
+Run setup:
+- Input dataset: `data/processed/h1/h1_samples.jsonl`.
+- Ontology inputs: `data/raw/ontology/{cve,attack,cwe}/ontology_index.jsonl`.
+- 4D-0 checks: ontology snapshot manifest sha256 fields matched the current
+  indices; id-space density report loaded; train split only.
+- Sampling: 72 questions with seed 4242: recall ATT&CK 20, recall CWE 20,
+  recall CVE 8, open_gen 8 per family.
+- Generation: 1 greedy + 3 sampled completions per question, temperature 0.7,
+  max_new_tokens 512, local `D:/models/Qwen2.5-7B-Instruct`, 8-bit local
+  generation backend.
+
+Results:
+- Total completions: 288.
+- Route A greedy emission: 46/48 = 0.958.
+- ATT&CK+CWE primary fabrication base rate:
+  - mention-level: 65/775 = 0.084.
+  - completion-level: 33/222 = 0.149.
+- Gate result: `h1_gate_passed=true` under the 4D-0 preregistered thresholds
+  (Route A greedy emission >= 0.70 and primary mention-level fabrication in
+  [0.05, 0.60]).
+- CVE auxiliary view: all CVE fabrication 34/200 = 0.170; high-sequence-only
+  11/64 = 0.172.
+- Refusal rate: 1/288. No-id completions: 3 low-emission-without-id,
+  1 refusal-without-id, 2 answered-without-id.
+- Reasoning text: 288/288 completions had non-identifier reasoning text.
+- Degeneration/truncation diagnostic after the valid rerun: degeneration
+  14/288 = 0.049 and touched max_new_tokens 3/288 = 0.010. Greedy degeneration
+  is 2/72 = 0.028, down from the invalid 4-bit/KV-cache run's 70/72 = 0.972.
+  The remaining degeneration flags are diagnostic; sampled long open-generation
+  traces are the main source.
+
+Outputs:
+```text
+outputs/logs/sprint_4D_1_h1_emission_fabrication_smoke/preflight_report.md
+outputs/logs/sprint_4D_1_h1_emission_fabrication_smoke/sampling_manifest.jsonl
+outputs/logs/sprint_4D_1_h1_emission_fabrication_smoke/h1_generation_manifest.jsonl
+outputs/logs/sprint_4D_1_h1_emission_fabrication_smoke/h1_mention_labels.jsonl
+outputs/logs/sprint_4D_1_h1_emission_fabrication_smoke/emission_fabrication_report.json
+outputs/logs/sprint_4D_1_h1_emission_fabrication_smoke/refusal_echo_diagnostic.json
+outputs/logs/sprint_4D_1_h1_emission_fabrication_smoke/review_gate_h1_emission_fabrication_smoke.md
+```
+
+Checks:
+```bash
+conda run -n recover_attention python -m pytest tests/test_h1_emission_smoke.py tests/test_h1_identifier.py -q -p no:cacheprovider --basetemp outputs/logs/sprint_4D_1_h1_emission_fabrication_smoke/pytest_target_tmp
+conda run -n recover_attention python scripts/sprint_4D_1_h1_emission_fabrication_smoke.py --samples-jsonl data/processed/h1/h1_samples.jsonl --ontology-dir data/raw/ontology --snapshot-manifest outputs/logs/sprint_4D_0_h1_data_design/ontology_snapshot_manifest.json --density-report outputs/logs/sprint_4D_0_h1_data_design/id_space_density_report.json --num-recall 48 --num-open-gen 24 --samples-per-question 3 --temperature 0.7 --max-new-tokens 512 --seed 4242 --output-dir outputs/logs/sprint_4D_1_h1_emission_fabrication_smoke
+conda run -n recover_attention python -m pytest -q -p no:cacheprovider --basetemp outputs/logs/sprint_4D_1_h1_emission_fabrication_smoke/pytest_full_tmp
+```
+
+Result: targeted H1 tests passed 11/11; full pytest passed 746, skipped 2.
+
+Boundary: gold ids are used only as eval-only source fields from the input
+dataset and are not written to prompt/generation/mention outputs. No
+`source_entry_id` is written to output manifests. No AUROC, detector, F5,
+probe, activation, steering, hallucination-reduction, or accuracy-improvement
+claim is made.
+
+Next: Sprint 4D-2 should run full H1 generation + H1-F5 baseline, with an
+explicit plan for truncation/degeneration reporting or mitigation.
+
 ## Sprint 4D-0 - H1 Fabricated-Identifier Data Design
 
 Goal: create the H1 fabricated-identifier data/label substrate only: ontology
