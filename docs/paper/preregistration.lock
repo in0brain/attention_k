@@ -15,4 +15,17 @@ frozen_on: 2026-07-15
   RQ2 每层 pos/neg≥15、全体正例<30 → exploratory。
 
 启动 Stage 0(2880 全量生成)仍需 G1(workshop CFP 确认)+ G2(本 hash 校验通过)
-+ ≤20 prompt smoke 通过,三者齐备。W0.5-B(实现 + smoke)不受 G1 阻塞。
++ G3(≤20 prompt 真实 model-in-loop smoke 通过),三者齐备。
+W0.5-B(实现 + smoke)不受 G1 阻塞。
+
+G2 的强制语义:preflight 重算 hash,不一致 → 立即 SystemExit,不继续任何阶段。
+
+G3 的具体判据(preflight 读 outputs/logs/sprint_4D_2_conditional_increment/
+smoke_report.json,全部为真才算过):
+- kind == "model_smoke"（无模型的 synthetic smoke 不计 G3:它没有真实 prompt、
+  identifier 抽取、字符 span→token span、hidden pooling、cache record）
+- passed == true
+- schema_version == "4D2_completion_cache_v1"
+- prereg_sha256 == 本文件记录的 hash
+- hidden_verification.numeric_match == true（forward hook 与 hidden_states[block+1] 数值相等）
+- 0 < n_prompts <= 20
