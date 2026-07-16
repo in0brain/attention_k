@@ -21,7 +21,9 @@
    equivalence margin ε=0.02)。记录其 sha256。
 3. 文献占位矩阵:LM-Polygraph / PARALLAX / 2605.27016 / 2606.10198 各占什么、你留什么。
 产物:确认的 CFP、冻结的 preregistration(带 sha256)、related-work 占位表。
-门:workshop 未定 + preregistration 未冻 → 不进 W0.5。
+门:preregistration 未冻 → 不进 W0.5。（workshop CFP 未确认**不**阻塞 W0.5:
+  实现新脚本 + ≤20 prompt smoke 可以先做;只有 Stage 0 全量 2880 生成才需要 CFP+冻结+smoke 齐备,
+  以免因 workshop 名单未公布而浪费实现时间。）
 ```
 
 ## W0.5(约 7/18–7/21):实现 + smoke 锁 schema,不跑全量
@@ -44,10 +46,10 @@ smoke 与 preregistration 冻结后,Day1 起 4D-2 生成(H1,Qwen,1 greedy + 5 sa
   ~15–20 GPU-hr。单点故障,W0.5 通过后第一天必开。
 并行(不等生成):
   - 在已有 MCQ(4C)数据上跑输出侧阶梯 1–6 + SAPLMA(H),先把 pipeline 打通。
-生成完立即跑【前置 observability gate】:
-  MCQ 与 H1 各自 error-vs-correct 的 confidence 分布可分性(Cohen's d / 直方图 / AUPRC)。
-  判据:H1 重叠 > MCQ。若不成立 → 记 Outcome 3,后续按"两任务都可观测"写。
-产物:前置 gate 报告(H1 是否高置信设置);MCQ 全阶梯 + SAPLMA 第一版。
+生成完先跑 ladder(得到各任务 O 的 OOF 分数),再跑【observability gate】(见 preregistration §6):
+  S_t = max(0, 2·AUROC(O_t)−1)(两任务同用各自 F5+text);D = S_MCQ − S_H1,
+  independent grouped bootstrap CI,δ=0.15。全>δ → H1 高置信设置;≤0 → Outcome 3。
+产物:ladder 报告 + gate 报告(H1 是否高置信设置);MCQ 全阶梯 + SAPLMA 第一版。
 算力:~$10–14。
 cut-line:4D-2 生成到周末没干净出 → 砍所有加模型/加方法,保 Qwen×{MCQ,H1} 核心。
 ```
@@ -59,7 +61,7 @@ cut-line:4D-2 生成到周末没干净出 → 砍所有加模型/加方法,保 Q
   算 Δ_H = AUROC(O+H) − AUROC(O),paired grouped-bootstrap CI(按 prompt 分组)。
 artifact 红线检查:id-string-only / surface-only 是否已接近 full model。
 SE(退化为 id-agreement)跑,作 error-mode baseline;EigenScore 仅在复现 ≤2 天时加。
-主表:| Task | O(=最强输出侧) | H | O+H | Δ_H AUROC CI | Δ_H AUPRC CI |
+主表:| Task | O(=最强输出侧) | H alone | O+H | Δ_H AUROC CI | Δ_H AUPRC CI |
 产物:MCQ + H1 的完整增量主表 + CI。
 算力:~$8–10。
 cut-line:EigenScore 卡壳就搁置(future work),保 F5 阶梯 + SAPLMA + SE。
@@ -68,8 +70,9 @@ cut-line:EigenScore 卡壳就搁置(future work),保 F5 阶梯 + SAPLMA + SE。
 ## W3(约 8/2–8/8):RQ2 分层 + CoT 基线收尾 + 开写
 
 ```text
-RQ2 within-H1:按 id-token logprob 把 fabrication 分高置信/低置信两层,
-  各层 Δ_H + 层间差(paired bootstrap)。这是 RQ2 有统计力的一半。
+RQ2 within-H1:按 id-token logprob 把**全部 eligible completion**(含正负)分高置信/低置信
+  两层(固定分位数阈值,每层 pos/neg≥15),各层 Δ_H + 层间差(paired bootstrap)。描述性
+  effect-modification,非因果;分层变量 ∈ O。这是 RQ2 有统计力的一半。
 把 full-response-text / F5+text 基线做扎实(artifact 阶梯完整),
   回答"hidden 是否比模型已写出的推理文本还多给信息"。
 并行开写:intro + related work + method(不依赖最终结果,尤其 novelty 防守:

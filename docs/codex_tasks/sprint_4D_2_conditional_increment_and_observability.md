@@ -77,43 +77,55 @@ data/processed/h1/h1_samples.jsonl 全 480 题;每题 1 greedy + 5 sampled;max_n
 产物:h1_generation_manifest.jsonl、h1_feature_cache.*（含 completion-level 主记录）。
 ```
 
-## 6. Stage 1：observability 前置 gate（先于任何 probe bake-off;P0 量化）
+## 6. Stage 1：输出侧 artifact 阶梯 → O（先跑,gate 依赖它的 OOF 分数）
 
 ```text
-每任务内输出风险分数的 base-rate 稳健可分性:
-  r_rb = 2·AUROC_output − 1（rank-biserial,base-rate 不变）;S_t = |r_rb,t|。
-  AUPRC 只在各任务内单独报告,不作 gate（依赖正类比例）。
-D = S_MCQ − S_H1，按 prompt 分组 bootstrap 95% CI。预注册 δ = 0.15。判读:
-  CI(D) 全 > δ  → h1_is_high_confidence_setting=True
-  跨 δ/0        → observability 差异不确定
-  全 ≤ 0        → Outcome 3（H1 未构造高置信错误,如实转写）
-产物:observability_gate_report.json（两任务分布 + r_rb + D + CI + 判据）。
-```
-
-## 7. Stage 2：输出侧 artifact 阶梯 → O
-
-```text
-按 preregistration §7,弱→强,同 grouped folds:
+弱→强,同 grouped folds:
   1 prompt-only  2 id-string-only  3 surface-format-only  4 full-response-text
   5 F5  6 F5 + full-response-text = O（固定,不取 max）。
-full-response-text:char(3–5gram)+word TF-IDF → L2-logistic;vocab 只 train fold 拟合;
-  无外部 embedding;response-only;正则固定或嵌套选,不看 test。
-artifact 红线:若 2 或 3 接近 full model → 记"H1 被字符串/格式解决",该任务不做 hidden 增量声明。
-产物:output_ladder_report.json（各阶梯 AUROC/AUPRC + 红线 + O 定义）。
+full-response-text（冻结,见 preregistration §7）:word ngram(1,2) + char_wb ngram(3,5) 两路
+  TfidfVectorizer(min_df=2, max_features=50000/路, sublinear_tf=True) → L2-logistic;
+  vocab 只 train fold 拟合;无外部 embedding;response-only。
+统一训练协议（O/H/O+H 一致,防融合 artifact）:同 outer folds、同 nested C 网格
+  {0.01,0.1,1,10}(只 train/dev 选);F5/H dense 特征 train-fold z-score;sparse 与 dense
+  各自 block 标准化后拼接(逐块等权);报告 AUROC(O)/AUROC(H alone)/AUROC(O+H) 三者。
+artifact 红线（数值化）:Δ_artifact = AUROC(full-text) − AUROC(shortcut),
+  shortcut ∈ {id-string-only, surface-format-only};grouped-bootstrap CI95 ⊂ [−0.02,+0.02]
+  → shortcut 与 full-text 实质等价 → 触发红线,该任务不做 hidden 增量声明。
+产物:output_ladder_report.json（各阶梯 AUROC/AUPRC + Δ_artifact CI + 红线 + O 定义）。
+```
+
+## 7. Stage 2：observability gate（ladder 之后跑;在 hidden 增量结论之前）
+
+```text
+两任务同定义（不再 MCQ=F5、H1=O 的不对称）:
+  S_t = max(0, 2·AUROC(O_t) − 1)（rank-biserial 非负截断;AUROC<0.5=失效,不翻转）。
+  O_t 均为该任务自己的 F5 + full-response-text（MCQ 有 CoT 文本可构造）。
+  AUPRC 只在各任务内报告,不作 gate。
+D = S_MCQ − S_H1，用 **independent** grouped bootstrap（两任务 groups 各自独立重采样,
+  每轮算 D_b;非 paired——两任务非同批 prompt）。95% CI。预注册 δ = 0.15。判读:
+  CI(D) 全 > δ  → h1_is_high_confidence_setting=True
+  跨 δ/0        → 不确定
+  全 ≤ 0        → Outcome 3（H1 未构造高置信错误,如实转写）
+产物:observability_gate_report.json（两任务 S_t + D + CI + 判据）。
 ```
 
 ## 8. Stage 3：hidden probe H 与条件增量（RQ1）
 
 ```text
-H:SAPLMA-style,层 l=⌊0.7L⌋（Qwen block 19 / Llama block 22;hidden_states[l],
-  index0=embedding,preflight 打印形状核对）;位置 MCQ=answer-letter token 自身、
-  H1=第一个非 echoed ATT&CK/CWE identifier 的 span mean;post-hoc（表示已含生成 token）。
-  → grouped-CV L2-logistic。禁事后选层（robustness 附录 {0.5,0.7,final},primary 恒 0.7L）。
+H:SAPLMA-style。
+  层:block_index_zero_based = ⌊0.7L⌋（Qwen 19 / Llama 22）;
+     HF hidden_states = (embedding, layer1..layerL),故 tuple index = block+1（Qwen 20 / Llama 23）;
+     smoke 用 forward hook 核验 hook 输出 == hidden_states[tuple_index] 数值相等(非只对 shape)。
+  位置 primary:H1 = completion 内**所有**非 echoed ATT&CK/CWE identifier 的**全部 token**
+     在该层 hidden 的统一 mean pooling（不是只取第一个 id;只取第一个另作附录）;
+     MCQ = answer-letter token 自身。post-hoc（表示已含生成 token）。
+  → grouped-CV L2-logistic（协议同 §6）。禁事后选层（附录 {0.5,0.7,final},primary 恒 ⌊0.7L⌋）。
 Δ_H = AUROC(O+H) − AUROC(O)，paired grouped-bootstrap（按 prompt,≥1000）95% CI;AUPRC 增量并报。
 equivalence margin ε=0.02。判读:CI 全>+ε 有实质增量 / ⊂[−ε,+ε] 与无增量等价 /
   全<−ε 有害 / 跨界 inconclusive。
 SE:H1 退化为 id_agreement_rate,error-mode baseline,不当独立 probe;EigenScore 仅复现≤2 天加。
-主表:| Task | O | H | O+H | ΔH AUROC CI | ΔH AUPRC CI |
+主表:| Task | O | H alone | O+H | ΔH AUROC CI | ΔH AUPRC CI |
 产物:increment_report.json。
 ```
 
@@ -206,7 +218,7 @@ conda run -n recover_attention python scripts/sprint_4D_2_conditional_increment.
 
 # 分析
 conda run -n recover_attention python scripts/sprint_4D_2_conditional_increment.py \
-  --stage gate,ladder,increment,rq2,cross_model \
+  --stage ladder,gate,increment,rq2,cross_model \
   --cv-grouped-by source_prompt --bootstrap 1000 --equiv-margin 0.02 --obs-delta 0.15 \
   --output-dir outputs/logs/sprint_4D_2_conditional_increment
 ```
