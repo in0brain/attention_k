@@ -1,9 +1,19 @@
 # Pre-registration freeze lock
 
 file:      docs/paper/preregistration.md
-version:   v2.1
-sha256:    b3ef922848f61cb618edb529cc9280cd240248d148cd7439ec0958ccfb138aef
-frozen_on: 2026-07-15
+version:   v2.2
+sha256:    ffa722e8eee2af9487aca46f7270afd6423a9d0484ec1c1eb41b52d1e4b892fd
+frozen_on: 2026-07-16
+
+历史版本（保留,不覆盖）:
+- v2.1  sha256 b3ef922848f61cb618edb529cc9280cd240248d148cd7439ec0958ccfb138aef
+        frozen_on 2026-07-15;实现与旧 hash 见 git commit 57b7ae9;
+        其 G3 smoke report 存档为 outputs/logs/sprint_4D_2_conditional_increment/
+        smoke_report_v2.1_archived.json。
+        **v2.1 的 G3 已失效**:v2.2 改了 §7 融合协议(dense 拆成 F5/H 两独立 block),
+        smoke 必须重跑。preflight 的 G3 校验含 prereg_sha256 比对,旧 report 会自动被拒。
+        v2.1 smoke 的 AUROC(O=0.843 / H=0.785 / O+H=0.721, n=115, n_pos=10)只用于
+        暴露该协议缺陷,不是研究发现,不进入论文结果。
 
 规则:
 - 本 hash 是冻结后 preregistration.md 内容的指纹。4D-2 脚本的 preflight(启动 gate G2)

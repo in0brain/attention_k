@@ -580,16 +580,35 @@ def _run_ladder(eligible: list[dict], hidden_vecs: dict, args) -> dict:
                            "n_splits": int(args.smoke_splits), "rungs": {}}
     scores: dict[str, np.ndarray] = {}
     for name, spec in specs.items():
-        res = ci.block_oof_scores(y, groups, folds, text=spec["text"], dense=spec["dense"],
+        res = ci.block_oof_scores(y, groups, folds, text=spec["text"],
+                                  dense_blocks=spec["dense_blocks"],
                                   inner_splits=2, seed=args.seed)
         scores[name] = res["scores"]
-        out["rungs"][name] = {"auroc": res["auroc"], "chosen_C": res["chosen_C"]}
+        out["rungs"][name] = {"auroc": res["auroc"], "chosen_C": res["chosen_C"],
+                              "fold_design": res["fold_design"][0]}
     # §7 要求三者同报
     out["increment"] = {
         "auroc_O": ci.auroc(scores["rung6_O_f5_plus_text"], y),
         "auroc_H_alone": ci.auroc(scores["H_alone"], y),
         "auroc_OH": ci.auroc(scores["O_plus_H"], y),
     }
+    # §7 附录:late fusion（robustness,非 primary）。
+    # 注意:smoke 规模下这个数**不可解读**。嵌套 stacking 的 meta 训练集来自 inner-CV
+    # 基模型,n_pos≈10 时那些基模型噪声极大(可能 AUROC<0.5),meta 会学出负权重,再套到
+    # full-train 打分的 test 上直接反号;各 outer fold 的 meta 概率标定也互不可比,pooled
+    # AUROC 因此失真。单测 test_late_fusion_is_not_inverted_at_adequate_sample_size 证明
+    # 实现在 Stage 0 规模下正常。此处只跑接线。
+    try:
+        late = ci.late_fusion_oof_scores(y, groups, folds, spec_o=specs["rung6_O_f5_plus_text"],
+                                         spec_h=specs["H_alone"], inner_splits=2, seed=args.seed)
+        out["late_fusion"] = {
+            "auroc": late["auroc"],
+            "interpretable": False,
+            "note": ("wiring check only — nested stacking is unstable at smoke scale "
+                     "(n_pos≈10); do not read this AUROC as a result. Meaningful only at Stage 0."),
+        }
+    except (RuntimeError, ValueError) as exc:
+        out["late_fusion"] = {"error": str(exc), "interpretable": False}
     idlp = np.array([float(r.get("f5_id_logprob_mean") or 0.0) for r in eligible])
     out["rq2_strata_wiring"] = ci.rq2_fold_strata(idlp, folds)["fold_thresholds"]
     return out

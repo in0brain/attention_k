@@ -308,18 +308,61 @@ def test_text_block_vocabulary_is_train_only():
     assert "delta" not in word_only.vocabulary_ and "zeta" not in word_only.vocabulary_
 
 
-def test_build_fold_design_blocks_are_equally_weighted():
-    rng = np.random.default_rng(0)
-    text = [f"token{i % 3} sample text number {i}" for i in range(20)]
-    dense = rng.normal(0, 100, (20, 50))      # 尺度/维度都远大于 text block
+def test_text_block_rows_are_l2_normalized():
+    """§7 v2.2: X̃_T = L2Normalize([X_word, X_char]) → 每行范数 ≈ 1。"""
+    text = [f"token{i % 3} sample text number {i} alpha beta" for i in range(20)]
     train, test = np.arange(14), np.arange(14, 20)
-    X_tr, _, info = ci.build_fold_design(train, test, text=text, dense=dense)
-    n_text = info["text"]["n_features"]
+    X_tr, X_te, info = ci.build_fold_design(train, test, text=text)
+    assert info["text"]["scaling"] == "row_l2"
+    for X in (X_tr, X_te):
+        norms = np.linalg.norm(X.toarray(), axis=1)
+        assert np.allclose(norms, 1.0, atol=1e-6)
+
+
+def test_dense_block_is_zscored_then_divided_by_sqrt_d():
+    """§7 v2.2: X̃ = ((X−μ)/σ)/sqrt(d) → 每行范数 ≈ 1，与 text block 同量级。"""
+    rng = np.random.default_rng(0)
+    d = 50
+    dense = rng.normal(7.0, 100.0, (200, d))     # 尺度远离 0/1，检验 z-score 生效
+    train, test = np.arange(150), np.arange(150, 200)
+    X_tr, _, info = ci.build_fold_design(train, test, dense_blocks=[("blk", dense)])
+    assert info["blk"]["scaling"] == "zscore_div_sqrt_d" and info["blk"]["n_features"] == d
     tr = X_tr.toarray()
-    text_norm = np.linalg.norm(tr[:, :n_text], axis=1).mean()
-    dense_norm = np.linalg.norm(tr[:, n_text:], axis=1).mean()
-    # 逐块等权:两块的平均行范数应同量级（否则 50000 维 sparse 会压制 3584 维 dense）
-    assert 0.5 < text_norm / dense_norm < 2.0
+    # z-score 后每维方差≈1 → 除 sqrt(d) 后每维方差≈1/d → 行范数≈1
+    assert np.allclose(tr.mean(axis=0), 0.0, atol=1e-9)
+    assert np.allclose(tr.std(axis=0), 1.0 / np.sqrt(d), rtol=1e-6)
+    assert np.linalg.norm(tr, axis=1).mean() == pytest.approx(1.0, rel=0.05)
+
+
+def test_dense_block_handles_constant_columns():
+    dense = np.hstack([np.ones((10, 1)), np.arange(10).reshape(-1, 1).astype(float)])
+    X_tr, _, _ = ci.build_fold_design(np.arange(8), np.arange(8, 10),
+                                      dense_blocks=[("blk", dense)])
+    assert np.all(np.isfinite(X_tr.toarray()))    # σ=0 的常数列不得产生 inf/nan
+
+
+def test_three_blocks_are_equally_weighted_despite_3584_vs_14_dims():
+    """v2.2 的核心:F5(14) 与 H(3584) 是独立 block,H 不得靠维度支配 O+H。"""
+    rng = np.random.default_rng(1)
+    n = 120
+    text = [f"resp {i % 5} some words here" for i in range(n)]
+    f5 = rng.normal(0, 1, (n, 14))
+    hidden = rng.normal(0, 1, (n, 3584))
+    train, test = np.arange(90), np.arange(90, n)
+    X_tr, _, info = ci.build_fold_design(train, test, text=text,
+                                         dense_blocks=[("f5", f5), ("hidden", hidden)])
+    tr = X_tr.toarray()
+    n_t = info["text"]["n_features"]
+    blocks = {
+        "text": tr[:, :n_t],
+        "f5": tr[:, n_t:n_t + 14],
+        "hidden": tr[:, n_t + 14:],
+    }
+    norms = {k: np.linalg.norm(v, axis=1).mean() for k, v in blocks.items()}
+    assert blocks["hidden"].shape[1] == 3584 and blocks["f5"].shape[1] == 14
+    # 三块的平均行范数都应 ≈1（v2.1 的两-block 实现里 f5/hidden 的比值是 sqrt(14/3584)≈0.06）
+    for k, v in norms.items():
+        assert v == pytest.approx(1.0, rel=0.1), f"block {k} row norm {v} not ≈1"
 
 
 def test_build_fold_design_requires_a_block():
@@ -337,11 +380,57 @@ def test_block_oof_scores_runs_o_h_and_oh_through_one_protocol():
     text = [t + f" filler{rng.integers(0, 5)}" for t in text]
     dense = (y * 1.2 + rng.normal(0, 1, y.size)).reshape(-1, 1)
     folds = ci.stratified_grouped_folds(y, groups, 3, seed=0)
-    for kwargs in ({"text": text}, {"dense": dense}, {"text": text, "dense": dense}):
+    for kwargs in ({"text": text},
+                   {"dense_blocks": [("f5", dense)]},
+                   {"text": text, "dense_blocks": [("f5", dense), ("hidden", dense * 2)]}):
         res = ci.block_oof_scores(y, groups, folds, inner_splits=2, seed=0, **kwargs)
         assert np.all(np.isfinite(res["scores"]))
         assert all(c in ci.C_GRID for c in res["chosen_C"])
         assert 0.0 <= res["auroc"] <= 1.0
+
+
+def test_late_fusion_is_nested_inside_outer_folds():
+    """§7 附录:meta 必须只用 train 内 inner cross-fitting 的分数训练。"""
+    rng = np.random.default_rng(2)
+    n_groups, per = 30, 3
+    groups = np.repeat(np.arange(n_groups), per)
+    y = np.array([1 if g % 3 == 0 else 0 for g in groups])
+    text = [("fabricated bogus id" if v else "grounded real id") + f" x{rng.integers(0, 4)}"
+            for v in y]
+    f5 = (y * 1.1 + rng.normal(0, 1, y.size)).reshape(-1, 1)
+    hidden = y.reshape(-1, 1) * 0.9 + rng.normal(0, 1, (y.size, 8))
+    folds = ci.stratified_grouped_folds(y, groups, 3, seed=0)
+    res = ci.late_fusion_oof_scores(
+        y, groups, folds,
+        spec_o={"text": text, "dense_blocks": [("f5", f5)]},
+        spec_h={"text": None, "dense_blocks": [("hidden", hidden)]},
+        inner_splits=2, seed=0)
+    # 小规模只验接线:每个样本恰好被覆盖一次、分数有限、无泄漏异常。
+    # 不断言方向——嵌套 stacking 在 n_pos≈30 时会因 inner 基模型噪声大而翻号（见下一个测试）。
+    assert np.all(np.isfinite(res["scores"])) and res["scores"].size == y.size
+    assert 0.0 <= res["auroc"] <= 1.0
+
+
+def test_late_fusion_is_not_inverted_at_adequate_sample_size():
+    """区分"实现反了"与"样本太小"。
+
+    Stage 0 规模下,信号很强时 late fusion 必须明显优于随机。若这里 <0.5,是接线/方向 bug;
+    只有在这个测试通过的前提下,smoke 规模的低 AUROC 才有资格归因于小样本噪声。
+    """
+    rng = np.random.default_rng(2)
+    groups = np.repeat(np.arange(100), 6)
+    y = np.array([1 if g % 3 == 0 else 0 for g in groups])
+    text = [("fabricated bogus id" if v else "grounded real id") + f" x{rng.integers(0, 4)}"
+            for v in y]
+    f5 = (y * 1.1 + rng.normal(0, 1, y.size)).reshape(-1, 1)
+    hidden = y.reshape(-1, 1) * 0.9 + rng.normal(0, 1, (y.size, 8))
+    folds = ci.stratified_grouped_folds(y, groups, 5, seed=0)
+    res = ci.late_fusion_oof_scores(
+        y, groups, folds,
+        spec_o={"text": text, "dense_blocks": [("f5", f5)]},
+        spec_h={"text": None, "dense_blocks": [("hidden", hidden)]},
+        inner_splits=3, seed=0)
+    assert res["auroc"] > 0.7
 
 
 # ---- ladder specs / surface + id-string shortcuts ----
@@ -372,9 +461,14 @@ def test_build_ladder_specs_covers_prereg_rungs_and_h():
                            "H_alone", "O_plus_H"]
     # O 恒 = F5 + full-response-text（§4：固定单一定义,不取 max）
     assert specs["rung6_O_f5_plus_text"]["text"] == ["c", "c", "c"]
-    assert specs["rung6_O_f5_plus_text"]["dense"].shape == (3, len(ci.F5_FEATURE_NAMES))
-    # O+H 的 dense = F5 拼 hidden
-    assert specs["O_plus_H"]["dense"].shape == (3, len(ci.F5_FEATURE_NAMES) + 4)
+    o_dense = specs["rung6_O_f5_plus_text"]["dense_blocks"]
+    assert [n for n, _ in o_dense] == ["f5"]
+    assert o_dense[0][1].shape == (3, len(ci.F5_FEATURE_NAMES))
+    # v2.2:O+H = [text, F5, H] 三个**独立** block,F5 与 H 不得合成一块
+    oh_dense = specs["O_plus_H"]["dense_blocks"]
+    assert [n for n, _ in oh_dense] == ["f5", "hidden"]
+    assert oh_dense[0][1].shape == (3, len(ci.F5_FEATURE_NAMES))
+    assert oh_dense[1][1].shape == (3, 4)
     assert specs["H_alone"]["text"] is None
 
 

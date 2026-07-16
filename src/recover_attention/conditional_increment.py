@@ -276,56 +276,61 @@ def _fit_text_block(train_text: Sequence[str], test_text: Sequence[str]) -> tupl
     return tr, te, info
 
 
+def _l2_normalize_rows(X):
+    """text block（§7 v2.2）:拼接后对每条样本做整体 L2 normalization → 每行范数 ≈ 1。"""
+    norms = np.sqrt(np.asarray(X.multiply(X).sum(axis=1)).ravel())
+    norms[norms < 1e-12] = 1.0
+    return sp.diags(1.0 / norms) @ X
+
+
 def _fit_dense_block(train_dense: np.ndarray, test_dense: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
-    """train-fold z-score（§7）。常数列的 std=0 → 用 1 避免除零。"""
+    """dense block（§7 v2.2）:逐特征 train-fold z-score,再除以 sqrt(d)。
+
+    Z = (X − μ)/σ,X̃ = Z / sqrt(d)。z-score 后每维方差 ≈1,故每行范数 ≈ sqrt(d);
+    再除 sqrt(d) → 每行范数 ≈ 1,与 L2-normalized 的 text block 同量级。
+    这一步是 v2.2 的核心:没有它,3584 维 H 会在统一 L2 正则下支配 14 维 F5。
+    常数列（σ<1e-12）用 σ=1 代替,避免除零。
+    """
     tr = np.asarray(train_dense, dtype=float)
     te = np.asarray(test_dense, dtype=float)
+    if tr.ndim == 1:
+        tr = tr.reshape(-1, 1); te = te.reshape(-1, 1)
     mu = tr.mean(axis=0)
     sd = tr.std(axis=0)
-    sd[sd < 1e-12] = 1.0
-    return (tr - mu) / sd, (te - mu) / sd
-
-
-def _block_equal_weight_scale(train_block) -> float:
-    """逐块等权（§7）:按 train fold 的平均行范数归一,使每个 block 贡献相当。
-
-    否则 50000 维 sparse TF-IDF 会把 3584 维 dense hidden 压制掉（或反之）。
-    """
-    if sp.issparse(train_block):
-        norms = np.sqrt(np.asarray(train_block.multiply(train_block).sum(axis=1)).ravel())
-    else:
-        norms = np.linalg.norm(np.asarray(train_block, dtype=float), axis=1)
-    rms = float(np.sqrt((norms ** 2).mean()))
-    return 1.0 / rms if rms > 1e-12 else 1.0
+    sd = np.where(sd < 1e-12, 1.0, sd)
+    scale = np.sqrt(float(tr.shape[1]))
+    return ((tr - mu) / sd) / scale, ((te - mu) / sd) / scale
 
 
 def build_fold_design(train: np.ndarray, test: np.ndarray, *,
                       text: Sequence[str] | None = None,
-                      dense: np.ndarray | None = None) -> tuple[Any, Any, dict]:
-    """按 §7 协议组装一个 fold 的设计矩阵:各 block 内标准化 → 等权 → 拼接。
+                      dense_blocks: Sequence[tuple[str, np.ndarray]] | None = None,
+                      ) -> tuple[Any, Any, dict]:
+    """按 §7（v2.2）组装一个 fold 的设计矩阵。
 
-    text  = full-response-text / prompt / id-string 等文本 block（sparse）。
-    dense = F5 / surface / hidden 等稠密 block。
-    两者可任一为 None（阶梯的低阶 rung）。所有拟合只用 train。
+    text         = 文本 block（word+char TF-IDF → 行 L2 normalize）。
+    dense_blocks = **独立**的 dense block 列表 [(name, X), …],每块各自 z-score / sqrt(d)。
+      v2.2 的关键:F5 与 H 是两个独立 block,不再合成一个 dense block。合成会让
+      d_H=3584 压制 d_F=14,使 O+H 机械退化成 H alone。
+    所有标准化统计量只在 train 上拟合。
     """
-    if text is None and dense is None:
-        raise ValueError("build_fold_design needs at least one of text/dense")
+    if text is None and not dense_blocks:
+        raise ValueError("build_fold_design needs at least one of text/dense_blocks")
     blocks_tr, blocks_te = [], []
     info: dict[str, Any] = {}
     if text is not None:
         t = np.asarray(text, dtype=object)
         tr, te, tinfo = _fit_text_block(list(t[train]), list(t[test]))
-        w = _block_equal_weight_scale(tr)
-        blocks_tr.append(tr * w); blocks_te.append(te * w)
-        info["text"] = {**tinfo, "block_scale": w, "n_features": tr.shape[1]}
-    if dense is not None:
-        d = np.asarray(dense, dtype=float)
+        tr, te = _l2_normalize_rows(tr), _l2_normalize_rows(te)
+        blocks_tr.append(tr); blocks_te.append(te)
+        info["text"] = {**tinfo, "n_features": tr.shape[1], "scaling": "row_l2"}
+    for name, block in (dense_blocks or []):
+        d = np.asarray(block, dtype=float)
         if d.ndim == 1:
             d = d.reshape(-1, 1)
         tr, te = _fit_dense_block(d[train], d[test])
-        w = _block_equal_weight_scale(tr)
-        blocks_tr.append(sp.csr_matrix(tr * w)); blocks_te.append(sp.csr_matrix(te * w))
-        info["dense"] = {"block_scale": w, "n_features": d.shape[1]}
+        blocks_tr.append(sp.csr_matrix(tr)); blocks_te.append(sp.csr_matrix(te))
+        info[name] = {"n_features": int(d.shape[1]), "scaling": "zscore_div_sqrt_d"}
     X_tr = sp.hstack(blocks_tr).tocsr()
     X_te = sp.hstack(blocks_te).tocsr()
     return X_tr, X_te, info
@@ -355,19 +360,19 @@ def _select_C(X_tr, y_tr: np.ndarray, groups_tr: np.ndarray, c_grid: Sequence[fl
 def block_oof_scores(y: Sequence[int], groups: Sequence,
                      folds: Sequence[tuple[np.ndarray, np.ndarray]], *,
                      text: Sequence[str] | None = None,
-                     dense: np.ndarray | None = None,
+                     dense_blocks: Sequence[tuple[str, np.ndarray]] | None = None,
                      c_grid: Sequence[float] = C_GRID,
                      inner_splits: int = 3, seed: int = 0) -> dict:
     """一个 ladder rung（或 H / O+H）的 OOF 风险分。
 
-    O / H / O+H 走**同一条**代码路径:同 outer folds、同 nested C 网格、同 block 标准化,
+    O / H / O+H 走**同一条**代码路径:同 outer folds、同 nested C 网格、同 block 公式,
     这样"无增量"不会是融合协议不一致造成的 artifact（§7）。
     """
     y = np.asarray(y); g = np.asarray(groups)
     scores = np.full(len(y), np.nan, dtype=float)
     chosen_c, fold_info = [], []
     for train, test in folds:
-        X_tr, X_te, info = build_fold_design(train, test, text=text, dense=dense)
+        X_tr, X_te, info = build_fold_design(train, test, text=text, dense_blocks=dense_blocks)
         c = _select_C(X_tr, y[train], g[train], c_grid, inner_splits, seed)
         clf = LogisticRegression(C=c, penalty="l2", max_iter=2000, solver="liblinear")
         clf.fit(X_tr, y[train])
@@ -377,6 +382,55 @@ def block_oof_scores(y: Sequence[int], groups: Sequence,
         raise RuntimeError("block_oof_scores produced non-finite OOF values")
     return {"scores": scores, "auroc": auroc(scores, y), "chosen_C": chosen_c,
             "fold_design": fold_info}
+
+
+def _fit_predict_block(train: np.ndarray, test: np.ndarray, y: np.ndarray, g: np.ndarray,
+                       spec: dict, c_grid, inner_splits: int, seed: int) -> np.ndarray:
+    X_tr, X_te, _ = build_fold_design(train, test, text=spec["text"],
+                                      dense_blocks=spec["dense_blocks"])
+    c = _select_C(X_tr, y[train], g[train], c_grid, inner_splits, seed)
+    clf = LogisticRegression(C=c, penalty="l2", max_iter=2000, solver="liblinear")
+    clf.fit(X_tr, y[train])
+    return _risk_scores(clf, X_te)
+
+
+def late_fusion_oof_scores(y: Sequence[int], groups: Sequence,
+                           folds: Sequence[tuple[np.ndarray, np.ndarray]], *,
+                           spec_o: dict, spec_h: dict,
+                           c_grid: Sequence[float] = C_GRID,
+                           inner_splits: int = 3, seed: int = 0) -> dict:
+    """late-fusion robustness（§7 附录,非 primary）:两维 meta-logistic 融合分数。
+
+    严格嵌套在 outer fold 内:
+      1) 在该 fold 的 **train** 上再做一层 inner cross-fitting,得到 train 侧 OOF 的
+         O_score / H_score → 用它们训 meta;
+      2) 用整个 train 拟合的 f_O / f_H 给 test 打分,送入 meta 得 test 分。
+    禁止拿全数据 OOF score 训 meta 再评估同一批样本——那是泄漏。
+    """
+    y = np.asarray(y); g = np.asarray(groups)
+    scores = np.full(len(y), np.nan, dtype=float)
+    for train, test in folds:
+        # 1) inner cross-fitting:只在 train 内部产生无泄漏的 meta 训练集
+        inner = stratified_grouped_folds(y[train], g[train], n_splits=inner_splits,
+                                         seed=seed, max_seed_retries=10)
+        meta_tr = np.full((train.size, 2), np.nan, dtype=float)
+        for itr, ite in inner:
+            gtr, gte = train[itr], train[ite]     # 映射回全局行号
+            meta_tr[ite, 0] = _fit_predict_block(gtr, gte, y, g, spec_o, c_grid, inner_splits, seed)
+            meta_tr[ite, 1] = _fit_predict_block(gtr, gte, y, g, spec_h, c_grid, inner_splits, seed)
+        if not np.all(np.isfinite(meta_tr)):
+            raise RuntimeError("late fusion: inner cross-fitting left non-finite meta features")
+        meta = LogisticRegression(penalty="l2", max_iter=2000, solver="liblinear")
+        meta.fit(meta_tr, y[train])
+        # 2) 用整个 train 拟合的基模型给 test 打分
+        meta_te = np.column_stack([
+            _fit_predict_block(train, test, y, g, spec_o, c_grid, inner_splits, seed),
+            _fit_predict_block(train, test, y, g, spec_h, c_grid, inner_splits, seed),
+        ])
+        scores[test] = _risk_scores(meta, meta_te)
+    if not np.all(np.isfinite(scores)):
+        raise RuntimeError("late_fusion_oof_scores produced non-finite OOF values")
+    return {"scores": scores, "auroc": auroc(scores, y)}
 
 
 # ------------------------------------------------------------- bootstrap CI
@@ -575,11 +629,11 @@ def _dense_matrix(rows: Sequence[dict], names: Sequence[str]) -> np.ndarray:
 
 
 def build_ladder_specs(records: Sequence[dict], hidden: np.ndarray | None = None) -> dict[str, dict]:
-    """§7 阶梯 + §8 H 的特征 spec（每个 spec = {"text":…, "dense":…}）。
+    """§7 阶梯 + §8 H 的特征 spec（每个 spec = {"text":…, "dense_blocks":[(name,X),…]}）。
 
     rung 1..6 严格按预注册顺序;O 恒 = F5 + full-response-text（不取 max、不按 test 选）。
-    H alone 与 O+H 用**同一** block 协议,防"无增量"是融合 artifact（§7 明确要求
-    同时报告 AUROC(O) / AUROC(H alone) / AUROC(O+H)）。
+    v2.2:F5 与 H 是**独立** block,O+H = [X̃_T, X̃_F, X̃_H] 三块等权,不是把 F5 和 H
+    拼成一个 dense block（那会让 d_H=3584 压制 d_F=14,O+H 机械退化成 H alone）。
     """
     f5 = _dense_matrix(records, F5_FEATURE_NAMES)
     surface = _dense_matrix(records, SURFACE_FEATURE_NAMES)
@@ -588,19 +642,20 @@ def build_ladder_specs(records: Sequence[dict], hidden: np.ndarray | None = None
     id_text = [str(r.get("id_string_text", "")) for r in records]
 
     specs: dict[str, dict] = {
-        "rung1_prompt_only": {"text": prompt_text, "dense": None},
-        "rung2_id_string_only": {"text": id_text, "dense": None},
-        "rung3_surface_only": {"text": None, "dense": surface},
-        "rung4_full_text": {"text": resp_text, "dense": None},
-        "rung5_f5": {"text": None, "dense": f5},
-        "rung6_O_f5_plus_text": {"text": resp_text, "dense": f5},
+        "rung1_prompt_only": {"text": prompt_text, "dense_blocks": None},
+        "rung2_id_string_only": {"text": id_text, "dense_blocks": None},
+        "rung3_surface_only": {"text": None, "dense_blocks": [("surface", surface)]},
+        "rung4_full_text": {"text": resp_text, "dense_blocks": None},
+        "rung5_f5": {"text": None, "dense_blocks": [("f5", f5)]},
+        "rung6_O_f5_plus_text": {"text": resp_text, "dense_blocks": [("f5", f5)]},
     }
     if hidden is not None:
         h = np.asarray(hidden, dtype=float)
         if h.shape[0] != len(records):
             raise ValueError(f"hidden rows {h.shape[0]} != records {len(records)}")
-        specs["H_alone"] = {"text": None, "dense": h}
-        specs["O_plus_H"] = {"text": resp_text, "dense": np.hstack([f5, h])}
+        specs["H_alone"] = {"text": None, "dense_blocks": [("hidden", h)]}
+        specs["O_plus_H"] = {"text": resp_text,
+                             "dense_blocks": [("f5", f5), ("hidden", h)]}
     return specs
 
 

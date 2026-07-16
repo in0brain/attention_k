@@ -1,7 +1,31 @@
-# Pre-registration：内部 hidden-state probe 的条件增量检验（v2.1，已冻结）
+# Pre-registration：内部 hidden-state probe 的条件增量检验（v2.2，已冻结）
 
 > 投稿前预注册。跑任何全量生成之前写死;跑完只填结果,不改判读规则。
 > 冻结指纹见 `preregistration.lock`（sha256）。改设计须 bump version + 重算 hash。
+
+## v2.2 修订记录（唯一变更，2026-07-16）
+
+```text
+变更:§7 融合协议。原 v2.1 只分 sparse / dense 两个 block,F5(d_F=14) 与
+  H(d_H=3584) 同处一个 dense block。现拆成 text / F5 / H 三个独立 block,
+  各按 §7 冻结公式等权。§7 的 late-fusion robustness 附录同时写入。
+理由:v2.1 的两-block 实现与 §7 自身"逐块等权、避免高维块压制低维块"的动机内部
+  不一致——它防住了 sparse 压制 dense,却放任 dense 内部 3584 维 H 压制 14 维 F5。
+  这会让 AUROC(O+H) − AUROC(O) 混入工程混杂:
+    "hidden 是否有增量" + "融合是否破坏了原有输出信号"
+  若 O+H≈H 且显著低于 O,最直接的解读是"联合模型实现不公平",而非"内部状态无增量",
+  直接损害本文主命题。
+修订正当性(记录在案,防事后质疑):
+  - Stage 0 未启动,无正式结果;
+  - 缺陷在 smoke 的职责范围内被发现(smoke 的作用就是跑前锁 schema/协议);
+  - 维度压制风险在查看 smoke AUROC **之前**已被指出,不是按结果方向选模型;
+  - 修订消除的是协议内部不一致,不指向任何特定结论方向;
+  - v2.1 原始 hash 与实现保留在 git commit 57b7ae9,不覆盖;
+  - v2.1 smoke 的 AUROC 数值(O=0.843 / H=0.785 / O+H=0.721, n=115, n_pos=10)
+    仅用于暴露该协议缺陷,**不进入正式论文结果**,也不证明 H 有效或无效。
+后果:v2.1 的 G3 失效(融合协议已变),必须重跑单元测试与完整 ≤20 prompt smoke,
+  取得新 G2 + 新 G3;Stage 0 仍需 G1。
+```
 > v2 相对 v1(P0):completion-level population、RQ2 对全部 eligible 分层、observability
 > gate 量化(rank-based,弃 AUPRC 作 gate)、O 固定单一定义 + text baseline 落地、
 > hidden 层/位置精确化、K 固定、equivalence margin、启动 gate 由代码强制。
@@ -123,11 +147,31 @@ full-response-text 实现（P0 完全冻结,不许事后改）:
   不用任何外部 LLM embedding;本 baseline 用 response-only(prompt/response/prompt+response
   另作附录,不改 O)。
 统一训练协议（O / H / O+H 完全一致,防融合 artifact）:
-  相同 outer grouped folds、相同 nested-CV 的 L2 C 网格{0.01,0.1,1,10}(只在 train/dev 选);
-  F5 与 H 的 dense 特征 train-fold z-score;sparse TF-IDF 与 dense 特征各自 block 内
-  标准化后再拼接(逐块等权,避免 3584 维 dense 被维度/尺度压制);
+  相同 outer grouped folds、相同 nested-CV 的 L2 C 网格{0.01,0.1,1,10}(只在 train/dev 选)、
+  相同训练样本、相同 LogisticRegression;所有标准化统计量只在 train fold 拟合。
   报告 AUROC(O)、AUROC(H alone)、AUROC(O+H) 三者——若 H alone 强但 O+H≈O,
   则增量被融合掩盖,须讨论,不得直接判"无增量"。
+
+融合公式（v2.2 P0 冻结到公式层面;三个独立 block,不是两个）:
+  每个 outer fold 内,只用该 fold 的 train 统计量。
+  text block:  word 与 char_wb TF-IDF 各自在 train fold 拟合,拼接后对**每条样本**做整体
+               L2 normalization → X̃_T = L2Normalize([X_word, X_char])。整块每行范数 ≈ 1。
+  F5 block:    逐特征 train-fold z-score Z_F = (X_F − μ_F)/σ_F,再除以维数平方根
+               → X̃_F = Z_F / sqrt(d_F)。当前 d_F = 14。
+  H block:     同样逐特征 z-score Z_H,再按维数归一 → X̃_H = Z_H / sqrt(d_H)。
+               Qwen d_H = 3584。
+  于是:  O = [X̃_T, X̃_F]      H = X̃_H      O+H = [X̃_T, X̃_F, X̃_H]
+  三块的期望能量(每行范数 ≈ 1)因此处于相近量级,不会因 3584 ≫ 14 让 H 在统一 L2
+  正则下支配模型。σ_F/σ_H 的常数列(σ<1e-12)用 1 代替,避免除零。
+
+late-fusion robustness（附录,非 primary;防"高维拼接不公平"的质疑）:
+  primary 恒为上面的三-block early fusion。附录另报分数级融合:
+    O_score = f_O(O)，H_score = f_H(H)，f_late(O_score, H_score) = 两维 meta-logistic。
+  meta 必须**嵌套在 outer fold 内**:在该 fold 的 train 上再做一层 inner cross-fitting
+  得到 train 侧 OOF 的 O_score/H_score 来训 meta,再用整个 train 拟合的 f_O/f_H 打分
+  test 后送入 meta。禁止用全数据 OOF score 训 meta 后又评估同一批样本(那是泄漏)。
+  判读:early 与 late 都无增量 → 负结果更强;仅 early 失败 → 是融合结构问题,
+  不得归因于 hidden state。
 F5 复用 h1_f5_features.py:label margin/entropy、id-token mean/min logprob、
   id_agreement/self-consistency、verbalized confidence。
 artifact 红线（P0 数值化）:Δ_artifact = AUROC(full-text) − AUROC(shortcut),
