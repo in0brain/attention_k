@@ -1,10 +1,14 @@
-# Pre-registration：内部 hidden-state probe 的条件增量检验（v2）
+# Pre-registration：内部 hidden-state probe 的条件增量检验（v2.1，已冻结）
 
 > 投稿前预注册。跑任何全量生成之前写死;跑完只填结果,不改判读规则。
-> v2 相对 v1 的修订(P0):完成 completion-level population 定义、RQ2 改为对全部
-> eligible 分层、observability gate 量化(rank-based,弃用 AUPRC 作 gate)、O 固定
-> 单一定义 + text baseline 落地、hidden 层/位置精确化、K 固定、加 equivalence margin、
-> 启动 gate 由代码强制。**待目标 workshop CFP 确认 deadline / page limit / archival。**
+> 冻结指纹见 `preregistration.lock`（sha256）。改设计须 bump version + 重算 hash。
+> v2 相对 v1(P0):completion-level population、RQ2 对全部 eligible 分层、observability
+> gate 量化(rank-based,弃 AUPRC 作 gate)、O 固定单一定义 + text baseline 落地、
+> hidden 层/位置精确化、K 固定、equivalence margin、启动 gate 由代码强制。
+> v2.1 相对 v2(P0):H 改 pool 全部 eligible identifier、hidden tuple index 消歧
+> (block+1)、gate 两任务同用 F5+text + max(0,·) + independent bootstrap + ladder→gate、
+> artifact 红线数值化、TF-IDF/融合协议全冻结、δ 标注、RQ2 低功率标记。
+> **待目标 workshop CFP 确认 deadline / page limit / archival。**
 
 ## 0. thesis
 
