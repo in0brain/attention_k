@@ -12,23 +12,36 @@
       是否有条件增量,且增量是否随 output-space error observability 变化。
 ```
 
-## W0(约 7/15–7/18):锁定,不跑 compute
+## W0(约 7/15–7/18):锁定设计,不跑 compute
 
 ```text
 1. 确认目标 workshop 的真实 CFP(deadline / page limit / archival)。名单未出就等。
-2. 完成 preregistration.md 的最终审阅并冻结(thesis / RQ1-2 / O,H / 判读规则 /
-   前置 gate / 单位 / artifact 阶梯)。
-3. 文献占位矩阵:LM-Polygraph / PARALLAX / 2605.27016 / 2606.10198 各占什么、
-   你留什么,写进 related work 草稿。
-产物:确认的 CFP、冻结的 preregistration、related-work 占位表。
-门:workshop 未定 + preregistration 未冻 → 不启动 4D-2。
+2. 冻结 preregistration.md v2(已按 P0 修:completion-level population、RQ2 分全部 eligible、
+   observability gate 量化 rank-biserial+δ、O 固定 F5+text、hidden 层/位置精确、K 固定、
+   equivalence margin ε=0.02)。记录其 sha256。
+3. 文献占位矩阵:LM-Polygraph / PARALLAX / 2605.27016 / 2606.10198 各占什么、你留什么。
+产物:确认的 CFP、冻结的 preregistration(带 sha256)、related-work 占位表。
+门:workshop 未定 + preregistration 未冻 → 不进 W0.5。
 ```
 
-## W1(约 7/19–7/25):前置 gate + H1 全量生成 + MCQ 阶梯
+## W0.5(约 7/18–7/21):实现 + smoke 锁 schema,不跑全量
 
 ```text
-Day1 立刻起 4D-2 生成(H1,Qwen,K=5~6,512 tok,一遍缓存 §10 契约的特征,
-  不缓存 raw attention)。~15–20 GPU-hr。单点故障,第一天必须开。
+先有代码再有数据:新建 scripts/sprint_4D_2_conditional_increment.py(子命令
+  preflight/smoke/generate/gate/ladder/increment/rq2/cross_model)+ completion-level
+  组装 / SAPLMA H / full-text baseline / 分层 / rank-biserial gate 模块。
+在 ≤20 prompt 上 smoke,验证:每 completion 恰一条主记录、K traces 共享 group、
+  hidden 层/位置正确、O/H/O+H 同 folds、no-emission 处理、paired CI 可算。
+产物:通过的 smoke_report;锁定的缓存 schema;新 pipeline 单元测试。
+门:smoke 未过 → 不启动 Stage 0(2880 前向依赖此 schema,跑后改要重做)。
+```
+
+## W1(约 7/22–7/28):前置 gate + H1 全量生成 + MCQ 阶梯
+
+```text
+smoke 与 preregistration 冻结后,Day1 起 4D-2 生成(H1,Qwen,1 greedy + 5 sampled
+  = 6 traces/题 = 2880,512 tok,一遍缓存契约特征,不缓存 raw attention)。
+  ~15–20 GPU-hr。单点故障,W0.5 通过后第一天必开。
 并行(不等生成):
   - 在已有 MCQ(4C)数据上跑输出侧阶梯 1–6 + SAPLMA(H),先把 pipeline 打通。
 生成完立即跑【前置 observability gate】:

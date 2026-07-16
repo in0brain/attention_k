@@ -1,189 +1,178 @@
-# Pre-registration：内部 hidden-state probe 的条件增量检验
+# Pre-registration：内部 hidden-state probe 的条件增量检验（v2）
 
-> 本文件是投稿前的**预注册**：thesis、研究问题、O/H 定义、判读规则、前置 gate、
-> 统计单位、artifact 控制,全部在跑任何大规模生成之前写死。跑完不许改判读规则,
-> 只填结果。版本 v1(待目标 workshop 的 CFP 确认 deadline / page limit / archival)。
+> 投稿前预注册。跑任何全量生成之前写死;跑完只填结果,不改判读规则。
+> v2 相对 v1 的修订(P0):完成 completion-level population 定义、RQ2 改为对全部
+> eligible 分层、observability gate 量化(rank-based,弃用 AUPRC 作 gate)、O 固定
+> 单一定义 + text baseline 落地、hidden 层/位置精确化、K 固定、加 equivalence margin、
+> 启动 gate 由代码强制。**待目标 workshop CFP 确认 deadline / page limit / archival。**
 
-## 0. 一句话 thesis
+## 0. thesis
 
 ```text
 Decodability ≠ Incremental Utility。
-一个 supervised hidden-state probe 能把对错分开(decodable),
-不等于它在一个 task-adapted、含可见 CoT 的输出侧基线之上还有增量效用。
-内部 probe 的价值可能取决于 output-space error observability
-(错误在输出置信信号中的可观测性)。
+supervised hidden-state probe 能把对错分开,不等于它在最强输出侧基线
+(F5 + 可见文本)之上还有增量;内部 probe 的价值可能取决于
+output-space error observability(错误在输出置信信号中的可观测性)。
 ```
 
-## 1. 与现有工作的边界(核实后)
+## 1. 与现有工作的边界(核实后,真实)
 
 ```text
-LM-Polygraph (2311.07383 / 2406.15627):统一 UQ 评测框架,大规模方法对比。
-  → 占据"统一 benchmark",不占据条件增量问题。
-PARALLAX (2605.17028):22 方法 × 12 模型 × 6 数据集,teacher-forced vs
-  live-generation,文本表面基线 TxTemb,发现多数 benchmark 有构造 artifact。
-  → 明显缩窄"大矩阵"创新;但没把同协议下 O / H / O+H 的 Δ_H 作为主问题。
-2605.27016 (Uncertainty relevance):uncertainty 与幻觉的相关性随错误类型/任务变化。
-  → 占据"uncertainty ≠ hallucination";没回答"O 已知后 H 是否有条件增量"。
-2606.10198 (Density Ridge Selective Prediction):label-scarce selective prediction
-  + trajectory geometry detector。→ 不占条件增量问题。
+LM-Polygraph(2311.07383/2406.15627):统一 UQ 框架。→ 不占条件增量问题。
+PARALLAX(2605.17028):22 方法×12 模型×6 数据,揭示 benchmark 构造 artifact。
+  → 缩窄"大矩阵"创新;未把同协议 O/H/O+H 的 Δ_H 作主问题。
+2605.27016:uncertainty ≠ hallucination,随错误类型变化。→ 未答"O 已知后 H 有无增量"。
+2606.10198:label-scarce selective prediction + trajectory detector。→ 不占条件增量。
+干净空间:把 hidden 检测评价改写为"相对最强输出侧基线的条件增量",
+  并对照输出易观测错误(MCQ)与高置信 fabrication(H1),检验增量是否随 observability 变化。
 ```
 
-我们干净的空间(不被上述占据):
+## 2. 启动 gate（代码强制,未过不许跑生成）
 
 ```text
-把 hidden-state 幻觉检测评价改写为"相对最强输出侧基线的条件增量问题",
-并在同一领域下对照"输出易观测错误(MCQ)"与"高置信 fabrication(H1)",
-检验内部信号的增量是否随 error observability 变化。
+G1 目标 workshop 的 CFP 已确认(deadline / page limit / archival),记入 preflight。
+G2 本文件已冻结:preflight 记录本文件的 sha256,跑后不许改判读规则/定义。
+脚本 preflight 必须显式检查 G1、G2,缺任一 → 停。旧脚本不检查,不得用于本实验。
 ```
 
-## 2. 研究问题与主量
-
-### RQ1(条件增量)
+## 3. 统计单位与 population（P0 修正:completion-level）
 
 ```text
-Δ_H = AUROC(O + H) − AUROC(O)
-O = 输出侧最强基线 = max{ F5, full-response-text, F5+text }   (见 §5 阶梯)
-H = 预注册的 hidden-state probe(SAPLMA-style,见 §6)
-统计:paired grouped-bootstrap(按 source prompt 分组,≥1000 resample)的 95% CI。
+primary population(H1):生成 ≥1 个非 echoed ATT&CK/CWE identifier 的 completion。
+  positive:其中 ≥1 个 identifier fabricated。
+  negative:所有非 echoed identifier 均 grounded。
+每个 completion = 一条主样本(不是每 mention 一条)。
+emission failure(拒答 / 未生成合法 id):单独统计,不进主 completion-level AUROC,
+  作 secondary end-to-end 系统分析。
+mention-level:仅作 secondary,用于 id-token logprob 的 observability 描述,不当 primary。
+MCQ population:每题一条,label = 答案正确性 1[â=a*]。
+分组:CV 与 bootstrap 一律按 source prompt 分组;K 条 completion 共享 group,不当独立样本。
+K 固定:1 greedy + 5 sampled = 6 traces/question = 480×6 = 2880 traces。
+seed:固定预注册 grouped folds + paired grouped bootstrap;不把 classifier seed 当 robustness。
 ```
 
-**判读规则(预注册,三选一,不预设方向):**
+## 4. RQ1（条件增量）
 
 ```text
-CI 全 > 0    → 有稳定条件增量
-CI 跨 0      → 无证据支持增量(本方向的主要预期)
-CI 全 < 0    → 内部特征显著损害泛化
+O = F5 + full-response-text（固定单一定义,不取 max,不按测试表现选,避免 winner's curse）。
+  另分别报告 F5 / text-only / F5+text,仅作展示,不改 O。
+H = 预注册 hidden-state probe（§6）。
+Δ_H = AUROC(O+H) − AUROC(O)，paired grouped-bootstrap（按 prompt,≥1000）95% CI。
+  AUPRC 增量并报（类不平衡）。
+equivalence margin（预注册）:ε = 0.02 AUROC（最小有意义增量,量级参照 4C 噪声）。
+判读规则（三/四选一,不预设方向）:
+  CI 全 > +ε        → 有实质增量
+  CI ⊂ [−ε, +ε]     → 与"无增量"实质等价（TOST 式,本方向的主要预期）
+  CI 全 < −ε        → 内部特征显著损害
+  跨界              → inconclusive（样本/功率不足,如实写）
 ```
 
-同时报告 AUPRC 增量(类不平衡下必须)。
-
-### RQ2(增量是否取决于 observability)
+## 5. RQ2（observability 的 effect-modification,描述性）
 
 ```text
-主检验(within-H1,有统计力):
-  按 id-token logprob 把 H1 的 fabrication 分成
-  "高置信(low id-logprob 反例:高 logprob)" vs "低置信" 两层,
-  检验 Δ_H 是否在高置信层更大(分层各自的 paired bootstrap CI + 层间差)。
-粗对照(跨任务,2 点趋势,非 interaction):
-  Δ_H(MCQ) vs Δ_H(H1)。
-诚实边界:只有两个任务时这是 2 点对照,不是可拟合的 observability→Δ_H 函数;
-  within-H1 分层才是有统计力的那一半。
+分层对象 = 全部 eligible completions（同时含 positive 与 negative,不只分 fabrication）,
+  否则单类层 AUROC 无法计算。
+分层变量 = O 侧的 id-token logprob（mean over identifier span）。
+阈值 = 固定分位数:在 train fold 内取 eligible 的 id-token-logprob 中位数,
+  ≥ 中位数 → high-confidence 层,< → low-confidence 层（同一阈值用于该 fold 的 test）。
+每层各算 O / H / O+H 与 Δ_H（分层的 paired grouped bootstrap CI）+ 层间差 CI。
+最小样本:每层 positive ≥ 15 且 negative ≥ 15,否则记 insufficient,不出该层 AUROC。
+定位:描述性 effect-modification,非因果证明;且分层变量本身 ∈ O,须在文中声明。
+粗对照:Δ_H(MCQ) vs Δ_H(H1),明确标 2 点趋势、非可拟合函数、非 interaction 检验。
 ```
 
-## 3. 前置 gate(4D-2 第一步,先于任何 probe bake-off)
-
-必须先证明 H1 确实是"高置信 fabrication 任务",否则核心解释变量没被构造出来。
+## 6. 前置 observability gate（4D-2 Stage 1,先于任何 probe bake-off；P0 量化）
 
 ```text
-度量(base-rate 稳健,不能用跨任务裸 AUROC):
-  每个任务内 error-vs-correct 的 confidence 分布可分性——
-  Cohen's d、分布直方图、AUPRC,而非 AUROC(MCQ) vs AUROC(H1)。
-  confidence 用 §5 的输出侧信号(F5:label margin/entropy;H1:id-token logprob)。
-通过判据:
-  H1 的 fabricated / valid confidence 分布重叠明显 > MCQ 的 wrong / correct。
-Outcome 3(如实报告):
-  若 H1 的 output-only 可分性仍很强(fabrication 也低 logprob),
-  则 H1 未构造出高置信错误设置;此时论文结论转为
-  "在我们能构造的两个任务上,输出侧错误都可观测,内部增量在两者都近零",
-  不得假装 H1 是高置信设置。
+目的:先证 H1 确是"高置信 fabrication",否则核心解释变量没被构造出来。
+每个任务内的输出风险分数:MCQ = F5 的 error 分数;H1 = fabrication 的 O 侧风险分。
+可分性用 base-rate 稳健的 rank 效应量:
+  rank-biserial r_rb = 2·AUROC_output − 1 ∈ [−1,1]（等价 Cliff's delta,base-rate 不敏感）。
+  S_t = |r_rb,t|。   （AUROC 是 rank 统计、base-rate 不变;AUPRC 依赖正类比例,弃用作 gate,
+                       仅在各任务内单独报告。）
+D = S_MCQ − S_H1，按 prompt 分组 bootstrap 95% CI。
+预注册阈值 δ = 0.15。判读:
+  CI(D) 全 > δ   → H1 显著更不易由输出信号观测（h1_is_high_confidence_setting=True）
+  CI 跨 δ / 0    → observability 差异不确定
+  CI 全 ≤ 0      → 不支持 H1 更难观测（Outcome 3）
+Outcome 3（如实报告）:H1 output-only 仍强可分 → H1 未构造高置信错误;结论转为
+  "两个可构造任务上输出错误都可观测,内部增量在两者都近零",不得假装 H1 是高置信设置。
 ```
 
-## 4. 任务(controlled cross-task,非 matched)
+## 7. 输出侧 baseline 阶梯 + O 的实现（artifact 控制,受 PARALLAX 启发）
 
 ```text
-MCQ(CyberMetric,有限标签 {A,B,C,D},已有 4C 数据/特征):
-  label = 答案正确性 1[â = a*]。
-H1(自由生成 fabricated identifier,4D-0/4D-1 已有数据):
-  label(primary,completion-level)= completion 是否含 ≥1 个 fabricated id。
-两者 label 定义不同,不是 matched design;称 controlled cross-task comparison。
+阶梯（从弱到强,全部 grouped-CV logistic,同 folds）:
+  1 prompt-only    2 id-string-only    3 surface-format-only（长度/模板/ontology 前缀）
+  4 full-response-text    5 F5    6 F5 + full-response-text = O
+full-response-text 实现（固定,不许事后改）:
+  char(3–5 gram) + word 的 TF-IDF → L2-logistic;
+  vocabulary 只在 train fold 拟合;不用任何外部 LLM embedding;
+  prompt-only / response-only / prompt+response 分清（本 baseline 用 response-only）;
+  正则化 C 固定或只在嵌套 train/dev 选，不看 test。
+F5 复用 h1_f5_features.py:label margin/entropy、id-token mean/min logprob、
+  id_agreement/self-consistency、verbalized confidence。
+artifact 红线:若阶梯 2 或 3 已接近 full model → 记"H1 被字符串/格式模式解决",
+  该任务不做 hidden 增量声明。
 ```
 
-## 5. 输出侧基线阶梯(artifact 控制,受 PARALLAX 启发)
-
-按从弱到强跑,取最强的当 O;并用弱阶梯排除 benchmark shortcut:
+## 8. Hidden probe H（P0 精确化,预注册,防 post-hoc 选层）
 
 ```text
-1. prompt-only            (只看问题文本)
-2. id-string-only         (只看抽出的 identifier 字符串/格式)
-3. surface-format-only    (长度、模板、ontology 前缀等表面特征)
-4. full-response-text     (完整生成文本的分类器)
-5. F5                     (输出层:label margin/entropy、id-token mean/min logprob、
-                           id-agreement/self-consistency、verbalized confidence
-                           —— 复用 h1_f5_features.py)
-6. F5 + full-response-text = O(输出侧最强)
+层:l = ⌊0.7·L⌋。Qwen2.5-7B L=28 → block 19;Llama-3.1-8B L=32 → block 22。
+  HF hidden_states 约定:index 0 = embedding 输出,第 k 个 Transformer block 输出 = index k;
+  取 hidden_states[l]（= block l 输出）。preflight 打印实际张量形状核对。
+位置与 pooling:
+  MCQ = answer-letter token 自身在 layer l 的 hidden。
+  H1  = identifier token span 在 layer l 的 hidden 的 mean（completion 内多 id 时,
+        取第一个非 echoed ATT&CK/CWE identifier 的 span;写死"第一个"）。
+性质声明:这是 post-hoc detection——表示已含生成出的 token（A/B/C/D 或 identifier）,
+  是"生成后内部信号",不是生成前 early-warning。论文明确这一点,不许跑后再选位置。
+方法:SAPLMA-style（上述固定表示 → grouped-CV L2-logistic）。
+robustness 附录:相对深度 {0.5, 0.7, final} 各报一版,primary 恒 0.7L,增量声明只基于 primary。
+可选:EigenScore（INSIDE 2402.03744,跨采样 mid-layer 协方差谱），仅复现 ≤2 天才加。
+Semantic Entropy:H1 上"语义等价"退化为归一化精确 id 匹配 = id_agreement_rate,
+  预期漏稳定 fabrication;作 error-mode 采样 baseline,不当独立 probe。
 ```
 
-**artifact 红线**:若 `id-string-only` 或 `surface-format-only` 已接近 full model,
-说明 H1 被字符串/格式模式解决,不能用于声称 hidden-state detection;如实标注并
-在该任务上不做增量声明。
-
-## 6. Hidden probe H(预注册,防 post-hoc 选层)
+## 9. 模型
 
 ```text
-方法:SAPLMA-style —— 在预注册的层/位置/pooling 上取 hidden,套 grouped-CV logistic。
-预注册 primary(跑前定死,不许事后挑最优层):
-  层:相对深度 0.7·L(H)。
-  位置:MCQ = answer-readout token;H1 = identifier-token(mention-level 定位,
-        completion 级用 identifier-token 的 mean pooling)。
-  pooling:mean over 目标 token 位置。
-robustness(附录,不用于挑最优):相对深度 {0.5, 0.7, final} 各报一版,
-  但 primary 恒为 0.7·L,增量声明只基于 primary。
-可选内部方法(复现不超过 2 天才保留):
-  EigenScore(INSIDE,2402.03744):跨采样 mid-layer embedding 协方差谱。
-Semantic Entropy(Kuhn/Farquhar):H1 上"语义等价"退化为归一化精确 id 匹配,
-  即 = 跨采样 id-agreement(h1_f5_features.id_agreement_rate);
-  预期在稳定 fabrication(K 次同一假 id)上失效,作为 error-mode 分析的采样 baseline,
-  不当"第三个独立 probe"。
+Qwen2.5-7B:全套（阶梯 + H + observability + RQ2 + 可选 SE/EigenScore）。
+Llama-3.1-8B:只跑核心 O / H / O+H,复核方向。
+跨模型协议固定:同相对层深(⌊0.7L⌋)、同 pooling、同 position 定义、同正则搜索、
+  同 grouped split;不对两模型分别找最优层。
 ```
 
-## 7. 统计单位与分组
+## 10. 明确删除 / 留 archival
 
 ```text
-H1 primary unit:completion-level(F5/SAPLMA/SE/CoT 都天然 completion 级)。
-H1 secondary unit:mention-level(仅用于 id-token logprob 的 observability 分析)。
-两个角色预注册,不混当 primary。
-CV 与 bootstrap:一律按 source prompt / question 分组;K 个 completion 绝不当独立样本。
-seed:不把"3 classifier seed"当 robustness;用固定预注册 grouped folds +
-  paired grouped bootstrap(+ 可选 repeated grouped CV)。更多独立问题 > 更多 seed。
+H1 的 F1/F4:F4 是有限标签 exact VJP,H1 无固定标签集,不重定义不能用。删。
+raw attention 全缓存:体量过大且无 attention 方法。删。
+TruthfulQA:archival 再加,且只用 live-generation protocol（自由生成 + 事后 judge,
+  reference 不进输入）——teacher-forced 版有表面 artifact（PARALLAX）。
+"calibration"作核心术语:改 output-space error observability;
+  ECE/Brier/risk-coverage 降为 secondary selective-prediction 交付,不作 AUROC 解释。
 ```
 
-## 8. 模型
-
-```text
-Qwen2.5-7B:全套(阶梯 + H + 可选 SE/EigenScore + observability 分层)。
-Llama-3.1-8B:只跑核心 O / H / O+H,复核"无增量是否 Qwen 特例"。
-跨模型协议固定:同相对层深、同 pooling、同 position 定义、同正则搜索空间、
-  同 grouped split 原则;不对两模型分别找最优层(防新的 researcher DoF)。
-```
-
-## 9. 明确删除(不做,或留 archival)
-
-```text
-H1 上的 F1 / F4:F4 是有限标签 exact VJP,H1 无固定标签集,不重定义不能用。删。
-raw attention 全缓存:体量 N_layer×N_head×L²,过大且 MVP 无 attention 方法。删。
-TruthfulQA:teacher-forced 版有表面 artifact(PARALLAX);archival 再加,且只用
-  live-generation protocol(自由生成 + 事后 judge,reference 不进模型输入)。
-"calibration"作为核心术语:改用 output-space error observability。
-  ECE / Brier / risk-coverage 降为 secondary selective-prediction 交付,不作 AUROC 解释。
-```
-
-## 10. 缓存契约(一遍前向,预注册)
+## 11. 缓存契约（一遍前向,预注册;跑前用 smoke 锁定 schema）
 
 ```text
 每条 trace 一次前向,落盘:
-  completion 文本、token logprobs、
-  §6 预注册层/位置/pooling 的 hidden、identifier 字符 span→token 位置。
+  completion 文本、token logprobs、hidden_states[⌊0.7L⌋] 在 §8 位置的向量、
+  identifier 字符 span → token 位置、completion-level eligible/label 字段。
 不缓存 raw attention。
-复用 h1_f5_features.py:mention_logprob / sequence_logprob / id_agreement /
-  verbalized_confidence / looks_like_structured_identifier_list。
+schema 冻结要求:completion-level 主记录、hidden 层/位置/pooling、no-emission policy
+  必须在 smoke（少量 prompt）通过后才锁;全量 2880 前向依赖此 schema,跑后改要重做。
+复用 h1_f5_features.py（completion 级聚合需在其上新增 completion-level 组装,不改既有函数语义）。
 ```
 
-## 11. 最多允许的结论
+## 12. 最多允许的结论
 
 ```text
-在 CyberMetric MCQ(输出易观测错误)与 H1 fabricated-identifier(高置信 fabrication,
-经前置 gate 确认)上,对最强输出侧基线 O(F5 + 可见文本),supervised hidden-state
-probe H 的条件增量 Δ_H 为 [填],其 95% paired grouped-bootstrap CI 为 [填];
-Δ_H 是否随 error observability(within-H1 分层)变化 = [填]。这是关于内部信号
-相对输出侧条件增量的结论,不是幻觉减少 / 准确率提升 / intervention 结果。
+在 MCQ（输出易观测错误）与 H1 fabricated-identifier（经 §6 gate 判定的高置信设置或
+Outcome 3）上,对最强输出侧基线 O = F5 + 可见文本,supervised hidden-state probe H 的
+条件增量 Δ_H = [填],95% paired grouped-bootstrap CI = [填],相对 equivalence margin
+ε=0.02 判读为 [有实质增量 / 与无增量等价 / 有害 / inconclusive];RQ2 分层显示 Δ_H
+是否随 observability 变化 = [填]。此为条件增量结论,不是幻觉减少 / 准确率 / intervention。
 ```
