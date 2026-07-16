@@ -78,6 +78,8 @@ equivalence margin（预注册）:ε = 0.02 AUROC（最小有意义增量,量级
   ≥ 中位数 → high-confidence 层,< → low-confidence 层（同一阈值用于该 fold 的 test）。
 每层各算 O / H / O+H 与 Δ_H（分层的 paired grouped bootstrap CI）+ 层间差 CI。
 最小样本:每层 positive ≥ 15 且 negative ≥ 15,否则记 insufficient,不出该层 AUROC。
+结论强度:全体正例 < 30 时,RQ2 整体标为 exploratory / low-power,报告每层 n 与(宽)CI,
+  不作强主张（min=15 保证可算,不保证稳定）。
 定位:描述性 effect-modification,非因果证明;且分层变量本身 ∈ O,须在文中声明。
 粗对照:Δ_H(MCQ) vs Δ_H(H1),明确标 2 点趋势、非可拟合函数、非 interaction 检验。
 ```
@@ -96,7 +98,8 @@ equivalence margin（预注册）:ε = 0.02 AUROC（最小有意义增量,量级
   MCQ 也有文本可构造 text baseline）。AUPRC 只在各任务内报告,不作 gate。
 D = S_MCQ − S_H1，用 independent grouped bootstrap（MCQ groups 与 H1 groups 各自独立
   重采样,每轮算 D_b;**不是 paired**——两任务非同批 prompt、无天然配对;paired 只用于
-  同任务同批样本的 O vs O+H）。95% CI。δ = 0.15。判读:
+  同任务同批样本的 O vs O+H）。95% CI。δ = 0.15（rank-biserial;因 rank-biserial =
+  2·AUROC−1,δ=0.15 等价于两任务 AUROC 可分性相差约 0.075）。判读:
   CI(D) 全 > δ   → H1 显著更不易由输出信号观测（h1_is_high_confidence_setting=True）
   CI 跨 δ / 0    → observability 差异不确定
   CI 全 ≤ 0      → Outcome 3

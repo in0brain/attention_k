@@ -1,0 +1,18 @@
+# Pre-registration freeze lock
+
+file:      docs/paper/preregistration.md
+version:   v2.1
+sha256:    f2d31a59e9bd21dbc0be7873ccb37222d12589b8e15bda1c3266fd0130279d2a
+frozen_on: 2026-07-15
+
+规则:
+- 本 hash 是冻结后 preregistration.md 内容的指纹。4D-2 脚本的 preflight(启动 gate G2)
+  必须重算 preregistration.md 的 sha256 并与本值比对,不一致则停(防止跑后改判读规则/定义)。
+- 冻结后不再改设计。若确需修改:先 bump version(v2.2…)、重算 hash、更新本文件,
+  并在 preregistration 顶部记录变更;不得静默改动。
+- 已冻结的判读常量:ε=0.02(AUROC 等价边界)、δ=0.15(rank-biserial,≈0.075 AUROC)、
+  K=6(1 greedy + 5 sampled)、hidden block=⌊0.7L⌋(Qwen 19→tuple 20 / Llama 22→tuple 23)、
+  RQ2 每层 pos/neg≥15、全体正例<30 → exploratory。
+
+启动 Stage 0(2880 全量生成)仍需 G1(workshop CFP 确认)+ G2(本 hash 校验通过)
++ ≤20 prompt smoke 通过,三者齐备。W0.5-B(实现 + smoke)不受 G1 阻塞。

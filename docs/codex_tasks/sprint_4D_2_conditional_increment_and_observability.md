@@ -103,7 +103,8 @@ artifact 红线（数值化）:Δ_artifact = AUROC(full-text) − AUROC(shortcut
   O_t 均为该任务自己的 F5 + full-response-text（MCQ 有 CoT 文本可构造）。
   AUPRC 只在各任务内报告,不作 gate。
 D = S_MCQ − S_H1，用 **independent** grouped bootstrap（两任务 groups 各自独立重采样,
-  每轮算 D_b;非 paired——两任务非同批 prompt）。95% CI。预注册 δ = 0.15。判读:
+  每轮算 D_b;非 paired——两任务非同批 prompt）。95% CI。δ = 0.15（rank-biserial,
+  = 2·AUROC−1;等价 AUROC 可分性差约 0.075）。判读:
   CI(D) 全 > δ  → h1_is_high_confidence_setting=True
   跨 δ/0        → 不确定
   全 ≤ 0        → Outcome 3（H1 未构造高置信错误,如实转写）
@@ -137,6 +138,7 @@ SE:H1 退化为 id_agreement_rate,error-mode baseline,不当独立 probe;EigenSc
   high-confidence(≥中位) / low-confidence(<中位) 两层。
 每层 O/H/O+H 与 Δ_H（分层 paired bootstrap CI）+ 层间差 CI。
 最小样本:每层 pos≥15 且 neg≥15,否则记 insufficient,不出该层 AUROC。
+结论强度:全体正例 < 30 → RQ2 标 exploratory / low-power,报每层 n + 宽 CI,不作强主张。
 定位:描述性 effect-modification,非因果;分层变量 ∈ O,文中声明。
 粗对照:Δ_H(MCQ) vs Δ_H(H1),标 2 点趋势、非 interaction。
 产物:rq2_observability_report.json。
