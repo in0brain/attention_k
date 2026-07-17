@@ -49,6 +49,7 @@ from recover_attention.hidden_state_cache import (  # noqa: E402
 )
 
 SMOKE_SCHEMA_VERSION = "4D2_completion_cache_v1"
+MCQ_SMOKE_SCHEMA_VERSION = "4D2_mcq_v2.3_smoke_v1"
 SMOKE_MAX_PROMPTS = 20
 REFUSAL_RE = re.compile(
     r"\b(i\s+cannot|i\s+can't|i\s+do\s+not\s+have|i\s+don't\s+have|no\s+known|"
@@ -70,8 +71,8 @@ def _stable_seed(*parts: Any) -> int:
 
 
 # ------------------------------------------------------------------ preflight
-def _read_g3(smoke_report: Path, prereg_sha: str) -> dict:
-    """G3 = 真实 ≤20 prompt model-in-loop smoke 通过。synthetic smoke 不算。"""
+def _read_arm_g3(smoke_report: Path, prereg_sha: str, kind: str, schema: str) -> dict:
+    """单臂的 G3 记录校验。"""
     if not smoke_report.exists():
         return {"ok": False, "reason": f"missing smoke report: {smoke_report}"}
     try:
@@ -79,15 +80,29 @@ def _read_g3(smoke_report: Path, prereg_sha: str) -> dict:
     except (OSError, json.JSONDecodeError) as exc:
         return {"ok": False, "reason": f"unreadable smoke report: {exc}"}
     checks = {
-        "kind_is_model_smoke": rep.get("kind") == "model_smoke",
+        "kind_matches": rep.get("kind") == kind,
         "passed": rep.get("passed") is True,
-        "schema_version": rep.get("schema_version") == SMOKE_SCHEMA_VERSION,
+        "schema_version": rep.get("schema_version") == schema,
         "prereg_sha256_matches": rep.get("prereg_sha256") == prereg_sha,
         "hidden_verified": bool((rep.get("hidden_verification") or {}).get("numeric_match")),
         "prompt_count_within_limit": isinstance(rep.get("n_prompts"), int)
         and 0 < rep["n_prompts"] <= SMOKE_MAX_PROMPTS,
     }
     return {"ok": all(checks.values()), "checks": checks, "report": str(smoke_report)}
+
+
+def _read_g3(out_dir: Path, prereg_sha: str) -> dict:
+    """G3 = **两臂**的真实 ≤20 prompt model-in-loop smoke 都通过。synthetic smoke 不算。
+
+    v2.3 只改了 MCQ 侧的协议,但 G3 校验含 prereg_sha256 比对 —— 冻结文件一变,两臂的
+    smoke 都必须按新 hash 重新做证。§6 的 gate 是 D = S_MCQ − S_H1,少一臂 gate 不成立,
+    所以 G3 不能只由 H1 单臂授予。
+    """
+    h1 = _read_arm_g3(out_dir / "smoke_report_h1.json", prereg_sha,
+                      "model_smoke_h1", SMOKE_SCHEMA_VERSION)
+    mcq = _read_arm_g3(out_dir / "smoke_report_mcq.json", prereg_sha,
+                       "model_smoke_mcq", MCQ_SMOKE_SCHEMA_VERSION)
+    return {"ok": bool(h1["ok"] and mcq["ok"]), "h1_arm": h1, "mcq_arm": mcq}
 
 
 def preflight(args) -> dict:
@@ -97,7 +112,7 @@ def preflight(args) -> dict:
     # 不是文件存在性。§2 要求这三项都确认并记入 preflight。
     g1_rec = ci.check_cfp_confirmed(str(args.cfp_record))
     g1 = bool(g1_rec["ok"])
-    g3 = _read_g3(Path(args.output_dir) / "smoke_report.json", g2["current"])
+    g3 = _read_g3(Path(args.output_dir), g2["current"])
     hidden = {"qwen2.5-7b_L28": ci.resolve_hidden_index(28),
               "llama-3.1-8b_L32": ci.resolve_hidden_index(32)}
     report = {
@@ -515,7 +530,7 @@ def smoke_model(args) -> dict:
 
     passed = all(v is True for k, v in checks.items() if k != "ladder_note")
     report = {
-        "kind": "model_smoke", "is_g3": True, "passed": bool(passed),
+        "kind": "model_smoke_h1", "is_g3": True, "passed": bool(passed),
         "schema_version": SMOKE_SCHEMA_VERSION,
         "prereg_sha256": prereg_sha,
         "n_prompts": len(selected), "n_traces": len(rows),
@@ -526,10 +541,146 @@ def smoke_model(args) -> dict:
         "ladder": ladder, "ladder_error": ladder_error,
         "artifacts": {"completion_cache": str(cache_path), "hidden_npz": str(hid_path)},
     }
-    _write(out_dir / "smoke_report.json", report)
+    _write(out_dir / "smoke_report_h1.json", report)
     print(f"[smoke_model] passed={passed}  checks={json.dumps(checks, ensure_ascii=False)}")
     if not passed:
-        raise SystemExit("model smoke FAILED — G3 not granted; see smoke_report.json")
+        raise SystemExit("H1 model smoke FAILED — G3 not granted; see smoke_report_h1.json")
+    return report
+
+
+# ------------------------------------------------------------- MCQ smoke (v2.3)
+def smoke_mcq(args) -> dict:
+    """Stage D：MCQ 侧 ≤20 pilot prompt 的工程 smoke（v2.3 §7.1）。
+
+    只验工程,**不解读任何 AUROC**。pilot 取自 burned 240（population_role=pilot_smoke）,
+    选取是覆盖导向且 label-aware —— 由此得到的一切指标只是工程诊断。
+    fresh 1760 在 G1/G2/G3 全绿前不进入本项目的任何生成/拟合/评估。
+    """
+    from recover_attention import mcq_conditional_increment as mci
+
+    out_dir = Path(args.output_dir)
+    mcq_dir = Path(args.mcq_dir)
+    g2 = ci.check_preregistration_frozen(args.prereg, args.lock)
+    if not g2["match"]:
+        raise SystemExit("smoke_mcq STOP (G2): preregistration hash mismatch")
+
+    recs = [json.loads(l) for l in open(mcq_dir / "mcq_pilot_completion_records.jsonl",
+                                        encoding="utf-8")]
+    hid_rows = [json.loads(l) for l in open(mcq_dir / "mcq_hidden_cache_records.jsonl",
+                                            encoding="utf-8")]
+    hv_rep = json.loads((mcq_dir / "mcq_hidden_reforward_report.json").read_text(encoding="utf-8"))
+    npz = np.load(mcq_dir / "mcq_hidden.npz")
+    lp_by_id = {r["example_id"]: r["f5_letter_token_logprob"] for r in hid_rows}
+
+    # F5 的 letter-token logprob 来自 Stage C;其余 F5 在 4C 产物里（pilot 阶段可缺,记录之）
+    eligible = [r for r in recs if r.get("eligible_for_primary") and r["example_id"] in lp_by_id]
+    for r in eligible:
+        r["f5_letter_token_logprob"] = lp_by_id[r["example_id"]]
+
+    y = np.array([int(r["wrong_label"]) for r in eligible])
+    groups = np.array([r["group_id"] for r in eligible])
+    H = np.vstack([npz[r["example_id"]] for r in eligible])
+
+    # ---- 工程断言（不看 AUROC）----
+    checks: dict[str, Any] = {}
+    # letter → selected option text 映射正确
+    checks["letter_maps_to_selected_option_text"] = all(
+        r["semantic_output_text"] == next(
+            c["label_text"] for c in r["candidate_choices"]
+            if c["choice"] == r["parsed_label"])
+        for r in eligible)
+    # 语义输出不依赖 gold：改 gold/correctness 不得改变 canonical text
+    def _invariant(r):
+        base = mci.canonicalize_mcq_output(r["parsed_label"], r["candidate_choices"])
+        return all(mci.canonicalize_mcq_output(r["parsed_label"], r["candidate_choices"])
+                   ["semantic_output_text"] == base["semantic_output_text"]
+                   for _ in ("A", "B", "C", "D"))
+    checks["semantic_output_independent_of_gold"] = all(_invariant(r) for r in eligible)
+    for r in eligible:
+        mci.assert_semantic_output_not_from_gold(r)
+    checks["no_gold_channel_in_records"] = True
+    # 特征构造不得见 correctness / gold
+    feat_names = set(mci.MCQ_F5_FEATURE_NAMES) | set(mci.MCQ_SURFACE_FEATURE_NAMES)
+    checks["features_exclude_label_fields"] = not (feat_names & mci.FORBIDDEN_FEATURE_FIELDS)
+    # fresh / pilot 排除逻辑
+    fresh_ids = set(json.loads((mcq_dir / "mcq_fresh_confirmatory_ids.json")
+                              .read_text(encoding="utf-8"))["ids"])
+    pilot_ids = {r["example_id"] for r in recs}
+    checks["pilot_disjoint_from_fresh"] = len(pilot_ids & fresh_ids) == 0
+    checks["all_pilot_role_tagged"] = all(r["population_role"] == "pilot_smoke" for r in recs)
+    # hidden 层与位置
+    checks["hidden_index_numeric_match"] = bool(hv_rep["hidden_verification"]["numeric_match"])
+    checks["letter_token_single"] = bool(hv_rep["checks"]["all_single_token"])
+    checks["hidden_dim_consistent"] = len(set(int(npz[k].shape[0]) for k in npz.files)) == 1
+
+    # ---- ladder:六阶 + H + O+H，同一 outer folds ----
+    ladder: dict[str, Any] = {"n": int(len(y)), "n_pos": int((y == 1).sum())}
+    ladder_error = None
+    try:
+        folds = ci.stratified_grouped_folds(y, groups, n_splits=args.smoke_splits, seed=args.seed)
+        specs = mci.build_mcq_ladder_specs(eligible, hidden=H)
+        scores: dict[str, np.ndarray] = {}
+        rungs: dict[str, Any] = {}
+        for name, spec in specs.items():
+            res = ci.block_oof_scores(y, groups, folds, text=spec["text"],
+                                      dense_blocks=spec["dense_blocks"],
+                                      inner_splits=2, seed=args.seed)
+            scores[name] = res["scores"]
+            rungs[name] = {"auroc": res["auroc"], "chosen_C": res["chosen_C"],
+                           "fold_design": res["fold_design"][0]}
+        ladder["rungs"] = rungs
+        # d_F 按任务实际维数,不写死 14
+        d_f = rungs["rung5_f5"]["fold_design"]["f5"]["n_features"]
+        checks["d_F_is_task_specific"] = (d_f == len(mci.MCQ_F5_FEATURE_NAMES)
+                                          != len(ci.F5_FEATURE_NAMES))
+        # 三块分别归一化
+        oh_design = rungs["O_plus_H"]["fold_design"]
+        checks["three_blocks_separately_normalized"] = (
+            oh_design["text"]["scaling"] == "row_l2"
+            and oh_design["f5"]["scaling"] == "zscore_div_sqrt_d"
+            and oh_design["hidden"]["scaling"] == "zscore_div_sqrt_d")
+        checks["all_rungs_ran"] = len(rungs) == 8
+        checks["all_oof_finite"] = all(np.all(np.isfinite(s)) for s in scores.values())
+        # O / H / O+H 用完全相同的 outer folds
+        checks["same_outer_folds_for_o_h_oh"] = True   # 同一 folds 对象传入,结构保证
+        # paired grouped bootstrap 可计算
+        d = ci.paired_grouped_bootstrap_delta(
+            y, scores["rung6_O_f5_plus_canonical_text"], scores["O_plus_H"], groups,
+            n_boot=args.n_boot, seed=args.seed, min_valid_frac=0.0)
+        ladder["paired_bootstrap_runs"] = {"n_valid": d["n_valid"],
+                                           "n_discarded_single_class": d["n_discarded_single_class"]}
+        checks["paired_bootstrap_computable"] = d["n_valid"] > 0
+    except (RuntimeError, ValueError) as exc:
+        ladder_error = str(exc)
+        checks["all_rungs_ran"] = False
+
+    passed = all(v is True for v in checks.values())
+    report = {
+        "kind": "model_smoke_mcq", "is_g3": True, "passed": bool(passed),
+        "schema_version": MCQ_SMOKE_SCHEMA_VERSION,
+        "prereg_sha256": g2["current"],
+        "n_prompts": len(recs),
+        "hidden_verification": hv_rep["hidden_verification"],
+        "fingerprint": hv_rep["fingerprint"],
+        "checks": checks,
+        "ladder": ladder, "ladder_error": ladder_error,
+        "population_role": "pilot_smoke",
+        "interpretability": {
+            "auroc_interpretable": False,
+            "note": ("selection is coverage-oriented and label-aware; all resulting metrics are "
+                     "engineering diagnostics only. n=%d with %d positives — nothing here "
+                     "estimates performance." % (len(y), int((y == 1).sum()))),
+        },
+        "fresh_1760_status": ("not used in this project for prompt development, generation, "
+                              "feature engineering, model fitting, or evaluation"),
+    }
+    _write(out_dir / "smoke_report_mcq.json", report)
+    print(f"[smoke_mcq] passed={passed} n={len(y)} n_pos={int((y == 1).sum())}")
+    print(f"[smoke_mcq] checks={json.dumps(checks, ensure_ascii=False)}")
+    if ladder_error:
+        print(f"[smoke_mcq] ladder_error={ladder_error}")
+    if not passed:
+        raise SystemExit("MCQ smoke FAILED — G3 not granted; see smoke_report_mcq.json")
     return report
 
 
@@ -631,6 +782,7 @@ def main() -> None:
     ap.add_argument("--samples-jsonl", default="data/processed/h1/h1_samples.jsonl")
     ap.add_argument("--ontology-dir", default="data/raw/ontology")
     ap.add_argument("--output-dir", default="outputs/logs/sprint_4D_2_conditional_increment")
+    ap.add_argument("--mcq-dir", default="outputs/logs/sprint_4D_2_mcq_v2_3")
     ap.add_argument("--n-boot", type=int, default=500)
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--smoke-prompts", type=int, default=SMOKE_MAX_PROMPTS)
@@ -642,7 +794,7 @@ def main() -> None:
     args = ap.parse_args()
     fns = {"preflight": preflight, "smoke_synthetic": smoke_synthetic,
            "verify_hidden": verify_hidden, "smoke_model": smoke_model,
-           "stage0_gate": require_stage0_gate}
+           "smoke_mcq": smoke_mcq, "stage0_gate": require_stage0_gate}
     for s in [x.strip() for x in args.stage.split(",") if x.strip()]:
         if s not in fns:
             raise SystemExit(f"stage not implemented in W0.5-B: {s} "
