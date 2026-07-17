@@ -35,6 +35,7 @@ if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
 from recover_attention import conditional_increment as ci  # noqa: E402
+from recover_attention import domain_label_proxy as dlp  # noqa: E402
 from recover_attention import h1_f5_features as f5f  # noqa: E402
 from recover_attention import mcq_conditional_increment as mci  # noqa: E402
 from recover_attention.data_io import read_jsonl, write_json, write_jsonl  # noqa: E402
@@ -108,8 +109,16 @@ def locate_letter_char_span(raw_completion: str, parsed_label: str, bare_answer:
     return start, start + len(stripped)
 
 
-def reforward(ctx: dict, rec: dict, tuple_idx: int) -> dict:
-    """一次 teacher-forced 前向。"""
+def reforward(ctx: dict, rec: dict, tuple_idx: int, letter_token_ids: dict[str, int]) -> dict:
+    """一次 teacher-forced 前向。
+
+    同一遍前向里把 §7.1 的 F5_MCQ 全算出来（不从 4C 搬值）:
+      fresh 1760 没有 4C 产物,若 F5 只靠读旧 artifact,正式跑时 label_margin /
+      label_entropy / full_entropy 会静默填 0 → O 侧基线被削弱 → Δ_H 被人为抬高。
+      这与 H1 侧 cross-sample F5 静默填 0 是同一类问题。
+    读出位 = 预测 answer-letter token 的那一步(= prompt 末位;4C 实测
+      readout_to_prompt_end_distance = 0,与此一致)。
+    """
     torch = ctx["torch"]; tok = ctx["tokenizer"]; model = ctx["model"]
     prompt, raw = rec["rendered_prompt"], rec["raw_completion"]
 
@@ -150,9 +159,26 @@ def reforward(ctx: dict, rec: dict, tuple_idx: int) -> dict:
 
     j = local[0]
     global_pos = prompt_len + j
-    step = global_pos - 1                     # 预测该 token 的那一步
+    step = global_pos - 1                     # 预测该 token 的那一步 = 读出位
     letter_lp = float(logprobs[step, c_ids[j]])
     h = out.hidden_states[tuple_idx][0, global_pos].detach().float().cpu().numpy()  # FP32 落盘
+
+    # F5_MCQ（§7.1）：与 4B-2/4C 同定义,复用 domain_label_proxy 的实现,不另写一套
+    row = logits[step].cpu().numpy()
+    option_logits = {lab: float(row[tid]) for lab, tid in letter_token_ids.items()}
+    f5 = {
+        "f5_label_margin": dlp.label_margin(option_logits),      # top1 − top2（候选 logits）
+        "f5_label_entropy": dlp.label_entropy(option_logits),    # 仅候选 softmax 后的熵
+        "f5_full_entropy": dlp.full_entropy(row),                # 全词表熵
+        "f5_letter_token_logprob": letter_lp,
+    }
+    # letter token id 与 bare 形式解析结果必须一致（4B-2:裸 vs 空格前缀是不同 token）
+    expected_tid = letter_token_ids.get(rec["parsed_label"].strip().upper())
+    if expected_tid is not None and int(c_ids[j]) != int(expected_tid):
+        raise SystemExit(
+            f"STOP: letter token id mismatch for {rec['example_id']}: forward gave "
+            f"{c_ids[j]} ({tok.convert_ids_to_tokens(c_ids[j])!r}) but bare-form resolution "
+            f"gives {expected_tid}. Token form is ambiguous — check before caching.")
 
     comp_lps = [float(logprobs[prompt_len + i - 1, c_ids[i]]) for i in range(len(c_ids))]
     return {
@@ -161,11 +187,70 @@ def reforward(ctx: dict, rec: dict, tuple_idx: int) -> dict:
         "letter_token_id": int(c_ids[j]),
         "letter_token_str": tok.convert_ids_to_tokens(c_ids[j]),
         "letter_token_count": len(local),
-        "f5_letter_token_logprob": letter_lp,
+        "readout_step": int(step),
+        "readout_to_prompt_end_distance": int(step - (prompt_len - 1)),
+        "option_logits": option_logits,
+        **f5,
         "completion_token_logprobs": comp_lps,
         "prompt_len": prompt_len,
         "seq_len": int(full.shape[-1]),
         "hidden": h,
+    }
+
+
+F5_XCHECK_NAMES = ("f5_label_margin", "f5_label_entropy", "f5_full_entropy")
+
+
+def _compare_against_4c(rows: list[dict], manifest: Path) -> dict:
+    """把重算的 F5 与 4C 存的值**对照**（不是一致性检查）。
+
+    **数值不该一致,这是预期的**:4C 的 F5 由 `load_local_steering_backend` 算出,那是
+    "strict local **4-bit** eager backend";本脚本用 8-bit（与 H1 侧同一条路径）。
+    量化不同 → logits 不同 → margin/熵 相差几个 nat 完全正常。
+
+    为什么 MCQ 必须跟 H1 同用 8-bit:§6 的 gate 是 D = S_MCQ − S_H1。H1 因长文本退化
+    只能用 8-bit(4D-1 已验证)。若 MCQ 用 4-bit、H1 用 8-bit,S 的差异就分不清是
+    observability 差异还是量化差异 —— 跨任务比较被混淆,gate 失去意义。
+    故 4C 的 4-bit F5 值不可复现,也不应复现;它们属于 exploratory,已被 v2.3 排除。
+
+    这里报的是 **Spearman 秩相关**:量化会改变数值,但若连排序都对不上,说明读出位或
+    token 形式有问题,那才是真信号。
+    """
+    if not manifest.exists():
+        return {"status": "skipped", "reason": f"missing {manifest}"}
+    ref = {r["example_id"]: r for r in read_jsonl(manifest)}
+    paired: dict[str, list[tuple[float, float]]] = {n: [] for n in F5_XCHECK_NAMES}
+    n_cmp = 0
+    for row in rows:
+        r4 = ref.get(row["example_id"])
+        if not r4:
+            continue
+        n_cmp += 1
+        for name in F5_XCHECK_NAMES:
+            a, b = row.get(name), r4.get(name)
+            if a is not None and b is not None:
+                paired[name].append((float(a), float(b)))
+
+    def _spearman(pairs: list[tuple[float, float]]) -> float | None:
+        if len(pairs) < 3:
+            return None
+        from scipy.stats import spearmanr
+        rho = spearmanr([p[0] for p in pairs], [p[1] for p in pairs]).statistic
+        return None if rho != rho else float(rho)
+
+    rank = {n: _spearman(v) for n, v in paired.items()}
+    return {
+        "status": "compared_across_backends",
+        "n_compared": n_cmp,
+        "this_pass_backend": "8bit (matches the H1 arm)",
+        "sprint_4c_backend": "4bit (load_local_steering_backend / strict local 4-bit eager)",
+        "values_expected_to_match": False,
+        "why": ("different quantization -> different logits; MCQ must share the H1 arm's 8-bit "
+                "backend or the section-6 gate D = S_MCQ - S_H1 is confounded by quantization"),
+        "spearman_rank_correlation": rank,
+        "rank_note": ("quantization changes values but should largely preserve ordering; a low "
+                      "rank correlation would indicate a readout-position or token-form bug"),
+        "sprint_4c_values_are": "exploratory, excluded by v2.3; not reproduced and not required to",
     }
 
 
@@ -177,6 +262,9 @@ def main() -> None:
     ap.add_argument("--prereg", default="docs/paper/preregistration.md")
     ap.add_argument("--lock", default="docs/paper/preregistration.lock")
     ap.add_argument("--output-dir", default="outputs/logs/sprint_4D_2_mcq_v2_3")
+    ap.add_argument("--readout-manifest",
+                    default="outputs/logs/sprint_4C_narrowed_readout_increment_and_site_transfer/"
+                            "readout_feature_manifest.jsonl")
     args = ap.parse_args()
 
     g2 = ci.check_preregistration_frozen(args.prereg, args.lock)
@@ -220,10 +308,14 @@ def main() -> None:
     if not numeric_match:
         raise SystemExit("STOP: hook vs hidden_states mismatch (off-by-one?)")
 
+    # 裸形式的 letter token id（4B-2:chat 条件下模型输出裸字母,与 " A" 是不同 token）
+    letter_token_ids = dlp.bare_option_token_ids(ctx["tokenizer"], list(mci.MCQ_LETTERS))
+    print(f"[stage-c] bare letter token ids: {letter_token_ids}")
+
     rows, vecs = [], {}
     token_strs, token_counts = [], []
     for i, r in enumerate(eligible, 1):
-        res = reforward(ctx, r, tuple_idx)
+        res = reforward(ctx, r, tuple_idx, letter_token_ids)
         vecs[r["example_id"]] = res.pop("hidden")
         rows.append({"schema_version": SCHEMA_VERSION, "example_id": r["example_id"],
                      "group_id": r["group_id"], **res})
@@ -231,7 +323,13 @@ def main() -> None:
         token_counts.append(res["letter_token_count"])
         print(f"[stage-c] {i}/{len(eligible)} {r['example_id']} "
               f"letter={r['parsed_label']} tok={res['letter_token_str']!r} "
-              f"pos={res['letter_token_index_global']} lp={res['f5_letter_token_logprob']:.3f}")
+              f"pos={res['letter_token_index_global']} lp={res['f5_letter_token_logprob']:.3f} "
+              f"margin={res['f5_label_margin']:.3f}")
+
+    # 与 4C 的**跨 backend 对照**(4bit vs 8bit)。数值不该一致;看的是秩相关。
+    xcheck = _compare_against_4c(rows, Path(args.readout_manifest))
+    print(f"[stage-c] 4C comparison (4bit vs 8bit, values not expected to match): "
+          f"spearman={xcheck.get('spearman_rank_correlation')}")
 
     write_jsonl(rows, out / "mcq_hidden_cache_records.jsonl")
     np.savez_compressed(out / "mcq_hidden.npz", **vecs)
@@ -245,11 +343,28 @@ def main() -> None:
         "hidden_dim": sorted(dims),
         "letter_token_forms": dict(__import__("collections").Counter(token_strs)),
         "letter_token_count_distinct": sorted(set(token_counts)),
+        "bare_letter_token_ids": letter_token_ids,
+        "f5_recomputed_in_this_pass": list(F5_XCHECK_NAMES) + ["f5_letter_token_logprob"],
+        "f5_source_note": ("F5 是本遍前向重算的,不是从 4C artifact 搬的 —— fresh 1760 没有 "
+                           "4C 产物,靠搬值会让正式跑时 F5 静默填 0、削弱 O 侧基线、抬高 Δ_H"),
+        "sprint_4c_comparison": xcheck,
+        "backend_consistency": {
+            "mcq_arm": "8bit",
+            "h1_arm": "8bit",
+            "same_backend_both_arms": True,
+            "why_required": ("section-6 gate D = S_MCQ - S_H1 would be confounded by "
+                             "quantization if the two arms used different backends"),
+            "sprint_4c_used": "4bit — its F5 values are exploratory and not reproduced here",
+        },
         "checks": {
             "all_single_token": set(token_counts) == {1},
             "hidden_dim_consistent": len(dims) == 1,
             "all_eligible_reforwarded": len(rows) == len(eligible),
             "hidden_index_numeric_match": numeric_match,
+            "readout_at_prompt_end": all(r["readout_to_prompt_end_distance"] == 0 for r in rows),
+            "f5_all_finite": all(
+                all(isinstance(r[n], float) and r[n] == r[n] for n in F5_XCHECK_NAMES)
+                for r in rows),
         },
         "not_cached": ["raw_attention", "all_layer_hidden", "F1", "F4", "J-lens"],
         "population_role": "pilot_smoke",

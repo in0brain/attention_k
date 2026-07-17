@@ -19,6 +19,19 @@
   schema 跑后再改要重做全量。故 schema 必须先 smoke 锁定。
 ```
 
+## 0.05 backend invariant（2026-07-17 冻结，代码强制，不 bump version）
+
+```text
+两臂(MCQ / H1)必须同一推理后端 = 本地 8-bit(load_in_8bit + device_map=auto +
+  attn_implementation=eager + local_files_only)。8-bit 由 H1 长文本退化逼定(4D-1)。
+理由:§6 gate 是 D = S_MCQ − S_H1;量化改 logits(实测 4bit vs 8bit 的 f5_label_margin
+  最大差 10.6,秩相关 0.86 → 定位对、数值被量化改)。两臂 backend 不同 → S 之差分不清是
+  observability 差异还是量化差异 → gate 无意义。
+强制:G3 逐键比对两臂 smoke report 的 backend 指纹,不一致 → G3 拿不到。
+  见 _check_backend_invariant。lock 有散文记录,但代码才是防线。
+4C 的 F5 是 4-bit 算的 → 不可复现、不应复现;属 exploratory,v2.3 已排除。
+```
+
 ## 0.1 Stage 0 尚缺的实现（W0.5-B 未覆盖）
 
 ```text

@@ -41,6 +41,24 @@ G1 的具体判据(preflight 解析 docs/paper/cfp_record.json 的**内容**,不
 现状(2026-07-16):target=EIML3 @ NeurIPS 2026,deadline=2026-08-29 AoE,archival=false,
   page_limit 待 2026-07-29 投稿系统开放后确认 → status=provisional → G1 红。
 
+backend invariant（2026-07-17 冻结;**不 bump version**,理由见下）:
+- 两臂（MCQ 与 H1）必须使用**同一个推理后端**,当前 = 本地 8-bit
+  (BitsAndBytesConfig(load_in_8bit=True) + device_map="auto" + attn_implementation="eager"
+   + local_files_only=True)。8-bit 是被 H1 逼定的:4-bit 在 H1 长文本自由生成上标点退化
+  (4D-1 已验证),故 MCQ 必须跟到 8-bit。
+- 为什么是硬约束:§6 的 gate 是 D = S_MCQ − S_H1。量化改变 logits —— 实测 4C(4-bit) 与
+  本管线(8-bit) 的 f5_label_margin 最大差 10.6(秩相关仍 0.86,说明读出位与 token 形式
+  都对,只是数值被量化改了)。两臂 backend 不同 → S 之差分不清是 observability 差异
+  还是量化差异 → gate 失去意义,§12 的结论不成立。
+- 为什么不 bump v2.4:这是补一条**本该随 §6/§9 一起冻结却漏掉的前提**,不是改设计。
+  它不改判读规则、不改样本、不改假设空间、不指向任何结论方向;它只让已冻结的比较**可解释**。
+  §9 已固定"跨模型协议固定:同相对层深/同 pooling/同 position/同正则搜索/同 grouped split",
+  本条同属该类协议不变量,只是当初漏写了量化。
+- **由代码强制,不只写在本文件**:本 lock 不参与 sha256,散文会悄悄漂移。G3 校验逐键比对
+  两臂 smoke report 的 backend 指纹,不一致 → G3 直接拿不到(见
+  scripts/sprint_4D_2_conditional_increment.py::_check_backend_invariant)。
+- 4C 的 F5 由 4-bit 算出,**不可复现也不应复现**;它们属 exploratory,已被 v2.3 排除。
+
 G2 的强制语义:preflight 重算 hash,不一致 → 立即 SystemExit,不继续任何阶段。
 
 G3 的具体判据(preflight 读 outputs/logs/sprint_4D_2_conditional_increment/

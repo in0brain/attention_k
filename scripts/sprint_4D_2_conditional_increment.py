@@ -91,18 +91,61 @@ def _read_arm_g3(smoke_report: Path, prereg_sha: str, kind: str, schema: str) ->
     return {"ok": all(checks.values()), "checks": checks, "report": str(smoke_report)}
 
 
+def _arm_backend(path: Path) -> dict | None:
+    """取某臂 smoke 记录的 backend 指纹。"""
+    if not path.exists():
+        return None
+    try:
+        rep = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    bk = rep.get("backend") or (rep.get("fingerprint") or {}).get("backend")
+    return bk if isinstance(bk, dict) else None
+
+
+def _check_backend_invariant(out_dir: Path) -> dict:
+    """**backend invariant**：两臂必须用同一个推理后端。
+
+    为什么这是硬约束而非偏好:§6 的 gate 是 D = S_MCQ − S_H1。量化会改变 logits ——
+    实测 4C(4-bit) 与本管线(8-bit) 的 f5_label_margin 最大差 10.6(秩相关仍 0.86,
+    说明定位对、只是数值被量化改了)。若两臂 backend 不同,S_MCQ 与 S_H1 之差就分不清是
+    **observability 差异**还是**量化差异**,gate 失去意义、§12 的结论无法成立。
+    H1 因长文本退化只能用 8-bit(4D-1 已验证),故 MCQ 必须跟到 8-bit。
+
+    这条本该随 §6/§9 一起冻结却漏了。以代码强制而非仅写进 lock:散文会悄悄漂移,
+    G3 拿不到才拦得住。
+    """
+    h1 = _arm_backend(out_dir / "smoke_report_h1.json")
+    mcq = _arm_backend(out_dir / "smoke_report_mcq.json")
+    if h1 is None or mcq is None:
+        return {"ok": False, "reason": "backend fingerprint missing on one or both arms",
+                "h1": h1, "mcq": mcq}
+    keys = ("load_in_8bit", "device_map", "attn_implementation", "local_files_only")
+    h1_k = {k: h1.get(k) for k in keys}
+    mcq_k = {k: mcq.get(k) for k in keys}
+    same = h1_k == mcq_k
+    return {"ok": bool(same and h1_k.get("load_in_8bit") is True),
+            "same_backend_both_arms": same,
+            "h1": h1_k, "mcq": mcq_k,
+            "required": "identical across arms; 8-bit (forced by H1 long-form degeneration, 4D-1)",
+            "why": ("section-6 gate D = S_MCQ - S_H1 is confounded by quantization if the arms "
+                    "differ; measured 4bit-vs-8bit margin gap up to 10.6")}
+
+
 def _read_g3(out_dir: Path, prereg_sha: str) -> dict:
-    """G3 = **两臂**的真实 ≤20 prompt model-in-loop smoke 都通过。synthetic smoke 不算。
+    """G3 = **两臂**的真实 ≤20 prompt model-in-loop smoke 都通过 + backend invariant。
 
     v2.3 只改了 MCQ 侧的协议,但 G3 校验含 prereg_sha256 比对 —— 冻结文件一变,两臂的
     smoke 都必须按新 hash 重新做证。§6 的 gate 是 D = S_MCQ − S_H1,少一臂 gate 不成立,
-    所以 G3 不能只由 H1 单臂授予。
+    所以 G3 不能只由 H1 单臂授予;两臂 backend 不一致同样不能授予。
     """
     h1 = _read_arm_g3(out_dir / "smoke_report_h1.json", prereg_sha,
                       "model_smoke_h1", SMOKE_SCHEMA_VERSION)
     mcq = _read_arm_g3(out_dir / "smoke_report_mcq.json", prereg_sha,
                        "model_smoke_mcq", MCQ_SMOKE_SCHEMA_VERSION)
-    return {"ok": bool(h1["ok"] and mcq["ok"]), "h1_arm": h1, "mcq_arm": mcq}
+    bk = _check_backend_invariant(out_dir)
+    return {"ok": bool(h1["ok"] and mcq["ok"] and bk["ok"]),
+            "h1_arm": h1, "mcq_arm": mcq, "backend_invariant": bk}
 
 
 def preflight(args) -> dict:
@@ -570,12 +613,17 @@ def smoke_mcq(args) -> dict:
                                             encoding="utf-8")]
     hv_rep = json.loads((mcq_dir / "mcq_hidden_reforward_report.json").read_text(encoding="utf-8"))
     npz = np.load(mcq_dir / "mcq_hidden.npz")
-    lp_by_id = {r["example_id"]: r["f5_letter_token_logprob"] for r in hid_rows}
+    # Stage C 在同一遍前向里算出的全部 F5（label_margin / label_entropy / full_entropy /
+    # letter_token_logprob）。**必须逐项接上**:只接一项、其余靠 _dense_matrix 缺失填 0,
+    # 形状仍是 d_F=6、检查仍全绿,但 F5 是残的 → O 侧基线被削弱 → Δ_H 被人为抬高。
+    STAGE_C_F5 = ("f5_label_margin", "f5_label_entropy", "f5_full_entropy",
+                  "f5_letter_token_logprob")
+    hid_by_id = {r["example_id"]: r for r in hid_rows}
 
-    # F5 的 letter-token logprob 来自 Stage C;其余 F5 在 4C 产物里（pilot 阶段可缺,记录之）
-    eligible = [r for r in recs if r.get("eligible_for_primary") and r["example_id"] in lp_by_id]
+    eligible = [r for r in recs if r.get("eligible_for_primary") and r["example_id"] in hid_by_id]
     for r in eligible:
-        r["f5_letter_token_logprob"] = lp_by_id[r["example_id"]]
+        for name in STAGE_C_F5:
+            r[name] = hid_by_id[r["example_id"]][name]
 
     y = np.array([int(r["wrong_label"]) for r in eligible])
     groups = np.array([r["group_id"] for r in eligible])
@@ -602,6 +650,17 @@ def smoke_mcq(args) -> dict:
     # 特征构造不得见 correctness / gold
     feat_names = set(mci.MCQ_F5_FEATURE_NAMES) | set(mci.MCQ_SURFACE_FEATURE_NAMES)
     checks["features_exclude_label_fields"] = not (feat_names & mci.FORBIDDEN_FEATURE_FIELDS)
+    # F5 完整性:每一列都必须真的有值。缺失被 _dense_matrix 填 0 时形状不变、d_F 不变、
+    # 其余检查照样绿 —— 只有逐列查非零才发现得了。全常数列同样可疑(z-score 后恒 0)。
+    f5_mat = ci._dense_matrix(eligible, mci.MCQ_F5_FEATURE_NAMES)
+    f5_col_nonzero = {name: int((f5_mat[:, j] != 0).sum())
+                      for j, name in enumerate(mci.MCQ_F5_FEATURE_NAMES)}
+    f5_col_distinct = {name: int(len(np.unique(f5_mat[:, j])))
+                       for j, name in enumerate(mci.MCQ_F5_FEATURE_NAMES)}
+    checks["f5_all_columns_populated"] = all(v > 0 for v in f5_col_nonzero.values())
+    checks["f5_no_constant_column"] = all(v > 1 for v in f5_col_distinct.values())
+    checks["f5_present_on_all_eligible"] = all(
+        all(r.get(n) is not None for n in STAGE_C_F5) for r in eligible)
     # fresh / pilot 排除逻辑
     fresh_ids = set(json.loads((mcq_dir / "mcq_fresh_confirmatory_ids.json")
                               .read_text(encoding="utf-8"))["ids"])
@@ -662,7 +721,15 @@ def smoke_mcq(args) -> dict:
         "n_prompts": len(recs),
         "hidden_verification": hv_rep["hidden_verification"],
         "fingerprint": hv_rep["fingerprint"],
+        # backend invariant:与 H1 臂对齐的顶层字段,供 G3 逐键比对（§6 gate 的前提）
+        "backend": hv_rep["fingerprint"]["backend"],
         "checks": checks,
+        "f5_completeness": {"nonzero_per_column": f5_col_nonzero,
+                            "distinct_values_per_column": f5_col_distinct,
+                            "d_F": len(mci.MCQ_F5_FEATURE_NAMES),
+                            "computed_in_stage_c": list(STAGE_C_F5),
+                            "note": ("d_F 只反映列数,不保证列有值;缺失会被静默填 0 而形状不变。"
+                                     "故逐列查非零与去重值。")},
         "ladder": ladder, "ladder_error": ladder_error,
         "population_role": "pilot_smoke",
         "interpretability": {
@@ -707,6 +774,19 @@ def _smoke_checks(rows: list[dict], hidden_vecs: dict, hv: dict) -> tuple[dict, 
             (r["eligible"] is True) != (r["primary_exclusion_reason"] is not None) for r in rows),
         "hidden_index_numeric_match": bool(hv["numeric_match"]),
     }
+    # F5 完整性（与 MCQ 臂同一把尺）:缺失会被 _dense_matrix 静默填 0,形状与 d_F 都不变,
+    # 其余检查照样绿。只有逐列查非零/去重值才发现得了。H1 侧已经栽过一次(cross-sample F5)。
+    f5_mat = ci._dense_matrix(eligible, ci.F5_FEATURE_NAMES)
+    f5_col_nonzero = {name: int((f5_mat[:, j] != 0).sum())
+                      for j, name in enumerate(ci.F5_FEATURE_NAMES)}
+    f5_col_distinct = {name: int(len(np.unique(f5_mat[:, j])))
+                       for j, name in enumerate(ci.F5_FEATURE_NAMES)}
+    # 说明:H1 的 verbalized-confidence 三项是稀疏指示量,可以整列为 0(该批无置信短语),
+    # 故只对连续量强制非零,指示量另报供人看。
+    continuous = [n for n in ci.F5_FEATURE_NAMES if not n.startswith("f5_confidence_")]
+    checks["f5_continuous_columns_populated"] = all(
+        f5_col_nonzero[n] > 0 for n in continuous)
+
     reasons: dict[str, int] = {}
     for r in rows:
         if r["primary_exclusion_reason"]:
@@ -718,6 +798,11 @@ def _smoke_checks(rows: list[dict], hidden_vecs: dict, hv: dict) -> tuple[dict, 
         "eligible_rate": len(eligible) / len(rows) if rows else None,
         "emission_failure_rate": (sum(r["emission_failure"] for r in rows) / len(rows)) if rows else None,
         "primary_exclusion_reasons": reasons,
+        "f5_completeness": {"nonzero_per_column": f5_col_nonzero,
+                            "distinct_values_per_column": f5_col_distinct,
+                            "d_F": len(ci.F5_FEATURE_NAMES),
+                            "note": ("confidence 三项是稀疏指示量,整列为 0 属正常;"
+                                     "连续量整列为 0 = 静默缺失,必须报错")},
         "hidden_dim": sorted(dims),
         "n_groups": len({r["group_id"] for r in eligible}),
     }
