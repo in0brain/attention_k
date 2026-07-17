@@ -36,8 +36,10 @@
 
 ```text
 "设计层关闭"≠"可以启动全量生成"。开跑前仍需实现:
-  1 全量生成:480 prompt × 6 = 2880 traces。smoke_model 硬卡 ≤20 prompt;
-    批量生成、断点续跑、hidden 落盘规模(2880×3584×fp32 ≈ 40GB 量级)均未设计。
+  1 全量生成:480 prompt × 6 = 2880 traces。smoke_model 硬卡 ≤20 prompt;批量与断点续跑未设计。
+    hidden 落盘**不是**瓶颈:§8 的 H 是每 completion 一个 pooled 向量(3584 维 fp32 = 14 KB),
+    H1 2880 ≈ 41 MB、MCQ 1760 ≈ 25 MB,npz 直接存,无需分片。
+    (早前"≈40GB"是错的:那按全 token hidden 算,而 §11 明确不缓存全层/全 token。)
   2 MCQ 任务侧:**完全缺失**。§6 gate 是 D = S_MCQ − S_H1,需 CyberMetric 的 O 侧 OOF 分。
     没有 MCQ 就无法判定 H1 是否"高置信设置",gate 不成立。
     起手须先定:复用 4B/4C 产物,还是按 4D-2 同协议重跑。

@@ -135,7 +135,7 @@ stage0_gate      只做 G1+G2+G3 门控检查,未齐则停。
 - 4D-1 暴露出 4-bit backend 对 H1 长文本自由生成不可靠；后续 H1 生成卡必须显式记录/复用已通过 sanity 的 generation backend，不能复用旧 4-bit 长文本结果。
 - **G1 未过（provisional）**：目标已定为 EIML3 @ NeurIPS 2026，deadline 与 archival 已知，但 **page limit 未公布**（须等 2026-07-29 投稿系统开放）。§2 要求三项齐全，故 G1 保持红。这是外部事实，不得由脚本/代理自行置位。
 - **Stage 0 的执行路径尚未实现**，"设计层关闭"不等于"可以启动全量生成"。缺口：
-  - 全量生成（480 prompt × 6 = 2880 traces）——`smoke_model` 硬卡 ≤20 prompt；批量生成、断点续跑、hidden 落盘规模（2880 × 3584 × fp32 ≈ 40GB 量级）均未设计。
+  - 全量生成（480 prompt × 6 = 2880 traces）——`smoke_model` 硬卡 ≤20 prompt；批量生成、断点续跑未设计。**hidden 落盘不是瓶颈**：§8 的 H 是每条 completion 一个 pooled 向量（3584 维 fp32 = 14 KB），故 H1 2880 条 ≈ 41 MB、MCQ 1760 条 ≈ 25 MB，npz 直接存即可，无需分片。（早前"≈40GB"的估计是错的——那是按"全 token hidden"算的，而 §11 明确不缓存全层/全 token。）
   - **MCQ 任务侧完全缺失**——§6 的 gate 是 `D = S_MCQ − S_H1`，需要 CyberMetric 的 O 侧 OOF 分。当前 4D-2 管线只有 H1，没有 MCQ 就无法判定 H1 是否为"高置信设置"。
   - 正式 ladder/gate/increment/rq2 执行路径——统计函数已实现且有单测，但只被 smoke 的接线版 `_run_ladder`（3 折、inner 2、无 bootstrap CI）调用过；正式版需 5 折、n_boot≥1000 的 paired/independent bootstrap、artifact 红线、RQ2 分层 CI。
   - Llama-3.1-8B 核心 O/H/O+H 复核（§9）未跑。
