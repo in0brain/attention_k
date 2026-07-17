@@ -1,0 +1,25 @@
+# Stage 0 分析配置（W0.5-E）
+#
+# 只放**运行参数**。冻结常量（eps / delta / C 网格 / rel_depth / RQ2 最小样本 /
+# precision_max_ci_width）来自 docs/paper/preregistration.md v2.3，**不得**在此设置——
+# 写了会直接报错。跑后从 config 悄悄改判读规则，正是 §2 要防的事。
+#
+# 生产规格下限（config 只能在合法范围内选）：
+#   n_outer_folds >= 5      §4/§7
+#   n_boot        >= 1000   §4
+#   n_inner_folds >= 3      §7 nested C
+# smoke 用的 3 折 / inner=2 / 少量 bootstrap 是**接线**规格，不是论文规格。
+
+stage0_analysis:
+  n_outer_folds: 5
+  n_inner_folds: 3
+  n_boot: 1000
+  seed: 0
+  mode: production          # production | dry_run
+  allow_pilot_population: false   # 只有 dry_run 可为 true；production 绝不接受 pilot_smoke
+
+# 目录约定（不混合 smoke 与 production）：
+#   outputs/stage0/generation/   全量生成产物
+#   outputs/stage0/features/     特征缓存（分析入口）
+#   outputs/stage0/evaluation/   分析结果
+#   outputs/logs/sprint_4D_2_*   历史 smoke / pilot（population_role=pilot_smoke）
