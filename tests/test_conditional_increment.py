@@ -472,6 +472,87 @@ def test_build_ladder_specs_covers_prereg_rungs_and_h():
     assert specs["H_alone"]["text"] is None
 
 
+# ---- G1: CFP record ----
+def _cfp(tmp_path, **over):
+    import json
+    rec = {"status": "confirmed", "target": "W", "deadline": "2026-08-29 AoE",
+           "page_limit": 4, "archival": False}
+    rec.update(over)
+    p = tmp_path / "cfp_record.json"
+    p.write_text(json.dumps(rec), encoding="utf-8")
+    return str(p)
+
+
+def test_cfp_confirmed_requires_all_three_facts(tmp_path):
+    assert ci.check_cfp_confirmed(_cfp(tmp_path))["ok"] is True
+    # §2 要求 deadline / page_limit / archival 三项都确认,缺一不可
+    for field in ("deadline", "page_limit", "archival"):
+        r = ci.check_cfp_confirmed(_cfp(tmp_path, **{field: None}))
+        assert r["ok"] is False and field in r["missing"]
+
+
+def test_cfp_provisional_never_passes_even_with_all_facts(tmp_path):
+    """status 未确认时不得过 G1,哪怕三项事实看起来都填了。"""
+    r = ci.check_cfp_confirmed(_cfp(tmp_path, status="provisional"))
+    assert r["ok"] is False and r["status"] == "provisional"
+
+
+def test_cfp_pending_page_limit_blocks_g1(tmp_path):
+    """真实场景:EIML3 的 deadline/archival 已知,page limit 待 CFP 开放才公布。"""
+    r = ci.check_cfp_confirmed(_cfp(tmp_path, status="provisional", page_limit=None,
+                                    archival=False, deadline="2026-08-29 AoE"))
+    assert r["ok"] is False
+    assert r["missing"] == ["page_limit"]
+
+
+def test_cfp_missing_or_empty_file_does_not_pass(tmp_path):
+    """核心防线:G1 校验内容,不是存在性。空文件/占位文件不得把 gate 刷绿。"""
+    assert ci.check_cfp_confirmed(str(tmp_path / "nope.json"))["ok"] is False
+    empty = tmp_path / "CFP_CONFIRMED"
+    empty.write_text("", encoding="utf-8")
+    r = ci.check_cfp_confirmed(str(empty))
+    assert r["ok"] is False and r["status"] == "unreadable"
+    # 一个名字唬人但内容空的 JSON 同样不许过
+    bogus = tmp_path / "b.json"
+    bogus.write_text("{}", encoding="utf-8")
+    rb = ci.check_cfp_confirmed(str(bogus))
+    assert rb["ok"] is False and sorted(rb["missing"]) == ["archival", "deadline", "page_limit"]
+
+
+def test_cfp_record_readable_with_utf8_bom(tmp_path):
+    """Windows 编辑器会写 BOM。若因此读成 unreadable,G1 会以错误理由变红,掩盖真实状态。"""
+    import json
+    p = tmp_path / "bom.json"
+    p.write_text(json.dumps({"status": "confirmed", "deadline": "d",
+                             "page_limit": 4, "archival": False}),
+                 encoding="utf-8-sig")
+    assert ci.check_cfp_confirmed(str(p))["ok"] is True
+
+
+def test_cfp_status_flip_alone_cannot_forge_g1(tmp_path):
+    """把 status 硬改成 confirmed、但 page_limit 仍缺 → 必须仍然拦住,且报出真实缺口。"""
+    r = ci.check_cfp_confirmed(_cfp(tmp_path, status="confirmed", page_limit=None))
+    assert r["ok"] is False
+    assert r["status"] == "confirmed"      # status 认了
+    assert r["missing"] == ["page_limit"]  # 但事实校验没认
+
+
+def test_cfp_page_limit_must_be_positive_int(tmp_path):
+    for bad in (0, -1, "4", 4.5, True):
+        r = ci.check_cfp_confirmed(_cfp(tmp_path, page_limit=bad))
+        assert r["ok"] is False and "page_limit" in r["missing"], f"page_limit={bad!r} 不该过"
+
+
+def test_real_project_cfp_record_is_provisional_and_blocks_g1():
+    """对仓库里真实的 CFP 记录跑一遍:EIML3 页数未定 → G1 必须红。"""
+    r = ci.check_cfp_confirmed("docs/paper/cfp_record.json")
+    assert r["ok"] is False
+    assert r["status"] == "provisional"
+    assert r["missing"] == ["page_limit"]
+    assert r["archival"] is False
+    assert r["deadline"] == "2026-08-29 AoE"
+
+
 def test_build_ladder_specs_rejects_hidden_row_mismatch():
     records = [{"completion": "c"} for _ in range(3)]
     with pytest.raises(ValueError, match="hidden rows"):

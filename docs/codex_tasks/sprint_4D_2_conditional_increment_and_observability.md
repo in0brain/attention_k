@@ -1,25 +1,47 @@
 # Sprint 4D-2（修订版 v2）：H1 全量生成 + observability gate + 条件增量 bake-off
 
 > **取代** `sprint_4D_2_h1_full_generation_and_f5_baseline.md`（旧 F5-only、mention-level）。
-> 以本卡 + `docs/paper/preregistration.md`（v2）为准。旧卡/旧脚本保留对照,**不得用于本实验**。
-> 本卡是 spec:推荐的 `scripts/sprint_4D_2_conditional_increment.py` **尚不存在,需先实现**。
+> 以本卡 + `docs/paper/preregistration.md`（**v2.2**,已冻结）为准。旧卡/旧脚本保留对照,**不得用于本实验**。
+> 状态（2026-07-16）:`scripts/sprint_4D_2_conditional_increment.py` **已实现**（W0.5-B 完成）,
+> 但只含 preflight / smoke_synthetic / verify_hidden / smoke_model / stage0_gate;
+> **Stage 0 的执行路径（generate/cache/ladder/gate/increment/rq2）尚未实现**,传入会 SystemExit。
 
 ## 0. 执行顺序（硬）
 
 ```text
 不是"先启动全量生成、后补代码"。顺序固定:
-  W0.5-A 修死设计（preregistration v2,已完成）
-  W0.5-B 实现新 pipeline script + 在少量 prompt 上 smoke,锁定缓存 schema
+  W0.5-A 修死设计（preregistration,已完成;v2.1 → v2.2 三-block 融合修订）
+  W0.5-B 实现 pipeline script + 在 ≤20 prompt 上真实 smoke,锁定缓存 schema（已完成）
   W0.5-C 启动 gate 全过（CFP 确认 + preregistration 冻结 + smoke 通过）
-  然后才 Stage 0 全量生成
+         现状:G2 绿、G3 绿、**G1 红** → Stage 0 仍 blocked
+  然后才 Stage 0 全量生成（执行路径待实现,见本卡 §0.1）
 2880 条 teacher-forced 前向依赖 completion-level schema / hidden 层位置 / no-emission policy,
   schema 跑后再改要重做全量。故 schema 必须先 smoke 锁定。
+```
+
+## 0.1 Stage 0 尚缺的实现（W0.5-B 未覆盖）
+
+```text
+"设计层关闭"≠"可以启动全量生成"。开跑前仍需实现:
+  1 全量生成:480 prompt × 6 = 2880 traces。smoke_model 硬卡 ≤20 prompt;
+    批量生成、断点续跑、hidden 落盘规模(2880×3584×fp32 ≈ 40GB 量级)均未设计。
+  2 MCQ 任务侧:**完全缺失**。§6 gate 是 D = S_MCQ − S_H1,需 CyberMetric 的 O 侧 OOF 分。
+    没有 MCQ 就无法判定 H1 是否"高置信设置",gate 不成立。
+    起手须先定:复用 4B/4C 产物,还是按 4D-2 同协议重跑。
+  3 正式 ladder/gate/increment/rq2 执行路径:统计函数已实现且有单测,但只被 smoke 的
+    接线版 _run_ladder(3 折、inner 2、无 bootstrap CI)调用过。正式版需 5 折、
+    n_boot≥1000 的 paired/independent bootstrap、artifact 红线、RQ2 分层 CI。
+  4 Llama-3.1-8B 核心 O/H/O+H 复核(§9)。
 ```
 
 ## 1. 启动 gate（preflight 代码强制,缺任一停）
 
 ```text
 G1 目标 workshop CFP 已确认（deadline / page limit / archival),写入 preflight。
+   实现:preflight 解析 docs/paper/cfp_record.json 的**内容**(三项事实齐全 +
+   status=confirmed),不是文件存在性——占位文件不得刷绿 gate。
+   现状:target=EIML3 @ NeurIPS 2026 (non-archival), deadline=2026-08-29 AoE,
+   page_limit 待 07-29 投稿开放后确认 → status=provisional → **G1 红**。
 G2 preregistration.md 已冻结:preflight 记录其 sha256。
 G3 smoke 通过:completion-level schema、hidden 层/位置、grouped split、
    O/H/O+H 同 folds、no-emission 处理、paired CI 可算——全部在 ≤20 prompt 上验证。

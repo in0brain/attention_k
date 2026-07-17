@@ -1,11 +1,16 @@
 # Pre-registration freeze lock
 
 file:      docs/paper/preregistration.md
-version:   v2.2
-sha256:    ffa722e8eee2af9487aca46f7270afd6423a9d0484ec1c1eb41b52d1e4b892fd
+version:   v2.3
+sha256:    16fa43dbe1010a1d13e045af68530ce7e7053931214e7f32c71e760913d9cd0b
 frozen_on: 2026-07-16
 
 历史版本（保留,不覆盖）:
+- v2.2  sha256 ffa722e8eee2af9487aca46f7270afd6423a9d0484ec1c1eb41b52d1e4b892fd
+        frozen_on 2026-07-16;实现见 git commit f93877b。
+        **v2.2 的 G3 已失效**:v2.3 改了 MCQ 侧的 O 表示与 population(§7.1/§7.2),
+        smoke 必须重跑。旧 report 会被 prereg_sha256 校验自动拒。
+        v2.3 只动 MCQ 臂;H1 的 480 prompt × K=6 经 sizing 判定充分(可达率 95%),不变。
 - v2.1  sha256 b3ef922848f61cb618edb529cc9280cd240248d148cd7439ec0958ccfb138aef
         frozen_on 2026-07-15;实现与旧 hash 见 git commit 57b7ae9;
         其 G3 smoke report 存档为 outputs/logs/sprint_4D_2_conditional_increment/
@@ -27,6 +32,14 @@ frozen_on: 2026-07-16
 启动 Stage 0(2880 全量生成)仍需 G1(workshop CFP 确认)+ G2(本 hash 校验通过)
 + G3(≤20 prompt 真实 model-in-loop smoke 通过),三者齐备。
 W0.5-B(实现 + smoke)不受 G1 阻塞。
+
+G1 的具体判据(preflight 解析 docs/paper/cfp_record.json 的**内容**,不是看文件是否存在):
+- status == "confirmed"
+- deadline 非空字符串、archival 为 bool、page_limit 为正整数——§2 要求的三项事实齐全
+任一缺失 → G1 不过,并报出缺哪一项。存在性检查会让空占位文件把 gate 刷绿,故不采用;
+只改 status 而事实仍缺也不予通过。G1 是外部事实,不得由脚本/代理自行置位。
+现状(2026-07-16):target=EIML3 @ NeurIPS 2026,deadline=2026-08-29 AoE,archival=false,
+  page_limit 待 2026-07-29 投稿系统开放后确认 → status=provisional → G1 红。
 
 G2 的强制语义:preflight 重算 hash,不一致 → 立即 SystemExit,不继续任何阶段。
 

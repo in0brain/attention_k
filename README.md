@@ -187,62 +187,61 @@ Raw attention 只能作为辅助信号，不能单独证明因果重要性。
 
 ## 4. 当前阶段
 
-当前项目处于工程基础和 Skill 框架对齐阶段。
+当前主线停在 **Sprint 4D-2 W0.5-B**：条件增量 pipeline 的实现 + ≤20 prompt 真实 smoke 已完成，设计层已冻结关闭。
 
-已经完成的 Sprint 0 内容包括：
+权威状态索引见 `PROGRESS.md`；本节只给一句话定位，细节不在此重复。
 
-```text
-项目骨架
-jsonl 数据读写
-样例数据
-smoke test
-schema 校验
-prepare_data
-基础环境验收
-```
+自 Sprint 4A 起，项目已从原计划的 attention guidance 主线**转向 cyber-domain hallucination detection**（见 §5）。4D-2 起主问题进一步收窄为**条件增量**：相对最强输出侧基线 O = F5 + 可见文本，hidden-state probe H 是否还有增量。
 
-当前优先事项是：
+4D-2 的设计权威是 `docs/paper/preregistration.md`（v2.2，已 sha256 冻结）。启动 gate 由代码强制：
 
 ```text
-Skill 文档与新研究主线对齐
-schema 与 attention anchor 标签体系对齐
+G1 目标 workshop CFP 已确认   -> 未过
+G2 preregistration hash 一致   -> 已过
+G3 ≤20 prompt 真实 smoke 通过  -> 已过
+stage0_full_generation_allowed = G1 AND G2 AND G3 -> False
 ```
 
-不要直接跳到 attention guidance、probe training 或大规模实验。
+Stage 0（2880 全量前向）仍 No-Go。注意"设计层关闭"≠"可以启动全量生成"：Stage 0 的执行路径（全量生成、MCQ 任务侧、正式 ladder/gate/increment/rq2、Llama 复核）尚未实现，缺口见 `PROGRESS.md` §5。
+
+不要直接跳到 attention guidance、intervention 或 hallucination-reduction claim。
 
 ---
 
 ## 5. 高层路线
 
-当前高层路线为：
+### 5.1 原计划路线（Sprint 0-3 已执行，Sprint 5-8 已废弃）
+
+项目最初按 attention guidance 主线规划：
 
 ```text
-Sprint 0:
-工程基础与 Skill 框架
+Sprint 0:  工程基础与 Skill 框架                  -> 已完成
+Sprint 1:  Baseline CoT 与推理轨迹基础            -> 已完成
+Sprint 2:  Candidate Span 与 NLI 语义必要性       -> 已完成
+Sprint 3:  Mask / Remove Intervention 与
+           Semantic Recoverability                -> 已完成
+Sprint 4:  Trajectory Stability 与 Answer Stability -> **未按此执行,见 5.2**
+Sprint 5:  Attention Importance Hierarchy         -> 已废弃
+Sprint 6:  Oracle Attention Guidance              -> 已废弃
+Sprint 7:  Probe-Guided Attention Guidance        -> 已废弃
+Sprint 8:  Hallucination Reduction Evaluation     -> 已废弃
+```
 
-Sprint 1:
-Baseline CoT 与推理轨迹基础
+废弃原因：Sprint 3 的结论是 span-level steering 未形成稳定选择性收益；final-answer readout MLP 是有效的机制诊断位置，但结果只支持 detection / attribution，不支持继续 blind steering。因此 Sprint 5-8 的 guidance 路线没有前提。
 
-Sprint 2:
-Candidate Span 与 NLI 语义必要性
+### 5.2 实际路线（Sprint 4A 起）
 
-Sprint 3:
-Mask / Remove Intervention 与 Semantic Recoverability
-
-Sprint 4:
-Trajectory Stability 与 Answer Stability
-
-Sprint 5:
-Attention Importance Hierarchy 与 Anchor Labeling
-
-Sprint 6:
-Oracle Attention Guidance
-
-Sprint 7:
-Probe-Guided Attention Guidance
-
-Sprint 8:
-Hallucination Reduction Evaluation
+```text
+Sprint 4A:   cyber mainline reset(转向 hallucination detection)
+Sprint 4B:   CyberMetric 数据审计 / canonical schema / F5 输出层基线
+Sprint 4C:   MCQ 上 F1/F4 相对 F5 的增量 bake-off(negative:未过 CI gate)
+Sprint 4D-0: H1 fabricated-identifier 数据设计 + 本体快照
+Sprint 4D-1: H1 emission/fabrication smoke(通过 base-rate gate)
+Sprint 4D-2: 条件增量 + observability gate  <- 当前
+             W0.5-A 预注册冻结      -> 完成
+             W0.5-B 实现 + 真实 smoke -> 完成
+             W0.5-C 启动 gate 全过   -> 卡在 G1
+             Stage 0 全量生成 + 分析 -> 未实现,未启动
 ```
 
 阶段边界：
@@ -252,8 +251,10 @@ Sprint 0 只做工程和文档地基。
 Sprint 1 可以使用 stub / fixture，不默认调用真实模型。
 Sprint 2 可以使用 rule-based span extraction 和 NLI stub。
 Sprint 3 可以使用 recovery stub。
-Sprint 5 之前不要实现 attention guidance。
-Sprint 7 之前不要训练 probe。
+不要实现 attention guidance / steering(5.1 路线已废弃,无前提)。
+probe 只作 detection 用途,不得用于 guidance。
+4D-2 起:不得改动已冻结的 preregistration(改设计须 bump version + 重算 hash +
+  顶部记录变更);G1 未过不得启动 Stage 0;G1 是外部事实,不得由脚本/代理自行置位。
 ```
 
 ---

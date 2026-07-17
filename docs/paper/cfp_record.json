@@ -1,0 +1,32 @@
+{
+  "_comment": "G1 CFP record (preregistration.md section 2). preflight 解析本文件的内容,不是看它存不存在。三项事实(deadline / page_limit / archival)齐全且 status=confirmed 才算 G1 通过。请勿为了让 gate 转绿而手改 status。",
+
+  "status": "provisional",
+  "target": "EIML3 @ NeurIPS 2026",
+  "full_name": "The 3rd Workshop on Epistemic Intelligence in Machine Learning",
+
+  "deadline": "2026-08-29 AoE",
+  "archival": false,
+  "page_limit": null,
+  "page_limit_status": "pending_confirmation",
+
+  "submission_opens": "2026-07-29",
+  "notification": "2026-09-29",
+  "workshop_date": "2026-12-12",
+  "location": "Paris, France",
+
+  "archival_note": "NeurIPS workshop 论文统一非归档,不进入正式 proceedings;后续可扩展投主会。",
+  "page_limit_note": "官方 CFP 已列出日期、主题与评审安排,但未公布 submission type 或 page limit。投稿系统 2026-07-29 开放,届时确认页数后方可把 status 改为 confirmed。",
+
+  "fit_rationale": "EIML 关注 hallucination 与过度自信、系统能否识别'知道/不知道'、epistemic signal 能否指导 abstention/fallback、如何评价 ignorance 与 blind spots、以及经严格压力测试后的负结果。本工作可包装为:内部表征是否包含输出文本尚未暴露的幻觉信息?该增量是否依赖错误在输出空间中的可观测程度?这比'又一个 hallucination detector'更贴合主题,且负结果在此处是可发表的。",
+
+  "provenance": {
+    "recorded_on": "2026-07-16",
+    "recorded_by": "user",
+    "source": "user 核对官方 CFP 页面后提供;日期/主题/评审安排已列出,page limit 未公布"
+  },
+
+  "blocking": [
+    "page_limit 未确认 -> G1 保持 provisional -> Stage 0 仍 No-Go"
+  ]
+}

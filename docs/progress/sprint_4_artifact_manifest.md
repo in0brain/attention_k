@@ -1,5 +1,37 @@
 ﻿# Sprint 4 Artifact Manifest
 
+## Sprint 4D-2 W0.5-B conditional-increment core and model smoke artifacts
+
+Directory: `outputs/logs/sprint_4D_2_conditional_increment/` (local/gitignored).
+
+| artifact | present | in git | note |
+| --- | --- | --- | --- |
+| preflight_report.json | yes | no | G1/G2/G3 + hidden index table + frozen constants; `stage0_full_generation_allowed=false` |
+| smoke_report.json | yes | no | **G3 record**, v2.2. `passed=true`, `kind=model_smoke`, `schema_version=4D2_completion_cache_v1`, `prereg_sha256=ffa722e8...`, `n_prompts=20`, `n_traces=120` |
+| smoke_report_v2.1_archived.json | yes | no | v2.1's G3, archived not overwritten. **Void** — its `prereg_sha256` is b3ef9228 and preflight rejects it automatically |
+| smoke_completion_cache.jsonl | yes | no | 120 completion-level records; mentions with token_indices, eligible/label, exclusion reason, F5, surface features |
+| smoke_hidden.npz | yes | no | pooled H vectors keyed by trace_id; 3584-dim fp32, eligible completions only |
+| verify_hidden_report.json | yes | no | L=28, block 19 -> tuple 20, `numeric_match=true`, `max_abs_diff=0.0`, 8-bit backend |
+| smoke_synthetic_report.json | yes | no | statistical wiring self-check. **Does not constitute G3** (`is_g3=false`) |
+| smoke_model_v2.2_run.log | yes | no | run log for the v2.2 smoke |
+
+Tracked in git (not artifacts but the sprint's authority records):
+
+| file | note |
+| --- | --- |
+| docs/paper/preregistration.md | design authority, v2.2 frozen, sha256 `ffa722e8...` |
+| docs/paper/preregistration.lock | freeze fingerprint, version history (v2.1 -> v2.2), explicit G2/G3 criteria |
+| src/recover_attention/conditional_increment.py | statistical + schema core |
+| scripts/sprint_4D_2_conditional_increment.py | preflight / smoke_synthetic / verify_hidden / smoke_model / stage0_gate |
+| tests/test_conditional_increment.py | 39 unit tests over the correctness points that would force a 2880-forward redo |
+
+Key conclusions: design frozen at v2.2; G2 and G3 green, G1 red, so Stage 0
+remains blocked. The three-block fusion amendment removed the mechanical
+O+H -> H degeneration seen under v2.1. Smoke AUROCs (O=0.801 / H=0.785 /
+O+H=0.834 at n=115, n_pos=10) are wiring diagnostics and **do not enter paper
+results**. `stage0_started=false`, `mcq_side_implemented=false`,
+`llama_run=false`, `probe_increment_claimed=false`.
+
 ## Sprint 4D-1 H1 emission/fabrication smoke artifacts
 
 Directory: `outputs/logs/sprint_4D_1_h1_emission_fabrication_smoke/` (local/gitignored).

@@ -1,5 +1,125 @@
 ﻿# Sprint 4 History - Cyber Hallucination Control
 
+## Sprint 4D-2 W0.5-A/W0.5-B - Preregistration Freeze, Conditional-Increment Core, Model Smoke
+
+Goal: 4D-2 rewrites the main question from "can a probe detect fabrication" to
+**conditional increment**: given the strongest output-side baseline O = F5 +
+visible text, does the hidden-state probe H add anything? W0.5-A freezes the
+design; W0.5-B implements the statistical/schema core and validates it on a
+<=20 prompt real model-in-loop smoke. **Stage 0 (2880-trace full generation) was
+not started and its execution path is not implemented.**
+
+### W0.5-A - preregistration freeze
+
+`docs/paper/preregistration.md` v2.1 frozen 2026-07-15, sha256 `b3ef9228...`.
+Fixes in advance: completion-level population (one completion = one primary
+sample, positive iff any eligible identifier is fabricated); O as a single fixed
+definition (no max-taking, no test-set selection); equivalence margin eps=0.02;
+observability gate delta=0.15 on rank-biserial; K=6 traces/question; hidden
+block = floor(0.7L) with tuple index = block+1; TF-IDF and fusion protocol;
+RQ2 stratification; startup gates enforced in code.
+
+### W0.5-B - implementation + smoke
+
+New `src/recover_attention/conditional_increment.py` (statistical + schema core,
+pure functions, unit-tested) and `scripts/sprint_4D_2_conditional_increment.py`
+(stages: preflight / smoke_synthetic / verify_hidden / smoke_model / stage0_gate).
+
+Review-driven P0 fixes made in this sprint (all had teeth):
+1. preflight now hard-stops on G2 mismatch; `stage0_allowed = G1 AND G2 AND G3`;
+   G3 reads a formal `smoke_report.json` and checks kind/passed/schema_version/
+   prereg_sha256/hidden_verification/n_prompts<=20. A synthetic smoke cannot
+   grant G3.
+2. RQ2 threshold is fold-specific (train-fold median applied to that fold's
+   test). The earlier global median was test leakage.
+3. `verify_hidden` reuses the 4D-1-validated 8-bit local backend. The prior
+   BF16 + `device_map="cuda"` path would OOM on 12GB, and hidden verification
+   must run through the same loader as the eventual cache run.
+4. emission semantics split: `primary_exclusion_reason` in {no_identifier,
+   refusal, only_echoed, only_cve}. only_cve emitted an identifier and is no
+   longer an emission failure — counting it as one understates end-to-end
+   emission rate.
+5. StratifiedGroupKFold + both-class validation per fold + seed retry + stop;
+   both bootstraps discard single-class rounds and report n_valid instead of
+   scoring them as S=0; `s_observability(NaN)` now raises.
+6. H alone added (section 7 requires reporting O / H alone / O+H together).
+7. Real output ladder (train-only TF-IDF vocabulary), hidden mean-pooling over
+   all eligible identifier tokens, completion cache schema
+   `4D2_completion_cache_v1`.
+8. Cross-sample F5 (self-consistency / id-agreement) was silently filling 0 —
+   it aggregates across a question's K traces. Left unfixed it weakens the O
+   baseline and inflates Delta_H.
+
+### v2.2 amendment - three-block equal-weight fusion
+
+The smoke exposed a protocol defect. v2.1 used two blocks (sparse / dense),
+putting F5 (d=14) and H (d=3584) in one dense block — contradicting section 7's
+own equal-weight motivation. Effect: O+H degenerates toward H alone, so
+AUROC(O+H) - AUROC(O) confounds "does hidden add signal" with "did fusion
+destroy the output signal". Bumped to v2.2, sha `ffa722e8...`, frozen
+2026-07-16. Frozen formula (per outer fold, train statistics only):
+
+```text
+text: X~_T = L2Normalize([X_word, X_char])      -> row norm ~ 1
+F5:   X~_F = ((X_F - mu)/sigma) / sqrt(d_F)     -> row norm ~ 1, d_F=14
+H:    X~_H = ((X_H - mu)/sigma) / sqrt(d_H)     -> row norm ~ 1, d_H=3584
+O = [X~_T, X~_F]   H = X~_H   O+H = [X~_T, X~_F, X~_H]
+```
+
+Plus a late-fusion robustness appendix (2-D meta-logistic over O_score/H_score,
+nested inside each outer fold via inner cross-fitting; not primary).
+
+Amendment recorded as legitimate, not p-hacking: Stage 0 not started; found
+within the smoke's remit; the dimension-swamping risk was raised **before** any
+smoke AUROC was seen; it fixes an internal inconsistency rather than selecting a
+result direction; v2.1's hash and code are preserved at commit `57b7ae9`; smoke
+numbers do not enter paper results. v2.1's G3 was voided automatically by the
+prereg_sha256 check — no manual invalidation was needed.
+
+### Real smoke results (wiring, not findings)
+
+20 prompts (10 attack / 10 cwe, train/recall split, deterministic seed) x 6
+traces = 120 completions. 115 eligible (0.958), 10 positive / 105 negative, 20
+groups. Emission failures 5 (only_echoed 4, no_identifier 1). Hidden verified:
+L=28, block 19 -> tuple index 20, forward hook equals `hidden_states[20]`,
+max_abs_diff 0.00 under the 8-bit backend. Hidden dim 3584. All 11 schema checks
+green.
+
+Ladder wiring, v2.1 two-block vs v2.2 three-block:
+
+| rung | v2.1 | v2.2 |
+| --- | --- | --- |
+| O = F5 + text | 0.843 | 0.801 |
+| H alone | 0.785 | 0.785 |
+| O+H | 0.721 (O+H < H < O, pathological) | 0.834 (O+H >= O) |
+
+**These are n=115 / n_pos=10 diagnostics, not findings.** They are recorded only
+because they exposed the fusion defect and confirmed the fix removed the
+mechanical degeneration.
+
+Late fusion reads 0.250 in smoke. Diagnosed rather than waved off: per-fold
+AUROC 0.995/0.000/1.000, with meta coefficients going negative (fold1 O=-0.124,
+fold2 H=-0.535) because inner-CV base scores are far noisier than the full-train
+scores the meta is applied to (fold2's inner H is 0.419, worse than chance).
+Scale control shows the implementation is sound: n=90/n_pos=30 -> 0.475;
+n=1200/n_pos=402 -> 1.000. Small-sample artifact. Unit tests now separate wiring
+from direction, and the smoke report marks the number `interpretable=false`.
+
+Checks: full pytest 790 passed, 2 skipped. Commits `57b7ae9` (v2.1
+implementation + its G3 smoke) and `f93877b` (v2.2 amendment).
+
+Gates after this sprint: G1 red (CFP unconfirmed), G2 green, G3 green ->
+`stage0_full_generation_allowed=False`.
+
+Boundary: no full generation, no MCQ-side pipeline, no Llama run, no probe
+increment conclusion, no hallucination-reduction or accuracy claim. G1 must be
+established from external fact and must not be self-asserted by script or agent.
+
+Next: (1) establish G1; (2) implement the Stage 0 execution path — full
+generation, the missing MCQ side (required for the section 6 cross-task gate
+D = S_MCQ - S_H1), the formal ladder/gate/increment/rq2 path with >=1000-round
+bootstrap CIs, and the Llama cross-model check. These two are orthogonal.
+
 ## Sprint 4D-1 - H1 Emission/Fabrication Smoke
 
 Goal: run only the preregistered H1 emission/base-rate smoke from the 4D-0

@@ -1,9 +1,92 @@
-# Pre-registration：内部 hidden-state probe 的条件增量检验（v2.2，已冻结）
+# Pre-registration：内部 hidden-state probe 的条件增量检验（v2.3，已冻结）
 
 > 投稿前预注册。跑任何全量生成之前写死;跑完只填结果,不改判读规则。
 > 冻结指纹见 `preregistration.lock`（sha256）。改设计须 bump version + 重算 hash。
 
-## v2.2 修订记录（唯一变更，2026-07-16）
+## v2.3 修订记录（2026-07-16）
+
+```text
+v2.3 amendment:
+  Repair a pre-Stage-0 factual mismatch in the MCQ output representation,
+  define task-specific semantic output canonicalization,
+  and expand MCQ to a fresh confirmatory population with adequate precision.
+
+本次修订**只动 MCQ 臂**。H1 臂(480 prompt × K=6)不变,理由见 (3)。
+
+(1) 事实错配(pre-Stage-0 发现,非按结果调整)
+    §7 v2.2 写明:"O_t 均为该任务自己的 F5 + full-response-text（CyberMetric prompt
+    要求先简短推理再给字母,MCQ 也有文本可构造 text baseline）"。
+    该断言与产物事实不符。4B-3 实测 240 条 greedy:
+      has_reasoning_text = 0/240;completion 字符数 min=1 p50=1 p90=1;
+      唯一取值 {B:69, C:63, D:58, A:49, 'Answer! <D>':1}。
+    即 MCQ 的"full-response-text"就是一个字母。后果是连锁的:
+      - text block 退化成 {A,B,C,D} 上的 4 值类别 = 答案字母身份 → O_MCQ ≈ F5;
+      - §6 想消除的"MCQ=F5、H1=O"不对称在**定义上**消失、在**事实上**回归;
+      - ladder 塌陷:rung2(id-string-only) ≡ rung4(full-text) ≡ 答案字母;
+      - §7 artifact 红线 Δ_artifact = AUROC(full-text) − AUROC(shortcut) 因构造必然
+        触发(两者同一),判定"该任务被字符串/格式模式解决"在此无意义。
+    另:强制推理已在 4B-3 Stage B' 试过并否决(has_reasoning_text 0.656 但
+    parse_failure 0.3125、**wrong_rate 0.0**、correct-and-wrong 题数 0、
+    admitted_for_f2=false)——强制推理后无错误样本,AUROC 无从计算。故"重跑生成补文本"
+    不是可行退路。
+
+(2) task-specific semantic output canonicalization（本次新增的概念,见 §7.1）
+    O 的概念在两个任务上保持同一个:"模型可见输出的全部语义内容"。
+    变的只是 canonicalization 方式:
+      H1  : 可见输出本身即语义内容 → 直接用 completion 文本(与 v2.2 相同,不变)。
+      MCQ : 字母是**指针**,不是语义内容;其语义实现 = 它所指选项的文本。
+            故 MCQ 的 canonical output text = 被选中选项的文本。
+    这不是"换一个更强的基线",是把同一个 O 概念在指针式输出上正确实例化。
+    无 gold 泄漏:选项文本来自 prompt(模型可见),选哪个来自模型输出;两者都在输出侧。
+    若选项文本本身与正确性存在数据集 artifact 相关(如正确项更长),这正是 §7 ladder 的
+    surface-only rung 与 artifact 红线要检出的东西 —— 该机制保留且对 MCQ 生效。
+
+(3) fresh confirmatory population with adequate precision（见 §7.2）
+    "adequate precision" 定为**可证伪判据**,不是形容词:零假设(真 Δ_H=0)下,
+    Δ_H 的 paired grouped-bootstrap CI 必须能落进 [−ε,+ε]=[−0.02,+0.02],否则该臂
+    只能出 inconclusive,交付不了 §4 的主要预期。
+    先验 sizing(设计时依据,非保证):以 4C 实测为锚点标定配对零假设模拟
+      锚点 = 4C C_F5_F1 在 n=239 的实测 Δ CI [−0.0429,+0.0202],宽度 0.0631
+      标定得 rho=0.9051(模拟宽度 0.0631,复现锚点);零假设 E[Δ]=0(已验证无偏)
+    结果:
+      MCQ n=239 (现有)  → CI 宽度 0.0631,equivalent 可达率  0%   ← 结构性不可达
+      MCQ n=1760(fresh) → CI 宽度 0.0223,equivalent 可达率 87%
+      H1  480 prompt×K=6 → CI 宽度 0.0210,equivalent 可达率 95%  ← 故 H1 不改
+    H1 的 sizing 用 4D-1 **实测**标签聚集(ICC=0.261、completion 级正例率 0.149,
+      201 eligible completion / 55 question)做 beta-binomial 建模,非假设值。
+    故:MCQ confirmatory population = CyberMetric 全部 1760 题 fresh
+      = 总池 2000 − 4B-3/4C 已用的 240(已核验该 240 全在池内,划分无歧义)。
+    **排除那 240 题是必需的**:4C 在它们上的 CI 正是促成本次修订的依据,
+      再用它们做确证 = 同一批数据既定设计又下结论。它们降级为 exploratory,
+      不进入 confirmatory 结果。
+
+(4) sizing 的效力边界(如实声明,不得当作已兑现的功率)
+    rho=0.9051 是从 **4C 的 F1(7 维)、n=239、旧 4C 协议**标定的,却被用于
+    **H(3584 维)、v2.2 三-block 协议**。两处不同,且方向相反:
+      更高维 → 重训抖动可能更大 → 真 rho 更低 → CI 更宽 → 87%/95% 偏乐观;
+      v2.2 把 H block 缩放到行范数≈1 → 稀释应小于 4C 的朴素拼接 → 真 rho 可能更高。
+    净效应未知。故上述可达率是**有锚点的先验估计**,不是保证。
+    可检验承诺:Stage 0 后必须回报各臂实际 Δ_H 的 CI 宽度。
+      若实际宽度 > 0.04(装不进 ±ε)→ 该臂**如实记 inconclusive**,
+      **不得**事后追加样本、改 ε、换判据或改融合协议。扩容只此一次。
+
+修订正当性(记录在案,防事后质疑):
+  - Stage 0 未启动,无任何正式结果;
+  - 缺陷属 pre-Stage-0 资产检查的职责范围(检查产物是否支持已冻结的设计);
+  - 修订消除的是"预注册断言"与"产物事实"的冲突,不指向任何结论方向;
+  - MCQ 的 shortcut/ladder 映射(§7.1)在**看到任何新结果之前**定死;
+  - v2.1/v2.2 的 hash 与实现保留在 git commit 57b7ae9 / f93877b,不覆盖;
+  - 促成本次修订的 4C 数值(n=239)与已烧的 240 题一并降级为 exploratory,
+    **不进入 confirmatory 结果**。
+本修订**不是**"因为旧 MCQ 结果不理想所以换基线并扩大数据":
+  旧 MCQ 的 AUROC 高低从未进入本次决策;进入决策的是
+  (a) has_reasoning_text=0/240 这一**表示层事实**,与结果好坏无关;
+  (b) CI 宽度 0.0631 > 等价带 0.04 这一**精度事实**,与 Δ 的方向无关。
+后果:v2.2 的 G3 失效(MCQ 侧协议已变),须重跑单元测试与 ≤20 prompt smoke,
+  取得新 G2 + 新 G3;Stage 0 仍需 G1。
+```
+
+## v2.2 修订记录（2026-07-16）
 
 ```text
 变更:§7 融合协议。原 v2.1 只分 sparse / dense 两个 block,F5(d_F=14) 与
@@ -73,7 +156,12 @@ primary population(H1):生成 ≥1 个非 echoed ATT&CK/CWE identifier 的 compl
 emission failure(拒答 / 未生成合法 id):单独统计,不进主 completion-level AUROC,
   作 secondary end-to-end 系统分析。
 mention-level:仅作 secondary,用于 id-token logprob 的 observability 描述,不当 primary。
-MCQ population:每题一条,label = 答案正确性 1[â=a*]。
+MCQ population（v2.3）:每题一条(greedy trace),label = 答案正确性 1[â=a*]。
+  confirmatory set = CyberMetric **fresh 1760 题** = 总池 2000 − 4B-3/4C 已用 240。
+  被排除的 240 题降级 exploratory,不进 confirmatory 结果(它们的 CI 促成了 v2.3 修订,
+  再用于确证即"同一批数据既定设计又下结论")。sizing 依据见 §7.2。
+  另采 K−1=5 条 sampled trace/题,**仅**用于 F5 的 self-consistency / id-agreement,
+  不进 population(population 恒为每题一条 greedy)。
 分组:CV 与 bootstrap 一律按 source prompt 分组;K 条 completion 共享 group,不当独立样本。
 K 固定:1 greedy + 5 sampled = 6 traces/question = 480×6 = 2880 traces。
 seed:固定预注册 grouped folds + paired grouped bootstrap;不把 classifier seed 当 robustness。
@@ -122,8 +210,12 @@ equivalence margin（预注册）:ε = 0.02 AUROC（最小有意义增量,量级
 两任务同定义（P0:不再 MCQ=F5、H1=O 的不对称）:
   S_t = max(0, 2·AUROC(O_t) − 1)   （rank-biserial 非负截断;AUROC<0.5=失效/方向异常,
                                      不翻转成"强可观测"）。
-  O_t 均为该任务自己的 F5 + full-response-text（CyberMetric prompt 要求先简短推理再给字母,
-  MCQ 也有文本可构造 text baseline）。AUPRC 只在各任务内报告,不作 gate。
+  O_t 均为该任务自己的 F5 + **canonical output text**（§7.1）。
+  v2.2 此处曾写"CyberMetric prompt 要求先简短推理再给字母,MCQ 也有文本可构造 text
+  baseline"——该断言与产物事实不符(实测 has_reasoning_text = 0/240,输出仅一个字母),
+  v2.3 已据 §7.1 更正:MCQ 的 canonical output text = 被选中选项的文本。
+  更正后"两任务同定义"在**事实上**成立(此前仅在定义上成立,实际 O_MCQ ≈ F5)。
+  AUPRC 只在各任务内报告,不作 gate。
 D = S_MCQ − S_H1，用 independent grouped bootstrap（MCQ groups 与 H1 groups 各自独立
   重采样,每轮算 D_b;**不是 paired**——两任务非同批 prompt、无天然配对;paired 只用于
   同任务同批样本的 O vs O+H）。95% CI。δ = 0.15（rank-biserial;因 rank-biserial =
@@ -178,6 +270,59 @@ artifact 红线（P0 数值化）:Δ_artifact = AUROC(full-text) − AUROC(short
   shortcut ∈ {id-string-only, surface-format-only};
   若 grouped-bootstrap CI95(Δ_artifact) ⊂ [−0.02, +0.02]（= ε）→ shortcut 与 full-text
   实质等价 → 触发红线:该任务被字符串/格式模式解决,不做 hidden 增量声明。
+```
+
+## 7.1 task-specific semantic output canonicalization（v2.3 P0，冻结）
+
+```text
+O 的概念在两任务上同一:"模型可见输出的全部语义内容"。canonicalization 方式按任务定,
+在看到任何新结果之前冻结。
+
+H1（不变）:
+  可见输出本身即语义内容 → canonical output text = completion 全文。
+  shortcut:id-string-only = 各 identifier 的 normalized 串;
+           surface-format-only = 长度/行数/mention 计数/family 计数/首 id 位置等。
+
+MCQ（v2.3 新增；v2.2 的 "full-response-text" 对 MCQ 失效,见修订记录 (1)）:
+  实测:模型只输出一个字母,has_reasoning_text = 0/240。字母是**指针**,不是语义内容。
+  canonical output text = **被选中选项的文本**（模型输出的字母 → 索引到 prompt 中该选项）。
+    解析失败(无法映射到唯一选项)→ 该题记 parse_failure,不进 population,单独统计
+    （4B-3 实测 parse_failure = 1/240）。
+  O_MCQ = F5_MCQ + canonical output text（与 H1 同一个 O 概念、同一套 §7 融合公式）。
+  ladder（与 H1 同构,rung 语义对应）:
+    1 prompt-only          题干 + 全部选项文本(不含模型输出)
+    2 answer-letter-only   仅字母身份 {A,B,C,D}     ← 对应 H1 的 id-string-only
+    3 option-surface-only  被选项的表面格式:字符数/词数/是否含数字/是否含否定词/
+                           选项位置索引/该选项长度在四选项中的排名  ← 对应 H1 的 surface-only
+    4 full-response-text   被选中选项的文本(= canonical output text)
+    5 F5_MCQ
+    6 O = F5_MCQ + canonical output text
+  artifact 红线对 MCQ 生效且**有意义**:shortcut ∈ {answer-letter-only, option-surface-only}
+    与 rung4 不再同一。若选项文本本身与正确性存在数据集 artifact(如正确项更长),
+    红线会检出 → 该任务被格式模式解决,不做 hidden 增量声明。
+  F5_MCQ:label margin / label entropy / full entropy（4C 已有三项）
+    + answer-letter token logprob（= 该任务的 "id-token" 位置）
+    + self-consistency / letter-agreement（对该题 5 条 sampled trace 求）。
+    verbalized confidence 在 MCQ 无文本载体 → 恒缺失,记为常数列(§7 的 σ<1e-12 规则处理)。
+  H 的位置（§8 不变）:answer-letter token 自身在 ⌊0.7L⌋ 层的 hidden。
+```
+
+## 7.2 adequate precision（v2.3 P0，冻结判据）
+
+```text
+判据(可证伪,非形容词):零假设(真 Δ_H=0)下,Δ_H 的 paired grouped-bootstrap CI 必须能
+  落进 [−ε,+ε]=[−0.02,+0.02]。不能 → 该臂只出 inconclusive,交付不了 §4 主要预期。
+先验 sizing(设计时依据,**非保证**):
+  锚点 = 4C C_F5_F1 在 n=239 实测 Δ CI [−0.0429,+0.0202](宽度 0.0631)
+  标定 rho=0.9051 复现该宽度;零假设 s_o=d·y+e1, s_oh=d·y+e2, corr(e1,e2)=rho,E[Δ]=0
+  H1 另用 4D-1 实测标签聚集 beta-binomial 建模(ICC=0.261、completion 级正例率 0.149)
+  预期:MCQ n=239 → 0%;MCQ n=1760 → 87%;H1 480×K=6 → 95%
+效力边界:rho 借自 4C 的 F1(7 维、旧协议),用于 H(3584 维、v2.2 三-block)。
+  更高维 → 真 rho 可能更低(CI 更宽,估计偏乐观);v2.2 等权缩放 → 真 rho 可能更高。
+  净效应未知 → 上述可达率是先验估计,不是已兑现的功率。
+可检验承诺(硬):Stage 0 后必须回报各臂 Δ_H 的**实际** CI 宽度。
+  实际宽度 > 0.04 → 该臂如实记 inconclusive。
+  **不得**事后追加样本、改 ε、换判读规则或改融合协议。扩容只此一次(v2.3),不再有下一次。
 ```
 
 ## 8. Hidden probe H（P0:pool 全部 eligible id + 层 index 消歧,防 post-hoc 选层）

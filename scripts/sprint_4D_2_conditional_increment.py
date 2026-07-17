@@ -93,12 +93,16 @@ def _read_g3(smoke_report: Path, prereg_sha: str) -> dict:
 def preflight(args) -> dict:
     prereg = Path(args.prereg); lock = Path(args.lock)
     g2 = ci.check_preregistration_frozen(str(prereg), str(lock))
-    g1 = Path(args.cfp_flag).exists() if args.cfp_flag else False
+    # G1 校验 CFP 记录的**内容**（deadline / page_limit / archival + status=confirmed）,
+    # 不是文件存在性。§2 要求这三项都确认并记入 preflight。
+    g1_rec = ci.check_cfp_confirmed(str(args.cfp_record))
+    g1 = bool(g1_rec["ok"])
     g3 = _read_g3(Path(args.output_dir) / "smoke_report.json", g2["current"])
     hidden = {"qwen2.5-7b_L28": ci.resolve_hidden_index(28),
               "llama-3.1-8b_L32": ci.resolve_hidden_index(32)}
     report = {
         "G1_cfp_confirmed": g1,
+        "G1_cfp_record": g1_rec,
         "G2_preregistration": g2,
         "G3_model_smoke": g3,
         "hidden_index": hidden,
@@ -112,7 +116,10 @@ def preflight(args) -> dict:
     }
     out = Path(args.output_dir) / "preflight_report.json"
     _write(out, report)
-    print(f"[preflight] G1 cfp={g1}  G2 hash match={g2['match']}  G3 model-smoke={g3['ok']}")
+    print(f"[preflight] G1 cfp={g1} ({g1_rec['status']}"
+          + (f", missing={g1_rec['missing']}" if g1_rec.get("missing") else "")
+          + f"; target={g1_rec.get('target')})")
+    print(f"[preflight] G2 hash match={g2['match']}  G3 model-smoke={g3['ok']}")
     print(f"[preflight] hidden Qwen block19→tuple20  Llama block22→tuple23")
     print(f"[preflight] stage0_full_generation_allowed={report['stage0_full_generation_allowed']}  → {out}")
     # G2 是冻结校验:hash 不一致 = 跑后改了判读规则/定义 → 立即停,不往下走任何阶段。
@@ -619,7 +626,7 @@ def main() -> None:
     ap.add_argument("--stage", default="preflight,smoke_synthetic")
     ap.add_argument("--prereg", default="docs/paper/preregistration.md")
     ap.add_argument("--lock", default="docs/paper/preregistration.lock")
-    ap.add_argument("--cfp-flag", default="docs/paper/CFP_CONFIRMED")
+    ap.add_argument("--cfp-record", default="docs/paper/cfp_record.json")
     ap.add_argument("--model-path", default="D:/models/Qwen2.5-7B-Instruct")
     ap.add_argument("--samples-jsonl", default="data/processed/h1/h1_samples.jsonl")
     ap.add_argument("--ontology-dir", default="data/raw/ontology")

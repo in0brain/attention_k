@@ -671,3 +671,55 @@ def check_preregistration_frozen(prereg_path: str, lock_path: str) -> dict:
     with open(lock_path, encoding="utf-8") as f:
         locked = f.read().split("sha256:")[1].split()[0].strip()
     return {"current": cur, "locked": locked, "match": cur == locked}
+
+
+CFP_REQUIRED_FACTS = ("deadline", "page_limit", "archival")
+
+
+def check_cfp_confirmed(cfp_record_path: str) -> dict:
+    """启动 gate G1（preregistration §2）：目标 workshop 的 CFP 已确认。
+
+    §2 要求确认 **deadline / page limit / archival** 三项并记入 preflight。
+    因此这里校验**文件内容**,不是文件是否存在——存在性检查会让一个空文件
+    （或一份写着"page_limit 待定"的记录）把 gate 刷绿,那正是 §2 要防的事。
+
+    G1 通过需同时满足:
+      - status == "confirmed"
+      - deadline / page_limit / archival 三项均有确定值（page_limit 必须是正整数,
+        archival 必须是 bool,deadline 非空字符串）
+    任一缺失 → 不通过,并报出缺哪一项。
+    """
+    import json as _json
+    from pathlib import Path as _Path
+
+    p = _Path(cfp_record_path)
+    if not p.exists():
+        return {"ok": False, "status": "missing", "record_path": str(p),
+                "missing": list(CFP_REQUIRED_FACTS),
+                "reason": f"no CFP record at {p}"}
+    try:
+        # utf-8-sig:Windows 编辑器（PowerShell Set-Content 等）会写 BOM,utf-8 读会炸成
+        # unreadable → G1 因错误理由变红,掩盖真实状态。utf-8-sig 对有无 BOM 都能读。
+        rec = _json.loads(p.read_text(encoding="utf-8-sig"))
+    except (OSError, _json.JSONDecodeError, UnicodeDecodeError) as exc:
+        return {"ok": False, "status": "unreadable", "record_path": str(p),
+                "reason": f"unreadable CFP record: {exc}"}
+
+    missing: list[str] = []
+    if not isinstance(rec.get("deadline"), str) or not rec["deadline"].strip():
+        missing.append("deadline")
+    if not isinstance(rec.get("archival"), bool):
+        missing.append("archival")
+    pl = rec.get("page_limit")
+    if isinstance(pl, bool) or not isinstance(pl, int) or pl <= 0:
+        missing.append("page_limit")
+
+    status = str(rec.get("status", "")).strip().lower()
+    ok = (status == "confirmed") and not missing
+    return {"ok": ok, "status": status or "unspecified", "record_path": str(p),
+            "target": rec.get("target"), "deadline": rec.get("deadline"),
+            "page_limit": pl, "archival": rec.get("archival"),
+            "missing": missing,
+            "reason": (None if ok else
+                       (f"missing/unconfirmed facts: {missing}" if missing else
+                        f"status={status!r}, needs 'confirmed'"))}
