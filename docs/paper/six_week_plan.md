@@ -38,6 +38,32 @@
 门:smoke 未过 → 不启动 Stage 0(2880 前向依赖此 schema,跑后改要重做)。
 ```
 
+### W0.5-B 实况(2026-07-16,H1 侧完成)
+
+```text
+完成:统计/schema 核心 + preflight/smoke_synthetic/verify_hidden/smoke_model,
+  H1 侧真实 20 prompt smoke 通过(115/120 eligible;hidden block19→tuple20,
+  forward hook 与 hidden_states[20] 数值相等,max_abs_diff 0.00,8-bit backend)。
+期间两次预注册修订(均在 Stage 0 之前,详见 preregistration.md 顶部):
+  v2.2 三-block 等权融合(修 F5 被 3584 维 H 压制)
+  v2.3 MCQ semantic output canonicalization + fresh 1760 confirmatory
+gate 实况:G1 red(EIML3 页数待 7/29 公布) / G2 green(v2.3) / G3 red(v2.2 的 smoke
+  已被 prereg_sha256 校验自动作废,须按 v2.3 重挣)。
+```
+
+## W0.5-C(当前):MCQ 侧实现 + 重挣 v2.3 的 G3
+
+```text
+唯一目标 = 重新拿到 G3。不启动任何正式实验。
+链路:MCQ adapter(Stage B,确定性转换,不重采样)
+  → selected-option semantic canonicalization(§7.1)
+  → teacher-forced hidden re-forward(Stage C,只缓存 answer-letter token 的
+    hidden_states[⌊0.7L⌋] + 必要 token logprobs;不缓存 raw attention/全层/F1/F4/J-lens)
+  → v2.3 ladder / O / H / O+H(Stage D)
+  → ≤20 pilot prompt smoke → 新 G3
+门:新 G3 未过 → 不跑 fresh 1760 的任何正式结果;G1 未过 → 不启动 Stage 0。
+```
+
 ## W1(约 7/22–7/28):前置 gate + H1 全量生成 + MCQ 阶梯
 
 ```text
@@ -45,7 +71,11 @@ smoke 与 preregistration 冻结后,Day1 起 4D-2 生成(H1,Qwen,1 greedy + 5 sa
   = 6 traces/题 = 2880,512 tok,一遍缓存契约特征,不缓存 raw attention)。
   ~15–20 GPU-hr。单点故障,W0.5 通过后第一天必开。
 并行(不等生成):
-  - 在已有 MCQ(4C)数据上跑输出侧阶梯 1–6 + SAPLMA(H),先把 pipeline 打通。
+  - MCQ 侧:**不再复用 4C 的 239 题作 confirmatory**(v2.3)。4B-3/4C 已用的 240 题
+    降级 exploratory(其 CI 促成了 v2.3 修订,再用于确证 = 同批数据既定设计又下结论);
+    confirmatory = CyberMetric fresh 1760 题,O 用 selected-option semantic
+    canonicalization(§7.1)。sizing 依据见 §7.2 与 mcq_asset_audit_and_v2.3_rationale.md。
+    MCQ 生成很便宜(输出仅 1 字母),瓶颈是 1760 次 teacher-forced re-forward。
 生成完先跑 ladder(得到各任务 O 的 OOF 分数),再跑【observability gate】(见 preregistration §6):
   S_t = max(0, 2·AUROC(O_t)−1)(两任务同用各自 F5+text);D = S_MCQ − S_H1,
   independent grouped bootstrap CI,δ=0.15。全>δ → H1 高置信设置;≤0 → Outcome 3。
