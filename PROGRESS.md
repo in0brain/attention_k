@@ -4,7 +4,7 @@
 
 - Prepared the COLING manuscript code on `codex/coling-code-release`, using the
   local research implementation and frozen result summaries.
-- Added `PAPER_CODE.md`, CPU dependencies, a figure-rendering entry point, a
+- Updated the root README for the current manuscript and added CPU dependencies, a figure-rendering entry point, a
   publication allowlist, and a file-hash manifest.
 - Fixed JSON serialization in the synthetic CLI and separated tests requiring
   unbundled local artifacts or the historical pre-analysis workspace.
@@ -18,4 +18,4 @@
   checks also passed. Details are recorded in the release audit.
 - Remaining scope: full experiment reruns require the raw data, model weights,
   record-level caches, and matching freeze manifests described in the guide.
-- Next step: use the published release branch when citing the paper's code.
+- Publication target: merge the release into `master` and cite the repository homepage.

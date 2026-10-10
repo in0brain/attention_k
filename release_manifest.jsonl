@@ -1,9 +1,9 @@
 {"path": ".gitattributes", "sha256": "a4aab633edb1deb11b34395bf0f221033aea774d909ee858db6e4540b70f5880", "bytes": 293}
 {"path": ".gitignore", "sha256": "12982f9ff08735a25688b4eee8156325fa7c62c73e0bce4d7eb746c4d03e7175", "bytes": 19153}
 {"path": "AGENTS.md", "sha256": "39a7a7f233c18e3ba6e83231a0c088cad6dcfb7fe78ccb07e02568a4cd3a76c6", "bytes": 10138}
-{"path": "PAPER_CODE.md", "sha256": "c3d6a2ee8cc79dd0b6c7bac0bc468c3335132c4e566b55bc6e9668d28f9ad46b", "bytes": 6150}
-{"path": "PROGRESS.md", "sha256": "d7a71f7c2a64336aadc200ee8615913eda66d6b0e20d85a940d7d1b0ec617cfe", "bytes": 1204}
-{"path": "README.md", "sha256": "f5c701d9a7cba95bf14d4edcd6d9eb842e0c19ee422008fd84c5b0f5d34022b5", "bytes": 11348}
+{"path": "PAPER_CODE.md", "sha256": "05dac340f38b51c1d2f78c76865bd028f85f3fc0d1f86bd3e8a3e6c9fb6612b1", "bytes": 262}
+{"path": "PROGRESS.md", "sha256": "4112aa24f08ebcf989b01c77d413a6e5002316b5c5691d27063e159069363698", "bytes": 1254}
+{"path": "README.md", "sha256": "0b690607a47781d1ecaad30de0fcf5caa8a49af577fd544bb8fa18a25703bb66", "bytes": 6607}
 {"path": "configs/stage0.yaml", "sha256": "04bb626009ce0b6b07724b2004ae06c6c9b6dd4f3afb7ca6ad60de61ef05414f", "bytes": 1135}
 {"path": "configs/v0_nli_small.yaml", "sha256": "dab155bddc9f2cafa5e23575a4e2811f91001a17e94313dc826ffa817adf9e67", "bytes": 4411}
 {"path": "data/examples/questions_small.jsonl", "sha256": "3ed581e0dd14672b2f5b25a8b18b8e633425b007df603122115d886e5204b685", "bytes": 768}
@@ -14,7 +14,7 @@
 {"path": "docs/paper/preregistration_v3.lock", "sha256": "099ed322d1eac553941458e775661e644f30824ac630a4bbe03d42c401ec7857", "bytes": 8772}
 {"path": "docs/paper/preregistration_v3.md", "sha256": "be27cd4ccd09057a63bc93a3f11f40e17b490e8822fd23aa05962f44d845368a", "bytes": 101272}
 {"path": "docs/paper/stage1_confirmatory_sha_manifest.json", "sha256": "349dc05d292993815ca44da9cca3bd873775ad6fccce5b207d6f2815543b982f", "bytes": 4688}
-{"path": "docs/progress/coling_code_release_20261010.md", "sha256": "30ca8b82a727ecfa8e67881c1aa2be5d9bad334af3c4967ffce85643b5e3173c", "bytes": 3813}
+{"path": "docs/progress/coling_code_release_20261010.md", "sha256": "debc6912fc1137b39b73257652633c1e1a5918a6986e496520cd10feef7dc761", "bytes": 4100}
 {"path": "docs/reasoning-aware-attention-guidance/ablated_questions_interface.md", "sha256": "edaaaf16c77920bd1bf90cb5f75b84e04dae76adbe2a87cb88674a3a09bc59c3", "bytes": 5096}
 {"path": "docs/reasoning-aware-attention-guidance/ablation_units_interface.md", "sha256": "948e5ce2d6dbb86cfd882b2d3c0670dbdd92285e0532755471ec6e6369169702", "bytes": 11077}
 {"path": "docs/reasoning-aware-attention-guidance/attention_anchor_labels_interface.md", "sha256": "0e0c157925ffe63174bd97bb5d81d46a5148491068bff289b360a6fa164ad584", "bytes": 5836}

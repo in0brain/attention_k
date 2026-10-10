@@ -8,8 +8,9 @@ The release branch is `codex/coling-code-release` in
 paper implementation, including the later statement-representation and MCQ
 output-coverage comparisons.
 
-The researcher's README and repository instructions are preserved. The paper
-entry point is `PAPER_CODE.md`. The implementation, tests, configuration, frozen
+At the user's request, the README now describes the current paper and its
+reproduction workflow; `PAPER_CODE.md` points to that guide. Repository agent
+instructions are preserved. The implementation, tests, configuration, frozen
 design files, and selected result summaries are included; raw datasets, model
 weights, tensor caches, private settings, paper drafts, and internal task
 histories are excluded. Previously tracked unrelated paths are removed from
@@ -17,6 +18,9 @@ the release index only; local copies remain on disk.
 
 ## Source changes
 
+- Updated README to describe the completed paper experiments, setup, entry
+  points, results, and reproduction inputs. The user authorized publishing to
+  the public repository and merging the release into `master`.
 - Added the CPU analysis dependencies and a pinned environment file.
 - Reused the existing NumPy normalization function in the synthetic CLI's JSON
   output. ASCII escaping makes this output work in Windows legacy-codepage
