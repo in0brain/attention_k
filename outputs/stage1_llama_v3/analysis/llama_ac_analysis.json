@@ -1,0 +1,952 @@
+{
+  "schema": "stage1_v3_cross_model_replication_analysis_v1",
+  "population_role": "cross_model_replication_non_confirmatory",
+  "is_confirmatory": false,
+  "scope": "Stage 1 部分范围的**非确证性**跨模型分析：只跑 Path A（frozen_implementation_primary）与 Path C（no_B4_dependency_sensitivity）。**缺 Path B 与 E3**（Llama 侧未产出 tail_stabilized overlay 与 canonical repool，生产卡明确不启动）。**不得称为完整复现**，也不得与 Qwen 的 confirmatory 结果并列为同类证据。",
+  "paths_run": [
+    "frozen_implementation_primary",
+    "no_B4_dependency_sensitivity"
+  ],
+  "paths_not_run": {
+    "stable_shadow_sensitivity": "Llama 侧无 tail_stabilized overlay —— 硬门未过，不绕过",
+    "E3": "Llama 侧无 canonical repool —— E3 是独立 estimand，缺输入即不跑"
+  },
+  "numeric_integrity": {
+    "status": "not_audited",
+    "b4_scope": "H1 B4 的 logit-derived F5 字段",
+    "evidence": null,
+    "why_not_audited": "Llama 的 B4 数值完整性**未做独立审计**。既不自动继承 Qwen 的 compromised 裁定，也**不因**最终字段都是有限值就宣布完整性通过 —— 『无非有限值』只说明落盘字段可用，不等于生成期没有静默过滤。",
+    "fail_closed_note": "缺失审计记为 not_audited，**不**等价于通过"
+  },
+  "runtime": {
+    "threads": "32",
+    "threads_note": "默认不限制（=核数）。与 Qwen confirmatory 同档。线程数会改变大词表稀疏 TF-IDF 上 liblinear 的停止点（实测 1e-6 量级），故如实记录。",
+    "python": "3.10.20"
+  },
+  "config": {
+    "n_repeats": 3,
+    "n_outer_folds": 5,
+    "n_inner_folds": 3,
+    "c_grid": [
+      0.01,
+      0.1,
+      1.0,
+      10.0
+    ],
+    "fold_seeds": [
+      20260804,
+      20260904,
+      20261004
+    ],
+    "b_total": 20000,
+    "alpha": 0.05,
+    "note": "划分 / 选参 / 融合 / bootstrap / 判读规则全部沿用 Stage 1"
+  },
+  "inputs": {
+    "h1_completion_records.jsonl": {
+      "path": "outputs\\stage1_llama_v3\\production\\h1_completion_records.jsonl",
+      "bytes": 29562920,
+      "sha256": "1683c8ea50c040948826455fd8be95100359facd20cad67f17e01b2ee66876f3"
+    },
+    "h1_hidden.npz": {
+      "path": "outputs\\stage1_llama_v3\\production\\h1_hidden.npz",
+      "bytes": 115622895,
+      "sha256": "becc6b17f0df73944c91bb3c6d1b5d9c8b45723903270119a88313d1e4b20f0e"
+    },
+    "h1_finalization_report.json": {
+      "path": "outputs\\stage1_llama_v3\\production\\h1_finalization_report.json",
+      "bytes": 4912,
+      "sha256": "0da1d94492b95b3557260da046bc43ba2a97c9e02d9f7c6b54ee341797ced420"
+    },
+    "mcq_completion_records.jsonl": {
+      "path": "outputs\\stage1_llama_v3\\production\\mcq_completion_records.jsonl",
+      "bytes": 6891431,
+      "sha256": "a9268da4277e67439b6b7d2463f333a3ccd697b0c997c6d0ab016794c6a11819"
+    },
+    "mcq_hidden.npz": {
+      "path": "outputs\\stage1_llama_v3\\production\\mcq_hidden.npz",
+      "bytes": 18279010,
+      "sha256": "22e730ee30d2cf524a20b383b8e6ba7b6b61004368ce5167ce77e0dd39e82583"
+    },
+    "mcq_finalization_report.json": {
+      "path": "outputs\\stage1_llama_v3\\production\\mcq_finalization_report.json",
+      "bytes": 4943,
+      "sha256": "2a9f433a0cb0fe2e2f845b55917cc7108111e442fac0f574562c922619a98446"
+    }
+  },
+  "path_markers": {
+    "frozen_implementation_primary": {
+      "path": "frozen_implementation_primary",
+      "role": "primary",
+      "b4_source": "frozen F5 fields (原冻结实现，未改)",
+      "marker": "h1_b4_numeric_integrity_not_audited",
+      "interpretation_limit": "保留预注册执行记录；本次运行的 H1 B4 数值完整性**尚未审计** —— **不得**按名义 B4 科学含义解释，也**不得**因未发现问题而当作已通过",
+      "numeric_integrity_status": "not_audited"
+    },
+    "no_B4_dependency_sensitivity": {
+      "path": "no_B4_dependency_sensitivity",
+      "role": "diagnostic",
+      "b4_source": "B4 整块移除（两臂同时）",
+      "marker": "dependency_diagnostic_only",
+      "interpretation_limit": "只回答『结论是否依赖 B4』；**不得**用它证明原 B4 有效"
+    }
+  },
+  "arms": {
+    "frozen_implementation_primary": {
+      "h1": {
+        "path": "frozen_implementation_primary",
+        "estimand": "E1",
+        "n": 8810,
+        "label_caliber": "frozen completion_label (E1)",
+        "block_names_s_star": [
+          "B1",
+          "B2",
+          "B3",
+          "B4",
+          "B5"
+        ],
+        "block_names_s_star_plus_h": [
+          "B1",
+          "B2",
+          "B3",
+          "B4",
+          "B5",
+          "H"
+        ],
+        "n_groups": 1516,
+        "auroc": {
+          "S*": 0.9711914337388233,
+          "S*+H": 0.975224396219295,
+          "B1": 0.9649884207871219,
+          "B2": 0.6506013285885897,
+          "B3": 0.9113700081729474,
+          "B4": 0.6836118647378928,
+          "B5": 0.572617642678642,
+          "H": 0.9147960065499657
+        },
+        "delta_h_point": 0.00403296248047158,
+        "delta_h_ci": {
+          "ci_lo": 0.001446383527073474,
+          "ci_hi": 0.007492160930846447,
+          "width": 0.006045777403772973
+        },
+        "delta_k_point": {
+          "B1": 0.006203012951701632,
+          "B2": 0.3205901051502338,
+          "B3": 0.05982142556587596,
+          "B4": 0.28757956900093057,
+          "B5": 0.3985737910601814
+        },
+        "delta_direct_k_point": {
+          "B1": 0.010235975432173213,
+          "B2": 0.32462306763070536,
+          "B3": 0.06385438804634753,
+          "B4": 0.29161253148140215,
+          "B5": 0.402606753540653
+        },
+        "m1b_non_inferiority": {
+          "eps_ni": 0.02,
+          "primary": "marginal one-sided lower bounds (IUT; no multiplicity correction)",
+          "L_marg": {
+            "B1": 0.0016534216320143772,
+            "B2": 0.2832881721182657,
+            "B3": 0.04493170001208241,
+            "B4": 0.2531152997845751,
+            "B5": 0.3673371906637086
+          },
+          "L_sim": {
+            "B1": -0.00026460623983128647,
+            "B2": 0.2699089187846978,
+            "B3": 0.038665166964283806,
+            "B4": 0.24089282826226968,
+            "B5": 0.3551555256958142
+          },
+          "certified": true,
+          "status": "CERTIFIED",
+          "failed_blocks": [],
+          "wording": "S* is non-inferior to each of the selected blocks (marginal one-sided 95%, margin eps_NI, IUT overall alpha<=0.05 *nominal*)",
+          "must_not_write": "family-wise certified"
+        },
+        "m1b_simultaneous_secondary": {
+          "alpha": 0.05,
+          "m": 5,
+          "se": {
+            "B1": 0.002835582466403603,
+            "B2": 0.02222002860384636,
+            "B3": 0.009275486723756311,
+            "B4": 0.020468753575564283,
+            "B5": 0.01903576390985354
+          },
+          "c_alpha_lower": 2.2808785384174928,
+          "c_alpha_upper": 2.35225494525581,
+          "lower": {
+            "B1": -0.00026460623983128647,
+            "B2": 0.2699089187846978,
+            "B3": 0.038665166964283806,
+            "B4": 0.24089282826226968,
+            "B5": 0.3551555256958142
+          },
+          "upper": {
+            "B1": 0.012873025830980173,
+            "B2": 0.37285727731735696,
+            "B3": 0.08163973508148635,
+            "B4": 0.3357272958222742,
+            "B5": 0.4433507608538565
+          },
+          "degenerate_blocks": [],
+          "coverage": "nominal (asymptotic; depends on grouped-bootstrap validity and regularity conditions) — NOT a finite-sample guarantee"
+        },
+        "m1b_iv_a_direct_superiority": {
+          "criterion": "iv-a (PRIMARY, sole authorising path)",
+          "L_marg": {
+            "B1": 0.005723443154442712,
+            "B2": 0.28764752777827785,
+            "B3": 0.04941008410072298,
+            "B4": 0.257445864534176,
+            "B5": 0.37138380699393453
+          },
+          "passed": true,
+          "failed_blocks": [],
+          "note": "iv-b is a sensitivity/consistency check only and never authorises the claim on its own; no OR of the two paths"
+        },
+        "m1b_iv_b_consistency": {
+          "criterion": "iv-b (SENSITIVITY / consistency check only)",
+          "conjunction_required": "M1b CERTIFIED AND Delta_H CI lower bound > eps_NI",
+          "m1b_certified": true,
+          "delta_h_ci_lo": 0.001446383527073474,
+          "eps_ni": 0.02,
+          "second_term_holds": false,
+          "holds": false,
+          "must_not": "不得只写第二项；不得与 (iv-a) 取并集作正面主张 —— 两条路径的并集会重新引入择优触发与 look-elsewhere"
+        },
+        "m1c_t1": {
+          "computed": true,
+          "definition": "Delta_task = AUROC(B3 canonical/full text) - AUROC(shortcut)",
+          "canonical_block": "B3",
+          "shortcut_blocks": [
+            "B1",
+            "B2"
+          ],
+          "algebraic_identity": "Delta_task = delta_k[shortcut] - delta_k[B3] (exact)",
+          "eps": 0.02,
+          "point": {
+            "B1": -0.05361841261417433,
+            "B2": 0.26076867958435784
+          },
+          "role_I_marginal_upper_bounds": {
+            "B1": -0.03769879577174778,
+            "B2": 0.29880540725879806
+          },
+          "role_I_triggered_per_shortcut": {
+            "B1": true,
+            "B2": false
+          },
+          "triggered": true,
+          "role": "I",
+          "role_declaration": "角色 I｜保守 admission gate（M5）：不做多重性校正；据此我们**放弃**机制性表述，但**不得**声称在全局 alpha=.05 下证明了该任务无效",
+          "role_II_simultaneous_upper_bounds": {
+            "B1": -0.03494153651397858,
+            "B2": 0.30551538958486985
+          },
+          "role_II_triggered_per_shortcut": {
+            "B1": true,
+            "B2": false
+          },
+          "role_II_available": true,
+          "role_II_degenerate_blocks": [],
+          "role_II_note": "若要把「该任务是表层可解的」写成**发现**，须切换到角色 II 并引用上面的M3(1) 同时上界（max-statistic T^U，m=2，nominal 覆盖）",
+          "consequence_if_triggered": "禁**机制性**表述（语义理解 / 内部觉察 / 模型知道自己在编造）；**不禁** E1 的 benchmark-conditional Delta_H 的报告（M1c）",
+          "simultaneous_coverage": "nominal (asymptotic; depends on grouped-bootstrap validity and regularity conditions) — NOT a finite-sample guarantee"
+        },
+        "wording_prohibitions": {
+          "m1b_not_certified_forbids": null,
+          "iv_a_failed_forbids": null,
+          "t1_triggered_forbids": "T1 触发：禁**机制性**表述；**不禁** E1 的报告",
+          "never_allowed": "(iv-a) 通过 OR (iv-b) 通过 → 作正面主张 —— **绝不允许**"
+        },
+        "precision": {
+          "precision": "adequate",
+          "width": 0.006045777403772973,
+          "mc_band": [
+            0.0059841996600183784,
+            0.0061073551475275675
+          ],
+          "max_ci_width": 0.04,
+          "note": null
+        },
+        "ci_width_and_mc_error": {
+          "ci_width": 0.006045777403772973,
+          "mc_jackknife": {
+            "se_jack": {
+              "ci_lo": 1.7865207107381916e-05,
+              "ci_hi": 2.6043862557623737e-05,
+              "width": 2.9420804469466875e-05
+            },
+            "mc_band_width": [
+              0.0059841996600183784,
+              0.0061073551475275675
+            ],
+            "t_quantile": 2.093
+          },
+          "mc_batch_means_secondary": {
+            "se_mc": {
+              "ci_lo": 1.6683439357617036e-05,
+              "ci_hi": 3.406819401142941e-05,
+              "width": 3.7422553843324266e-05
+            }
+          },
+          "borderline_rule": "若 0.04 落在误差带内 → borderline（见 precision.verdict）"
+        },
+        "bootstrap_budget": {
+          "R": 3,
+          "B_per_batch": 1000,
+          "B_batch": 20,
+          "B_total": 20000,
+          "n_valid_draws": 20000,
+          "n_discarded_single_class": 0
+        }
+      },
+      "mcq": {
+        "path": "frozen_implementation_primary",
+        "estimand": "E1",
+        "n": 1746,
+        "label_caliber": "frozen completion_label (E1)",
+        "block_names_s_star": [
+          "B1",
+          "B2",
+          "B3",
+          "B4",
+          "B5"
+        ],
+        "block_names_s_star_plus_h": [
+          "B1",
+          "B2",
+          "B3",
+          "B4",
+          "B5",
+          "H"
+        ],
+        "n_groups": 1746,
+        "auroc": {
+          "S*": 0.7464789237102526,
+          "S*+H": 0.8061171981606982,
+          "B1": 0.4873214736202369,
+          "B2": 0.5424797464653067,
+          "B3": 0.5641490935360693,
+          "B4": 0.7548770454206658,
+          "B5": 0.5701506186429989,
+          "H": 0.791582097767381
+        },
+        "delta_h_point": 0.05963827445044556,
+        "delta_h_ci": {
+          "ci_lo": 0.04470122464280335,
+          "ci_hi": 0.07511274429511601,
+          "width": 0.03041151965231266
+        },
+        "delta_k_point": {
+          "B1": 0.25915745009001573,
+          "B2": 0.20399917724494596,
+          "B3": 0.18232983017418328,
+          "B4": -0.008398121710413134,
+          "B5": 0.1763283050672538
+        },
+        "delta_direct_k_point": {
+          "B1": 0.3187957245404613,
+          "B2": 0.2636374516953915,
+          "B3": 0.24196810462462884,
+          "B4": 0.05124015274003243,
+          "B5": 0.23596657951769937
+        },
+        "m1b_non_inferiority": {
+          "eps_ni": 0.02,
+          "primary": "marginal one-sided lower bounds (IUT; no multiplicity correction)",
+          "L_marg": {
+            "B1": 0.22475332945146262,
+            "B2": 0.1704046259746358,
+            "B3": 0.15004013996850332,
+            "B4": -0.01650701278074667,
+            "B5": 0.1451864385683956
+          },
+          "L_sim": {
+            "B1": 0.21118009458756867,
+            "B2": 0.15773072065975435,
+            "B3": 0.13782907616342843,
+            "B4": -0.01966397087208635,
+            "B5": 0.13339382997569332
+          },
+          "certified": true,
+          "status": "CERTIFIED",
+          "failed_blocks": [],
+          "wording": "S* is non-inferior to each of the selected blocks (marginal one-sided 95%, margin eps_NI, IUT overall alpha<=0.05 *nominal*)",
+          "must_not_write": "family-wise certified"
+        },
+        "m1b_simultaneous_secondary": {
+          "alpha": 0.05,
+          "m": 5,
+          "se": {
+            "B1": 0.02108226881947172,
+            "B2": 0.020331342346314063,
+            "B3": 0.0195545762974799,
+            "B4": 0.004950453354893661,
+            "B5": 0.018866320080043256
+          },
+          "c_alpha_lower": 2.2757206974865465,
+          "c_alpha_upper": 2.2594910038512097,
+          "lower": {
+            "B1": 0.21118009458756867,
+            "B2": 0.15773072065975435,
+            "B3": 0.13782907616342843,
+            "B4": -0.01966397087208635,
+            "B5": 0.13339382997569332
+          },
+          "upper": {
+            "B1": 0.3067926468283849,
+            "B2": 0.24993766237266174,
+            "B3": 0.22651321940246122,
+            "B4": 0.002787383109954132,
+            "B5": 0.21895658556388897
+          },
+          "degenerate_blocks": [],
+          "coverage": "nominal (asymptotic; depends on grouped-bootstrap validity and regularity conditions) — NOT a finite-sample guarantee"
+        },
+        "m1b_iv_a_direct_superiority": {
+          "criterion": "iv-a (PRIMARY, sole authorising path)",
+          "L_marg": {
+            "B1": 0.28775932971000456,
+            "B2": 0.2326438807912356,
+            "B3": 0.212302168941324,
+            "B4": 0.03722900106187703,
+            "B5": 0.2078929926373867
+          },
+          "passed": true,
+          "failed_blocks": [],
+          "note": "iv-b is a sensitivity/consistency check only and never authorises the claim on its own; no OR of the two paths"
+        },
+        "m1b_iv_b_consistency": {
+          "criterion": "iv-b (SENSITIVITY / consistency check only)",
+          "conjunction_required": "M1b CERTIFIED AND Delta_H CI lower bound > eps_NI",
+          "m1b_certified": true,
+          "delta_h_ci_lo": 0.04470122464280335,
+          "eps_ni": 0.02,
+          "second_term_holds": true,
+          "holds": true,
+          "must_not": "不得只写第二项；不得与 (iv-a) 取并集作正面主张 —— 两条路径的并集会重新引入择优触发与 look-elsewhere"
+        },
+        "m1c_t1": {
+          "computed": true,
+          "definition": "Delta_task = AUROC(B3 canonical/full text) - AUROC(shortcut)",
+          "canonical_block": "B3",
+          "shortcut_blocks": [
+            "B1",
+            "B2"
+          ],
+          "algebraic_identity": "Delta_task = delta_k[shortcut] - delta_k[B3] (exact)",
+          "eps": 0.02,
+          "point": {
+            "B1": 0.07682761991583245,
+            "B2": 0.02166934707076268
+          },
+          "role_I_marginal_upper_bounds": {
+            "B1": 0.11182670313745788,
+            "B2": 0.056025914037253294
+          },
+          "role_I_triggered_per_shortcut": {
+            "B1": false,
+            "B2": false
+          },
+          "triggered": false,
+          "role": "I",
+          "role_declaration": "角色 I｜保守 admission gate（M5）：不做多重性校正；据此我们**放弃**机制性表述，但**不得**声称在全局 alpha=.05 下证明了该任务无效",
+          "role_II_simultaneous_upper_bounds": {
+            "B1": 0.1172075729104444,
+            "B2": 0.06152832448344557
+          },
+          "role_II_triggered_per_shortcut": {
+            "B1": false,
+            "B2": false
+          },
+          "role_II_available": true,
+          "role_II_degenerate_blocks": [],
+          "role_II_note": "若要把「该任务是表层可解的」写成**发现**，须切换到角色 II 并引用上面的M3(1) 同时上界（max-statistic T^U，m=2，nominal 覆盖）",
+          "consequence_if_triggered": "禁**机制性**表述（语义理解 / 内部觉察 / 模型知道自己在编造）；**不禁** E1 的 benchmark-conditional Delta_H 的报告（M1c）",
+          "simultaneous_coverage": "nominal (asymptotic; depends on grouped-bootstrap validity and regularity conditions) — NOT a finite-sample guarantee"
+        },
+        "wording_prohibitions": {
+          "m1b_not_certified_forbids": null,
+          "iv_a_failed_forbids": null,
+          "t1_triggered_forbids": null,
+          "never_allowed": "(iv-a) 通过 OR (iv-b) 通过 → 作正面主张 —— **绝不允许**"
+        },
+        "precision": {
+          "precision": "adequate",
+          "width": 0.03041151965231266,
+          "mc_band": [
+            0.029997427420022225,
+            0.030825611884603095
+          ],
+          "max_ci_width": 0.04,
+          "note": null
+        },
+        "ci_width_and_mc_error": {
+          "ci_width": 0.03041151965231266,
+          "mc_jackknife": {
+            "se_jack": {
+              "ci_lo": 0.00012658444533325295,
+              "ci_hi": 0.00013942760375584845,
+              "width": 0.0001978462648305941
+            },
+            "mc_band_width": [
+              0.029997427420022225,
+              0.030825611884603095
+            ],
+            "t_quantile": 2.093
+          },
+          "mc_batch_means_secondary": {
+            "se_mc": {
+              "ci_lo": 0.00012327897505471483,
+              "ci_hi": 0.00017022346704083708,
+              "width": 0.0002337120342921385
+            }
+          },
+          "borderline_rule": "若 0.04 落在误差带内 → borderline（见 precision.verdict）"
+        },
+        "bootstrap_budget": {
+          "R": 3,
+          "B_per_batch": 1000,
+          "B_batch": 20,
+          "B_total": 20000,
+          "n_valid_draws": 20000,
+          "n_discarded_single_class": 0
+        }
+      }
+    },
+    "no_B4_dependency_sensitivity": {
+      "h1": {
+        "path": "no_B4_dependency_sensitivity",
+        "estimand": "E1",
+        "n": 8810,
+        "label_caliber": "frozen completion_label (E1)",
+        "block_names_s_star": [
+          "B1",
+          "B2",
+          "B3",
+          "B5"
+        ],
+        "block_names_s_star_plus_h": [
+          "B1",
+          "B2",
+          "B3",
+          "B5",
+          "H"
+        ],
+        "n_groups": 1516,
+        "auroc": {
+          "S*": 0.9668143043876807,
+          "S*+H": 0.972467346805406,
+          "B1": 0.9649884207871219,
+          "B2": 0.6506013285885897,
+          "B3": 0.9113700081729474,
+          "B5": 0.572617642678642,
+          "H": 0.9147960065499657
+        },
+        "delta_h_point": 0.005653042417725425,
+        "delta_h_ci": {
+          "ci_lo": 0.0021409768470743813,
+          "ci_hi": 0.010362824017770698,
+          "width": 0.008221847170696316
+        },
+        "delta_k_point": {
+          "B1": 0.0018258836005588346,
+          "B2": 0.31621297579909097,
+          "B3": 0.05544429621473316,
+          "B5": 0.39419666170903866
+        },
+        "delta_direct_k_point": {
+          "B1": 0.00747892601828426,
+          "B2": 0.32186601821681643,
+          "B3": 0.06109733863245859,
+          "B5": 0.39984970412676407
+        },
+        "m1b_non_inferiority": {
+          "eps_ni": 0.02,
+          "primary": "marginal one-sided lower bounds (IUT; no multiplicity correction)",
+          "L_marg": {
+            "B1": -0.002386710373564841,
+            "B2": 0.2785653577626519,
+            "B3": 0.04041646194931737,
+            "B5": 0.36234666826703943
+          },
+          "L_sim": {
+            "B1": -0.0036716392454339336,
+            "B2": 0.2650662582731627,
+            "B3": 0.03435560682378046,
+            "B5": 0.3503486149187848
+          },
+          "certified": true,
+          "status": "CERTIFIED",
+          "failed_blocks": [],
+          "wording": "S* is non-inferior to each of the selected blocks (marginal one-sided 95%, margin eps_NI, IUT overall alpha<=0.05 *nominal*)",
+          "must_not_write": "family-wise certified"
+        },
+        "m1b_simultaneous_secondary": {
+          "alpha": 0.05,
+          "m": 4,
+          "se": {
+            "B1": 0.002418865119589501,
+            "B2": 0.02250413767632529,
+            "B3": 0.009278850968816827,
+            "B5": 0.019292782206514012
+          },
+          "c_alpha_lower": 2.2727694907294946,
+          "c_alpha_upper": 2.186882984925328,
+          "lower": {
+            "B1": -0.0036716392454339336,
+            "B2": 0.2650662582731627,
+            "B3": 0.03435560682378046,
+            "B5": 0.3503486149187848
+          },
+          "upper": {
+            "B1": 0.007115658573418484,
+            "B2": 0.36542689157386377,
+            "B3": 0.07573605751809658,
+            "B5": 0.43638771884833427
+          },
+          "degenerate_blocks": [],
+          "coverage": "nominal (asymptotic; depends on grouped-bootstrap validity and regularity conditions) — NOT a finite-sample guarantee"
+        },
+        "m1b_iv_a_direct_superiority": {
+          "criterion": "iv-a (PRIMARY, sole authorising path)",
+          "L_marg": {
+            "B1": 0.003530386980692483,
+            "B2": 0.284623268112077,
+            "B3": 0.04700989712273941,
+            "B5": 0.3684523620661837
+          },
+          "passed": true,
+          "failed_blocks": [],
+          "note": "iv-b is a sensitivity/consistency check only and never authorises the claim on its own; no OR of the two paths"
+        },
+        "m1b_iv_b_consistency": {
+          "criterion": "iv-b (SENSITIVITY / consistency check only)",
+          "conjunction_required": "M1b CERTIFIED AND Delta_H CI lower bound > eps_NI",
+          "m1b_certified": true,
+          "delta_h_ci_lo": 0.0021409768470743813,
+          "eps_ni": 0.02,
+          "second_term_holds": false,
+          "holds": false,
+          "must_not": "不得只写第二项；不得与 (iv-a) 取并集作正面主张 —— 两条路径的并集会重新引入择优触发与 look-elsewhere"
+        },
+        "m1c_t1": {
+          "computed": true,
+          "definition": "Delta_task = AUROC(B3 canonical/full text) - AUROC(shortcut)",
+          "canonical_block": "B3",
+          "shortcut_blocks": [
+            "B1",
+            "B2"
+          ],
+          "algebraic_identity": "Delta_task = delta_k[shortcut] - delta_k[B3] (exact)",
+          "eps": 0.02,
+          "point": {
+            "B1": -0.05361841261417433,
+            "B2": 0.2607686795843578
+          },
+          "role_I_marginal_upper_bounds": {
+            "B1": -0.03769879577174778,
+            "B2": 0.298805407258798
+          },
+          "role_I_triggered_per_shortcut": {
+            "B1": true,
+            "B2": false
+          },
+          "triggered": true,
+          "role": "I",
+          "role_declaration": "角色 I｜保守 admission gate（M5）：不做多重性校正；据此我们**放弃**机制性表述，但**不得**声称在全局 alpha=.05 下证明了该任务无效",
+          "role_II_simultaneous_upper_bounds": {
+            "B1": -0.03494153651397858,
+            "B2": 0.3055153895848698
+          },
+          "role_II_triggered_per_shortcut": {
+            "B1": true,
+            "B2": false
+          },
+          "role_II_available": true,
+          "role_II_degenerate_blocks": [],
+          "role_II_note": "若要把「该任务是表层可解的」写成**发现**，须切换到角色 II 并引用上面的M3(1) 同时上界（max-statistic T^U，m=2，nominal 覆盖）",
+          "consequence_if_triggered": "禁**机制性**表述（语义理解 / 内部觉察 / 模型知道自己在编造）；**不禁** E1 的 benchmark-conditional Delta_H 的报告（M1c）",
+          "simultaneous_coverage": "nominal (asymptotic; depends on grouped-bootstrap validity and regularity conditions) — NOT a finite-sample guarantee"
+        },
+        "wording_prohibitions": {
+          "m1b_not_certified_forbids": null,
+          "iv_a_failed_forbids": null,
+          "t1_triggered_forbids": "T1 触发：禁**机制性**表述；**不禁** E1 的报告",
+          "never_allowed": "(iv-a) 通过 OR (iv-b) 通过 → 作正面主张 —— **绝不允许**"
+        },
+        "precision": {
+          "precision": "adequate",
+          "width": 0.008221847170696316,
+          "mc_band": [
+            0.008112241166380893,
+            0.008331453175011739
+          ],
+          "max_ci_width": 0.04,
+          "note": null
+        },
+        "ci_width_and_mc_error": {
+          "ci_width": 0.008221847170696316,
+          "mc_jackknife": {
+            "se_jack": {
+              "ci_lo": 2.5096878704379734e-05,
+              "ci_hi": 4.5306235115345503e-05,
+              "width": 5.2367895038424474e-05
+            },
+            "mc_band_width": [
+              0.008112241166380893,
+              0.008331453175011739
+            ],
+            "t_quantile": 2.093
+          },
+          "mc_batch_means_secondary": {
+            "se_mc": {
+              "ci_lo": 1.9830892813345022e-05,
+              "ci_hi": 4.974879798833054e-05,
+              "width": 5.481729040730484e-05
+            }
+          },
+          "borderline_rule": "若 0.04 落在误差带内 → borderline（见 precision.verdict）"
+        },
+        "bootstrap_budget": {
+          "R": 3,
+          "B_per_batch": 1000,
+          "B_batch": 20,
+          "B_total": 20000,
+          "n_valid_draws": 20000,
+          "n_discarded_single_class": 0
+        }
+      },
+      "mcq": {
+        "path": "no_B4_dependency_sensitivity",
+        "estimand": "E1",
+        "n": 1746,
+        "label_caliber": "frozen completion_label (E1)",
+        "block_names_s_star": [
+          "B1",
+          "B2",
+          "B3",
+          "B5"
+        ],
+        "block_names_s_star_plus_h": [
+          "B1",
+          "B2",
+          "B3",
+          "B5",
+          "H"
+        ],
+        "n_groups": 1746,
+        "auroc": {
+          "S*": 0.559463403167177,
+          "S*+H": 0.7815649833155596,
+          "B1": 0.4873214736202369,
+          "B2": 0.5424797464653067,
+          "B3": 0.5641490935360693,
+          "B5": 0.5701506186429989,
+          "H": 0.791582097767381
+        },
+        "delta_h_point": 0.22210158014838255,
+        "delta_h_ci": {
+          "ci_lo": 0.1936755338208085,
+          "ci_hi": 0.25058085636988225,
+          "width": 0.05690532254907377
+        },
+        "delta_k_point": {
+          "B1": 0.07214192954694008,
+          "B2": 0.016983656701870298,
+          "B3": -0.004685690368892363,
+          "B5": -0.010687215475821854
+        },
+        "delta_direct_k_point": {
+          "B1": 0.29424350969532265,
+          "B2": 0.23908523685025285,
+          "B3": 0.2174158897794902,
+          "B5": 0.2114143646725607
+        },
+        "m1b_non_inferiority": {
+          "eps_ni": 0.02,
+          "primary": "marginal one-sided lower bounds (IUT; no multiplicity correction)",
+          "L_marg": {
+            "B1": 0.039609865353877866,
+            "B2": -0.0014467852953620036,
+            "B3": -0.02809023091991274,
+            "B5": -0.034182523122862886
+          },
+          "L_sim": {
+            "B1": 0.028184845098339337,
+            "B2": -0.007946752361384854,
+            "B3": -0.0362667906881524,
+            "B5": -0.04214204370265824
+          },
+          "certified": false,
+          "status": "NOT CERTIFIED",
+          "failed_blocks": [
+            "B3",
+            "B5"
+          ],
+          "wording": "NOT CERTIFIED — the core claim that Delta_H is an increment over a strong surface baseline does not hold",
+          "must_not_write": "family-wise certified"
+        },
+        "m1b_simultaneous_secondary": {
+          "alpha": 0.05,
+          "m": 4,
+          "se": {
+            "B1": 0.01982815397782617,
+            "B2": 0.011245604567209909,
+            "B3": 0.0142455972177062,
+            "B5": 0.014188638424303826
+          },
+          "c_alpha_lower": 2.216902516379385,
+          "c_alpha_upper": 2.2264444792935416,
+          "lower": {
+            "B1": 0.028184845098339337,
+            "B2": -0.007946752361384854,
+            "B3": -0.0362667906881524,
+            "B5": -0.04214204370265824
+          },
+          "upper": {
+            "B1": 0.11628821350545343,
+            "B2": 0.04202137090685304,
+            "B3": 0.02703134091070904,
+            "B5": 0.020903000212661615
+          },
+          "degenerate_blocks": [],
+          "coverage": "nominal (asymptotic; depends on grouped-bootstrap validity and regularity conditions) — NOT a finite-sample guarantee"
+        },
+        "m1b_iv_a_direct_superiority": {
+          "criterion": "iv-a (PRIMARY, sole authorising path)",
+          "L_marg": {
+            "B1": 0.2643917663326223,
+            "B2": 0.20909966102288424,
+            "B3": 0.18805029263353723,
+            "B5": 0.1840237681576771
+          },
+          "passed": true,
+          "failed_blocks": [],
+          "note": "iv-b is a sensitivity/consistency check only and never authorises the claim on its own; no OR of the two paths"
+        },
+        "m1b_iv_b_consistency": {
+          "criterion": "iv-b (SENSITIVITY / consistency check only)",
+          "conjunction_required": "M1b CERTIFIED AND Delta_H CI lower bound > eps_NI",
+          "m1b_certified": false,
+          "delta_h_ci_lo": 0.1936755338208085,
+          "eps_ni": 0.02,
+          "second_term_holds": true,
+          "holds": false,
+          "must_not": "不得只写第二项；不得与 (iv-a) 取并集作正面主张 —— 两条路径的并集会重新引入择优触发与 look-elsewhere"
+        },
+        "m1c_t1": {
+          "computed": true,
+          "definition": "Delta_task = AUROC(B3 canonical/full text) - AUROC(shortcut)",
+          "canonical_block": "B3",
+          "shortcut_blocks": [
+            "B1",
+            "B2"
+          ],
+          "algebraic_identity": "Delta_task = delta_k[shortcut] - delta_k[B3] (exact)",
+          "eps": 0.02,
+          "point": {
+            "B1": 0.07682761991583245,
+            "B2": 0.02166934707076266
+          },
+          "role_I_marginal_upper_bounds": {
+            "B1": 0.11182670313745785,
+            "B2": 0.05602591403725329
+          },
+          "role_I_triggered_per_shortcut": {
+            "B1": false,
+            "B2": false
+          },
+          "triggered": false,
+          "role": "I",
+          "role_declaration": "角色 I｜保守 admission gate（M5）：不做多重性校正；据此我们**放弃**机制性表述，但**不得**声称在全局 alpha=.05 下证明了该任务无效",
+          "role_II_simultaneous_upper_bounds": {
+            "B1": 0.11720757291044442,
+            "B2": 0.061528324483445584
+          },
+          "role_II_triggered_per_shortcut": {
+            "B1": false,
+            "B2": false
+          },
+          "role_II_available": true,
+          "role_II_degenerate_blocks": [],
+          "role_II_note": "若要把「该任务是表层可解的」写成**发现**，须切换到角色 II 并引用上面的M3(1) 同时上界（max-statistic T^U，m=2，nominal 覆盖）",
+          "consequence_if_triggered": "禁**机制性**表述（语义理解 / 内部觉察 / 模型知道自己在编造）；**不禁** E1 的 benchmark-conditional Delta_H 的报告（M1c）",
+          "simultaneous_coverage": "nominal (asymptotic; depends on grouped-bootstrap validity and regularity conditions) — NOT a finite-sample guarantee"
+        },
+        "wording_prohibitions": {
+          "m1b_not_certified_forbids": "NOT CERTIFIED：核心主张「Δ_H 是相对强表层基线的增量」**作废**；禁「通过强表层基线」「超出输出可观测」类表述；Δ_H 只能限定为「相对该特定 S* 构造的增量」",
+          "iv_a_failed_forbids": null,
+          "t1_triggered_forbids": null,
+          "never_allowed": "(iv-a) 通过 OR (iv-b) 通过 → 作正面主张 —— **绝不允许**"
+        },
+        "precision": {
+          "precision": "insufficient",
+          "width": 0.05690532254907377,
+          "mc_band": [
+            0.05621218933901084,
+            0.05759845575913669
+          ],
+          "max_ci_width": 0.04,
+          "note": null
+        },
+        "ci_width_and_mc_error": {
+          "ci_width": 0.05690532254907377,
+          "mc_jackknife": {
+            "se_jack": {
+              "ci_lo": 0.0002794617013834771,
+              "ci_hi": 0.0002883178460063528,
+              "width": 0.0003311673244447793
+            },
+            "mc_band_width": [
+              0.05621218933901084,
+              0.05759845575913669
+            ],
+            "t_quantile": 2.093
+          },
+          "mc_batch_means_secondary": {
+            "se_mc": {
+              "ci_lo": 0.00023200083057305359,
+              "ci_hi": 0.00020595508536807363,
+              "width": 0.00025809047613794644
+            }
+          },
+          "borderline_rule": "若 0.04 落在误差带内 → borderline（见 precision.verdict）"
+        },
+        "bootstrap_budget": {
+          "R": 3,
+          "B_per_batch": 1000,
+          "B_batch": 20,
+          "B_total": 20000,
+          "n_valid_draws": 20000,
+          "n_discarded_single_class": 0
+        }
+      }
+    }
+  },
+  "rosters": {
+    "h1": {
+      "n": 8810,
+      "n_positive": 339,
+      "n_groups": 1516,
+      "n_raw_records": 9264,
+      "id_field": "trace_id",
+      "analysis_unit": "trace"
+    },
+    "mcq": {
+      "n": 1746,
+      "n_positive": 328,
+      "n_groups": 1746,
+      "n_raw_records": 1760,
+      "id_field": "example_id",
+      "analysis_unit": "question"
+    }
+  },
+  "total_secs": 11706.1
+}

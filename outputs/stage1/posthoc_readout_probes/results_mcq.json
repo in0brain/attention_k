@@ -1,0 +1,527 @@
+{
+  "schema": "posthoc_readout_probe_results_v2",
+  "arm": "mcq",
+  "roster": {
+    "arm": "mcq",
+    "n": 1750,
+    "n_raw_records": 1751,
+    "n_positive": 318,
+    "n_groups": 1750,
+    "id_field": "example_id",
+    "ids_sha": "7bbcefbfd5ba5814",
+    "ids_first": "cybermetric_000000",
+    "ids_last": "cybermetric_010171",
+    "y_sha": "97df0f782cf1837c",
+    "groups_sha": "abae740d4cc9fc2b",
+    "h_dim": 3584,
+    "outer_splits": {
+      "repeat0": {
+        "fold_seed": 20260804,
+        "test_sizes": [
+          350,
+          350,
+          350,
+          350,
+          350
+        ],
+        "test_positives": [
+          62,
+          70,
+          48,
+          55,
+          83
+        ],
+        "fold_of_sha": "b9f3af085e29161d"
+      },
+      "repeat1": {
+        "fold_seed": 20260904,
+        "test_sizes": [
+          350,
+          350,
+          350,
+          350,
+          350
+        ],
+        "test_positives": [
+          54,
+          52,
+          72,
+          72,
+          68
+        ],
+        "fold_of_sha": "94555aef72269d34"
+      },
+      "repeat2": {
+        "fold_seed": 20261004,
+        "test_sizes": [
+          350,
+          350,
+          350,
+          350,
+          350
+        ],
+        "test_positives": [
+          62,
+          60,
+          65,
+          55,
+          76
+        ],
+        "fold_of_sha": "20393006bd42b207"
+      }
+    }
+  },
+  "conditions": [
+    "ref_l2_frozen_grid",
+    "ref_l2_wide_grid",
+    "saplma_mlp",
+    "han_l1",
+    "han_l1_wide",
+    "han_xgboost"
+  ],
+  "condition_groups": {
+    "prespecified": [
+      "ref_l2_frozen_grid",
+      "ref_l2_wide_grid",
+      "saplma_mlp",
+      "han_l1",
+      "han_xgboost"
+    ],
+    "posthoc_sensitivity": [
+      "han_l1_wide"
+    ]
+  },
+  "grouping_note": "`posthoc_sensitivity` 组是**首轮结果完成后**才追加的，依据是内层选参触边界；**不是事前规则**，报告中必须与事前条件分开呈现，不混列。",
+  "s_star_identical_across_conditions": true,
+  "results": {
+    "ref_l2_frozen_grid": {
+      "auroc_S*": 0.8197672546057179,
+      "auroc_H": 0.8292444046238713,
+      "auroc_S*+H": 0.8487015857957673,
+      "delta_H": 0.02893433119004951,
+      "delta_H_ci": {
+        "ci_lo": 0.01894145177401823,
+        "ci_hi": 0.03894902894221013,
+        "width": 0.020007577168191903
+      },
+      "per_repeat": [
+        {
+          "repeat": 0,
+          "auroc_S*": 0.8295803907100947,
+          "auroc_H": 0.8305158813815396,
+          "auroc_S*+H": 0.8525262640104003,
+          "delta_H": 0.02294587330030562
+        },
+        {
+          "repeat": 1,
+          "auroc_S*": 0.8180360844664629,
+          "auroc_H": 0.8217978110396683,
+          "auroc_S*+H": 0.8457692104985771,
+          "delta_H": 0.027733126032114197
+        },
+        {
+          "repeat": 2,
+          "auroc_S*": 0.811685288640596,
+          "auroc_H": 0.8354195214504059,
+          "auroc_S*+H": 0.8478092828783247,
+          "delta_H": 0.03612399423772872
+        }
+      ],
+      "delta_H_minus_ref": {
+        "ref": "ref_l2_wide_grid",
+        "point": 0.0,
+        "paired_ci": {
+          "ci_lo": 0.0,
+          "ci_hi": 0.0,
+          "width": 0.0
+        }
+      }
+    },
+    "ref_l2_wide_grid": {
+      "auroc_S*": 0.8197672546057179,
+      "auroc_H": 0.8292444046238713,
+      "auroc_S*+H": 0.8487015857957673,
+      "delta_H": 0.02893433119004951,
+      "delta_H_ci": {
+        "ci_lo": 0.01894145177401823,
+        "ci_hi": 0.03894902894221013,
+        "width": 0.020007577168191903
+      },
+      "per_repeat": [
+        {
+          "repeat": 0,
+          "auroc_S*": 0.8295803907100947,
+          "auroc_H": 0.8305158813815396,
+          "auroc_S*+H": 0.8525262640104003,
+          "delta_H": 0.02294587330030562
+        },
+        {
+          "repeat": 1,
+          "auroc_S*": 0.8180360844664629,
+          "auroc_H": 0.8217978110396683,
+          "auroc_S*+H": 0.8457692104985771,
+          "delta_H": 0.027733126032114197
+        },
+        {
+          "repeat": 2,
+          "auroc_S*": 0.811685288640596,
+          "auroc_H": 0.8354195214504059,
+          "auroc_S*+H": 0.8478092828783247,
+          "delta_H": 0.03612399423772872
+        }
+      ]
+    },
+    "saplma_mlp": {
+      "auroc_S*": 0.8197672546057179,
+      "auroc_H": 0.7825782064345362,
+      "auroc_S*+H": 0.8242448731012028,
+      "delta_H": 0.004477618495484966,
+      "delta_H_ci": {
+        "ci_lo": -0.0005431835817383619,
+        "ci_hi": 0.009540665737051998,
+        "width": 0.01008384931879036
+      },
+      "per_repeat": [
+        {
+          "repeat": 0,
+          "auroc_S*": 0.8295803907100947,
+          "auroc_H": 0.8054201363269037,
+          "auroc_S*+H": 0.8370072204068726,
+          "delta_H": 0.007426829696777881
+        },
+        {
+          "repeat": 1,
+          "auroc_S*": 0.8180360844664629,
+          "auroc_H": 0.7618473525174801,
+          "auroc_S*+H": 0.8151132251150697,
+          "delta_H": -0.0029228593513932477
+        },
+        {
+          "repeat": 2,
+          "auroc_S*": 0.811685288640596,
+          "auroc_H": 0.7804671304592249,
+          "auroc_S*+H": 0.8206141737816662,
+          "delta_H": 0.008928885141070264
+        }
+      ],
+      "delta_H_minus_ref": {
+        "ref": "ref_l2_wide_grid",
+        "point": -0.024456712694564547,
+        "paired_ci": {
+          "ci_lo": -0.032163635066060646,
+          "ci_hi": -0.016853170679519063,
+          "width": 0.015310464386541583
+        }
+      }
+    },
+    "han_l1": {
+      "auroc_S*": 0.8197672546057179,
+      "auroc_H": 0.8029833222069968,
+      "auroc_S*+H": 0.8444794338451449,
+      "delta_H": 0.02471217923942696,
+      "delta_H_ci": {
+        "ci_lo": 0.015115737712873858,
+        "ci_hi": 0.0345496466842983,
+        "width": 0.019433908971424444
+      },
+      "per_repeat": [
+        {
+          "repeat": 0,
+          "auroc_S*": 0.8295803907100947,
+          "auroc_H": 0.80224473841397,
+          "auroc_S*+H": 0.845387108675029,
+          "delta_H": 0.01580671796493427
+        },
+        {
+          "repeat": 1,
+          "auroc_S*": 0.8180360844664629,
+          "auroc_H": 0.8030660377358491,
+          "auroc_S*+H": 0.8457143108112857,
+          "delta_H": 0.027678226344822754
+        },
+        {
+          "repeat": 2,
+          "auroc_S*": 0.811685288640596,
+          "auroc_H": 0.8036391904711712,
+          "auroc_S*+H": 0.8423368820491198,
+          "delta_H": 0.03065159340852386
+        }
+      ],
+      "delta_H_minus_ref": {
+        "ref": "ref_l2_wide_grid",
+        "point": -0.00422215195062255,
+        "paired_ci": {
+          "ci_lo": -0.009640948039927433,
+          "ci_hi": 0.0011837249470167018,
+          "width": 0.010824672986944135
+        }
+      }
+    },
+    "han_l1_wide": {
+      "auroc_S*": 0.8197672546057179,
+      "auroc_H": 0.8029833222069968,
+      "auroc_S*+H": 0.8444794338451449,
+      "delta_H": 0.02471217923942696,
+      "delta_H_ci": {
+        "ci_lo": 0.015115737712873858,
+        "ci_hi": 0.0345496466842983,
+        "width": 0.019433908971424444
+      },
+      "per_repeat": [
+        {
+          "repeat": 0,
+          "auroc_S*": 0.8295803907100947,
+          "auroc_H": 0.80224473841397,
+          "auroc_S*+H": 0.845387108675029,
+          "delta_H": 0.01580671796493427
+        },
+        {
+          "repeat": 1,
+          "auroc_S*": 0.8180360844664629,
+          "auroc_H": 0.8030660377358491,
+          "auroc_S*+H": 0.8457143108112857,
+          "delta_H": 0.027678226344822754
+        },
+        {
+          "repeat": 2,
+          "auroc_S*": 0.811685288640596,
+          "auroc_H": 0.8036391904711712,
+          "auroc_S*+H": 0.8423368820491198,
+          "delta_H": 0.03065159340852386
+        }
+      ],
+      "delta_H_minus_ref": {
+        "ref": "ref_l2_wide_grid",
+        "point": -0.00422215195062255,
+        "paired_ci": {
+          "ci_lo": -0.009640948039927433,
+          "ci_hi": 0.0011837249470167018,
+          "width": 0.010824672986944135
+        }
+      }
+    },
+    "han_xgboost": {
+      "auroc_S*": 0.8197672546057179,
+      "auroc_H": 0.8084505990653877,
+      "auroc_S*+H": 0.842581368656524,
+      "delta_H": 0.022814114050806206,
+      "delta_H_ci": {
+        "ci_lo": 0.013388484733471885,
+        "ci_hi": 0.03258025040929883,
+        "width": 0.019191765675826943
+      },
+      "per_repeat": [
+        {
+          "repeat": 0,
+          "auroc_S*": 0.8295803907100947,
+          "auroc_H": 0.8065905976599558,
+          "auroc_S*+H": 0.84679473665718,
+          "delta_H": 0.017214345947085263
+        },
+        {
+          "repeat": 1,
+          "auroc_S*": 0.8180360844664629,
+          "auroc_H": 0.8016276659288148,
+          "auroc_S*+H": 0.8406020519307121,
+          "delta_H": 0.022565967464249215
+        },
+        {
+          "repeat": 2,
+          "auroc_S*": 0.811685288640596,
+          "auroc_H": 0.8171335336073926,
+          "auroc_S*+H": 0.8403473173816801,
+          "delta_H": 0.028662028741084145
+        }
+      ],
+      "delta_H_minus_ref": {
+        "ref": "ref_l2_wide_grid",
+        "point": -0.006120217139243305,
+        "paired_ci": {
+          "ci_lo": -0.011271250752857332,
+          "ci_hi": -0.0008140482225440966,
+          "width": 0.010457202530313235
+        }
+      }
+    }
+  },
+  "tuning_summary": {
+    "saplma_mlp": {
+      "n_selections": 60,
+      "at_boundary": 30,
+      "upper": 13,
+      "lower": 17,
+      "fell_back": 0,
+      "escalated": 0,
+      "not_converged": 247,
+      "chosen_counts": {
+        "{\"alpha\": 0.1, \"hidden_layer_sizes\": [256, 128, 64], \"max_iter\": 50}": 13,
+        "{\"alpha\": 1e-05, \"hidden_layer_sizes\": [256, 128, 64], \"max_iter\": 50}": 11,
+        "{\"alpha\": 0.001, \"hidden_layer_sizes\": [256, 128, 64], \"max_iter\": 5}": 3,
+        "{\"alpha\": 1e-05, \"hidden_layer_sizes\": [256, 128, 64], \"max_iter\": 5}": 17,
+        "{\"alpha\": 0.001, \"hidden_layer_sizes\": [256, 128, 64], \"max_iter\": 50}": 16
+      }
+    },
+    "han_xgboost": {
+      "n_selections": 60,
+      "at_boundary": 42,
+      "upper": 28,
+      "lower": 14,
+      "fell_back": 0,
+      "escalated": 0,
+      "not_converged": 0,
+      "chosen_counts": {
+        "{\"learning_rate\": 0.1, \"max_depth\": 3, \"n_estimators\": 1000}": 7,
+        "{\"learning_rate\": 0.1, \"max_depth\": 6, \"n_estimators\": 1000}": 28,
+        "{\"learning_rate\": 0.1, \"max_depth\": 3, \"n_estimators\": 200}": 14,
+        "{\"learning_rate\": 0.1, \"max_depth\": 6, \"n_estimators\": 200}": 11
+      }
+    },
+    "ref_l2_frozen_grid": {
+      "n_selections": 60,
+      "at_boundary": 18,
+      "upper": 18,
+      "lower": 0,
+      "fell_back": 0,
+      "escalated": 0,
+      "not_converged": 0,
+      "chosen_counts": {
+        "{\"C\": 1.0}": 42,
+        "{\"C\": 10.0}": 18
+      }
+    },
+    "ref_l2_wide_grid": {
+      "n_selections": 60,
+      "at_boundary": 0,
+      "upper": 0,
+      "lower": 0,
+      "fell_back": 0,
+      "escalated": 0,
+      "not_converged": 0,
+      "chosen_counts": {
+        "{\"C\": 1.0}": 42,
+        "{\"C\": 10.0}": 18
+      }
+    },
+    "han_l1": {
+      "n_selections": 60,
+      "at_boundary": 60,
+      "upper": 60,
+      "lower": 0,
+      "fell_back": 0,
+      "escalated": 0,
+      "not_converged": 0,
+      "chosen_counts": {
+        "{\"C\": 10.0}": 60
+      }
+    },
+    "han_l1_wide": {
+      "n_selections": 60,
+      "at_boundary": 0,
+      "upper": 0,
+      "lower": 0,
+      "fell_back": 0,
+      "escalated": 0,
+      "not_converged": 0,
+      "chosen_counts": {
+        "{\"C\": 10.0}": 60
+      }
+    }
+  },
+  "fit_accounting": {
+    "ref_l2_frozen_grid": {
+      "n_candidates": 4,
+      "n_inner_folds": 3,
+      "fits_inner_cf_stage": 39,
+      "fits_outer_full_stage": 13,
+      "fits_per_outer_fold": 52,
+      "fits_per_arm": 780,
+      "stages_covered": [
+        "inner_cf(选参+定参)",
+        "outer_full(选参+定参)"
+      ]
+    },
+    "ref_l2_wide_grid": {
+      "n_candidates": 8,
+      "n_inner_folds": 3,
+      "fits_inner_cf_stage": 75,
+      "fits_outer_full_stage": 25,
+      "fits_per_outer_fold": 100,
+      "fits_per_arm": 1500,
+      "stages_covered": [
+        "inner_cf(选参+定参)",
+        "outer_full(选参+定参)"
+      ]
+    },
+    "saplma_mlp": {
+      "n_candidates": 6,
+      "n_inner_folds": 3,
+      "fits_inner_cf_stage": 57,
+      "fits_outer_full_stage": 19,
+      "fits_per_outer_fold": 76,
+      "fits_per_arm": 1140,
+      "stages_covered": [
+        "inner_cf(选参+定参)",
+        "outer_full(选参+定参)"
+      ]
+    },
+    "han_l1": {
+      "n_candidates": 5,
+      "n_inner_folds": 3,
+      "fits_inner_cf_stage": 48,
+      "fits_outer_full_stage": 16,
+      "fits_per_outer_fold": 64,
+      "fits_per_arm": 960,
+      "stages_covered": [
+        "inner_cf(选参+定参)",
+        "outer_full(选参+定参)"
+      ]
+    },
+    "han_l1_wide": {
+      "n_candidates": 8,
+      "n_inner_folds": 3,
+      "fits_inner_cf_stage": 75,
+      "fits_outer_full_stage": 25,
+      "fits_per_outer_fold": 100,
+      "fits_per_arm": 1500,
+      "stages_covered": [
+        "inner_cf(选参+定参)",
+        "outer_full(选参+定参)"
+      ]
+    },
+    "han_xgboost": {
+      "n_candidates": 4,
+      "n_inner_folds": 3,
+      "fits_inner_cf_stage": 39,
+      "fits_outer_full_stage": 13,
+      "fits_per_outer_fold": 52,
+      "fits_per_arm": 780,
+      "stages_covered": [
+        "inner_cf(选参+定参)",
+        "outer_full(选参+定参)"
+      ]
+    }
+  },
+  "bootstrap": {
+    "b_total": 20000,
+    "discarded_single_class": 0,
+    "unit": "cluster/group bootstrap（同主路径）",
+    "paired": "所有条件共用同一批重采样行"
+  },
+  "peak_rss_gb": 0.174,
+  "generation_during": {
+    "elapsed_s": 1560.9,
+    "units": 72,
+    "s_per_unit": 21.68
+  },
+  "memory_gate": {
+    "min_free_gb": 3.0,
+    "min_commit_headroom_gb": 3.0,
+    "final": {
+      "free_gb": 10.25,
+      "committed_gb": 42.76,
+      "commit_limit_gb": 53.18,
+      "commit_headroom_gb": 10.43
+    }
+  },
+  "total_secs": 1563.8
+}

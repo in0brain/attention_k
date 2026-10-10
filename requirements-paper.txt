@@ -1,0 +1,12 @@
+# Exact CPU-analysis environment used for this release; GPU dependencies are described in PAPER_CODE.md.
+-r requirements.txt
+numpy==2.2.6
+scipy==1.15.3
+scikit-learn==1.7.2
+matplotlib==3.10.9
+PyYAML==6.0.3
+pytest==9.1.1
+psutil==7.2.2
+threadpoolctl==3.6.0
+xgboost==3.2.0
+Pillow==12.2.0

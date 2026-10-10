@@ -1,0 +1,720 @@
+{
+  "schema": "p3_mcq_output_baseline_check_v1",
+  "question": "MCQ 的输出侧基线只读『所选选项文本』；Llama 的回答是整段解释。把 B3 换成**模型可见输出全文**之后，Δ_H 是否还保持？",
+  "why": "冻结的 B3 定义按 Qwen『只输出字母』制定（raw_completion 中位 1 字符）；Llama 的 raw_completion 中位 886 字符，B3 仍只读 31.5 字符的选项文本，**100%** 的记录里输出比基线读到的多。因此原 Δ_H **不能**解释为『超出完整输出所含信息』。",
+  "boundaries": [
+    "**不改冻结实现**，不写任何冻结产物；新条件**单独报告**",
+    "不重新生成、不重新提取隐藏态、不动 H",
+    "只跑 Path A；Path B / E3 的硬门不碰",
+    "这是**事后敏感性分析**，不是预注册条件"
+  ],
+  "b3_variants": {
+    "frozen": {
+      "field": "semantic_output_text",
+      "what": "冻结口径：只读被选中的**选项文本**"
+    },
+    "full_output": {
+      "field": "raw_completion",
+      "what": "模型**可见输出全文**（Llama 侧即整段解释）"
+    },
+    "option_plus_output": {
+      "field": null,
+      "what": "选项文本 + 输出全文（冻结 B3 的**严格超集**）"
+    }
+  },
+  "results": {
+    "llama": {
+      "frozen": {
+        "b3_field": "冻结口径：只读被选中的**选项文本**",
+        "b3_len": {
+          "median": 32,
+          "min": 1,
+          "max": 182
+        },
+        "n": 1746,
+        "n_positive": 328,
+        "auroc": {
+          "S*": 0.7464789237102526,
+          "S*+H": 0.8061171981606982,
+          "B1": 0.4873214736202369,
+          "B2": 0.5424797464653067,
+          "B3": 0.5641490935360693,
+          "B4": 0.7548770454206658,
+          "B5": 0.5701506186429989,
+          "H": 0.791582097767381
+        },
+        "delta_h_point": 0.05963827445044556,
+        "delta_h_ci": {
+          "ci_lo": 0.04470122464280335,
+          "ci_hi": 0.07511274429511601,
+          "width": 0.03041151965231266
+        },
+        "precision": {
+          "precision": "adequate",
+          "width": 0.03041151965231266,
+          "mc_band": [
+            0.029997427420022225,
+            0.030825611884603095
+          ],
+          "max_ci_width": 0.04,
+          "note": null
+        },
+        "m1b": {
+          "m1b_non_inferiority": {
+            "eps_ni": 0.02,
+            "primary": "marginal one-sided lower bounds (IUT; no multiplicity correction)",
+            "L_marg": {
+              "B1": 0.22475332945146262,
+              "B2": 0.1704046259746358,
+              "B3": 0.15004013996850332,
+              "B4": -0.01650701278074667,
+              "B5": 0.1451864385683956
+            },
+            "L_sim": {
+              "B1": 0.21118009458756867,
+              "B2": 0.15773072065975435,
+              "B3": 0.13782907616342843,
+              "B4": -0.01966397087208635,
+              "B5": 0.13339382997569332
+            },
+            "certified": true,
+            "status": "CERTIFIED",
+            "failed_blocks": [],
+            "wording": "S* is non-inferior to each of the selected blocks (marginal one-sided 95%, margin eps_NI, IUT overall alpha<=0.05 *nominal*)",
+            "must_not_write": "family-wise certified"
+          },
+          "m1b_simultaneous_secondary": {
+            "alpha": 0.05,
+            "m": 5,
+            "se": {
+              "B1": 0.02108226881947172,
+              "B2": 0.020331342346314063,
+              "B3": 0.0195545762974799,
+              "B4": 0.004950453354893661,
+              "B5": 0.018866320080043256
+            },
+            "c_alpha_lower": 2.2757206974865465,
+            "c_alpha_upper": 2.2594910038512097,
+            "lower": {
+              "B1": 0.21118009458756867,
+              "B2": 0.15773072065975435,
+              "B3": 0.13782907616342843,
+              "B4": -0.01966397087208635,
+              "B5": 0.13339382997569332
+            },
+            "upper": {
+              "B1": 0.3067926468283849,
+              "B2": 0.24993766237266174,
+              "B3": 0.22651321940246122,
+              "B4": 0.002787383109954132,
+              "B5": 0.21895658556388897
+            },
+            "degenerate_blocks": [],
+            "coverage": "nominal (asymptotic; depends on grouped-bootstrap validity and regularity conditions) — NOT a finite-sample guarantee"
+          },
+          "m1b_iv_a_direct_superiority": {
+            "criterion": "iv-a (PRIMARY, sole authorising path)",
+            "L_marg": {
+              "B1": 0.28775932971000456,
+              "B2": 0.2326438807912356,
+              "B3": 0.212302168941324,
+              "B4": 0.03722900106187703,
+              "B5": 0.2078929926373867
+            },
+            "passed": true,
+            "failed_blocks": [],
+            "note": "iv-b is a sensitivity/consistency check only and never authorises the claim on its own; no OR of the two paths"
+          },
+          "m1b_iv_b_consistency": {
+            "criterion": "iv-b (SENSITIVITY / consistency check only)",
+            "conjunction_required": "M1b CERTIFIED AND Delta_H CI lower bound > eps_NI",
+            "m1b_certified": true,
+            "delta_h_ci_lo": 0.04470122464280335,
+            "eps_ni": 0.02,
+            "second_term_holds": true,
+            "holds": true,
+            "must_not": "不得只写第二项；不得与 (iv-a) 取并集作正面主张 —— 两条路径的并集会重新引入择优触发与 look-elsewhere"
+          }
+        },
+        "secs": 784.7
+      },
+      "full_output": {
+        "b3_field": "模型**可见输出全文**（Llama 侧即整段解释）",
+        "b3_len": {
+          "median": 886,
+          "min": 168,
+          "max": 1699
+        },
+        "n": 1746,
+        "n_positive": 328,
+        "auroc": {
+          "S*": 0.769921709266458,
+          "S*+H": 0.8076165044090496,
+          "B1": 0.4873214736202369,
+          "B2": 0.5424797464653067,
+          "B3": 0.6711416514729324,
+          "B4": 0.7548770454206658,
+          "B5": 0.5701506186429989,
+          "H": 0.791582097767381
+        },
+        "delta_h_point": 0.03769479514259181,
+        "delta_h_ci": {
+          "ci_lo": 0.025508188405888324,
+          "ci_hi": 0.05020831122204356,
+          "width": 0.02470012281615524
+        },
+        "precision": {
+          "precision": "adequate",
+          "width": 0.02470012281615524,
+          "mc_band": [
+            0.024226246618251273,
+            0.025173999014059204
+          ],
+          "max_ci_width": 0.04,
+          "note": null
+        },
+        "m1b": {
+          "m1b_non_inferiority": {
+            "eps_ni": 0.02,
+            "primary": "marginal one-sided lower bounds (IUT; no multiplicity correction)",
+            "L_marg": {
+              "B1": 0.24939798728138593,
+              "B2": 0.19563185575426834,
+              "B3": 0.07315627853702965,
+              "B4": 0.0036108641294819704,
+              "B5": 0.17195560443712424
+            },
+            "L_sim": {
+              "B1": 0.23652323049110496,
+              "B2": 0.18371304530039295,
+              "B3": 0.06327697236720631,
+              "B4": -0.000985302812601693,
+              "B5": 0.16115456917540466
+            },
+            "certified": true,
+            "status": "CERTIFIED",
+            "failed_blocks": [],
+            "wording": "S* is non-inferior to each of the selected blocks (marginal one-sided 95%, margin eps_NI, IUT overall alpha<=0.05 *nominal*)",
+            "must_not_write": "family-wise certified"
+          },
+          "m1b_simultaneous_secondary": {
+            "alpha": 0.05,
+            "m": 5,
+            "se": {
+              "B1": 0.02022151307286599,
+              "B2": 0.019191023243091136,
+              "B3": 0.015581006266759956,
+              "B4": 0.00703496634056577,
+              "B5": 0.016947379515262165
+            },
+            "c_alpha_lower": 2.2786131279634034,
+            "c_alpha_upper": 2.2959855504528592,
+            "lower": {
+              "B1": 0.23652323049110496,
+              "B2": 0.18371304530039295,
+              "B3": 0.06327697236720631,
+              "B4": -0.000985302812601693,
+              "B5": 0.16115456917540466
+            },
+            "upper": {
+              "B1": 0.3290285374698149,
+              "B2": 0.27150427486569345,
+              "B3": 0.13455382304352193,
+              "B4": 0.031196844911653372,
+              "B5": 0.23868202910854178
+            },
+            "degenerate_blocks": [],
+            "coverage": "nominal (asymptotic; depends on grouped-bootstrap validity and regularity conditions) — NOT a finite-sample guarantee"
+          },
+          "m1b_iv_a_direct_superiority": {
+            "criterion": "iv-a (PRIMARY, sole authorising path)",
+            "L_marg": {
+              "B1": 0.2894307733178013,
+              "B2": 0.23436413687817167,
+              "B3": 0.11148121354218257,
+              "B4": 0.03815574115227934,
+              "B5": 0.2099727360753666
+            },
+            "passed": true,
+            "failed_blocks": [],
+            "note": "iv-b is a sensitivity/consistency check only and never authorises the claim on its own; no OR of the two paths"
+          },
+          "m1b_iv_b_consistency": {
+            "criterion": "iv-b (SENSITIVITY / consistency check only)",
+            "conjunction_required": "M1b CERTIFIED AND Delta_H CI lower bound > eps_NI",
+            "m1b_certified": true,
+            "delta_h_ci_lo": 0.025508188405888324,
+            "eps_ni": 0.02,
+            "second_term_holds": true,
+            "holds": true,
+            "must_not": "不得只写第二项；不得与 (iv-a) 取并集作正面主张 —— 两条路径的并集会重新引入择优触发与 look-elsewhere"
+          }
+        },
+        "secs": 1427.7
+      },
+      "option_plus_output": {
+        "b3_field": "选项文本 + 输出全文（冻结 B3 的**严格超集**）",
+        "b3_len": {
+          "median": 929,
+          "min": 188,
+          "max": 1717
+        },
+        "n": 1746,
+        "n_positive": 328,
+        "auroc": {
+          "S*": 0.768856714483929,
+          "S*+H": 0.8075276353962412,
+          "B1": 0.4873214736202369,
+          "B2": 0.5424797464653067,
+          "B3": 0.6699433531711905,
+          "B4": 0.7548770454206658,
+          "B5": 0.5701506186429989,
+          "H": 0.791582097767381
+        },
+        "delta_h_point": 0.03867092091231213,
+        "delta_h_ci": {
+          "ci_lo": 0.026356769580701402,
+          "ci_hi": 0.05145909039262444,
+          "width": 0.025102320811923037
+        },
+        "precision": {
+          "precision": "adequate",
+          "width": 0.025102320811923037,
+          "mc_band": [
+            0.024749027923832982,
+            0.02545561370001309
+          ],
+          "max_ci_width": 0.04,
+          "note": null
+        },
+        "m1b": {
+          "m1b_non_inferiority": {
+            "eps_ni": 0.02,
+            "primary": "marginal one-sided lower bounds (IUT; no multiplicity correction)",
+            "L_marg": {
+              "B1": 0.24828323943777633,
+              "B2": 0.19449699449272137,
+              "B3": 0.07234297325703681,
+              "B4": 0.003064556943524914,
+              "B5": 0.17057517401457695
+            },
+            "L_sim": {
+              "B1": 0.23541518985099072,
+              "B2": 0.18270348437235528,
+              "B3": 0.06239818358193525,
+              "B4": -0.0012657901590353415,
+              "B5": 0.15976233201134432
+            },
+            "certified": true,
+            "status": "CERTIFIED",
+            "failed_blocks": [],
+            "wording": "S* is non-inferior to each of the selected blocks (marginal one-sided 95%, margin eps_NI, IUT overall alpha<=0.05 *nominal*)",
+            "must_not_write": "family-wise certified"
+          },
+          "m1b_simultaneous_secondary": {
+            "alpha": 0.05,
+            "m": 5,
+            "se": {
+              "B1": 0.020262841408504446,
+              "B2": 0.019187942195413192,
+              "B3": 0.016042940957694384,
+              "B4": 0.0066980915163381395,
+              "B5": 0.017109940102013988
+            },
+            "c_alpha_lower": 2.2760900153590713,
+            "c_alpha_upper": 2.2861863280262447,
+            "lower": {
+              "B1": 0.23541518985099072,
+              "B2": 0.18270348437235528,
+              "B3": 0.06239818358193525,
+              "B4": -0.0012657901590353415,
+              "B5": 0.15976233201134432
+            },
+            "upper": {
+              "B1": 0.32785987185877896,
+              "B2": 0.27024417912873383,
+              "B3": 0.13559051359155172,
+              "B4": 0.029292754311784033,
+              "B5": 0.23782260697550248
+            },
+            "degenerate_blocks": [],
+            "coverage": "nominal (asymptotic; depends on grouped-bootstrap validity and regularity conditions) — NOT a finite-sample guarantee"
+          },
+          "m1b_iv_a_direct_superiority": {
+            "criterion": "iv-a (PRIMARY, sole authorising path)",
+            "L_marg": {
+              "B1": 0.28931312594960634,
+              "B2": 0.23438840948204945,
+              "B3": 0.11218446852939294,
+              "B4": 0.03815180019918941,
+              "B5": 0.209850934462452
+            },
+            "passed": true,
+            "failed_blocks": [],
+            "note": "iv-b is a sensitivity/consistency check only and never authorises the claim on its own; no OR of the two paths"
+          },
+          "m1b_iv_b_consistency": {
+            "criterion": "iv-b (SENSITIVITY / consistency check only)",
+            "conjunction_required": "M1b CERTIFIED AND Delta_H CI lower bound > eps_NI",
+            "m1b_certified": true,
+            "delta_h_ci_lo": 0.026356769580701402,
+            "eps_ni": 0.02,
+            "second_term_holds": true,
+            "holds": true,
+            "must_not": "不得只写第二项；不得与 (iv-a) 取并集作正面主张 —— 两条路径的并集会重新引入择优触发与 look-elsewhere"
+          }
+        },
+        "secs": 1411.9
+      }
+    },
+    "qwen": {
+      "frozen": {
+        "b3_field": "冻结口径：只读被选中的**选项文本**",
+        "b3_len": {
+          "median": 32,
+          "min": 1,
+          "max": 182
+        },
+        "n": 1750,
+        "n_positive": 318,
+        "auroc": {
+          "S*": 0.8197672546057179,
+          "S*+H": 0.8487015857957673,
+          "B1": 0.48835760631507447,
+          "B2": 0.532936152395676,
+          "B3": 0.5303657490366934,
+          "B4": 0.8256385931625734,
+          "B5": 0.5782503542859819,
+          "H": 0.8292444046238713
+        },
+        "delta_h_point": 0.02893433119004951,
+        "delta_h_ci": {
+          "ci_lo": 0.01894145177401823,
+          "ci_hi": 0.03894902894221013,
+          "width": 0.020007577168191903
+        },
+        "precision": {
+          "precision": "adequate",
+          "width": 0.020007577168191903,
+          "mc_band": [
+            0.019730580508318805,
+            0.020284573828065002
+          ],
+          "max_ci_width": 0.04,
+          "note": null
+        },
+        "m1b": {
+          "m1b_non_inferiority": {
+            "eps_ni": 0.02,
+            "primary": "marginal one-sided lower bounds (IUT; no multiplicity correction)",
+            "L_marg": {
+              "B1": 0.3006994780481055,
+              "B2": 0.2572128007209881,
+              "B3": 0.2603194100398296,
+              "B4": -0.011216673610897626,
+              "B5": 0.21311389058886196
+            },
+            "L_sim": {
+              "B1": 0.2892482878301455,
+              "B2": 0.24545367015841507,
+              "B3": 0.2491824274358691,
+              "B4": -0.013242908956546586,
+              "B5": 0.20206641484487942
+            },
+            "certified": true,
+            "status": "CERTIFIED",
+            "failed_blocks": [],
+            "wording": "S* is non-inferior to each of the selected blocks (marginal one-sided 95%, margin eps_NI, IUT overall alpha<=0.05 *nominal*)",
+            "must_not_write": "family-wise certified"
+          },
+          "m1b_simultaneous_secondary": {
+            "alpha": 0.05,
+            "m": 5,
+            "se": {
+              "B1": 0.01852388502322873,
+              "B2": 0.01817946066040541,
+              "B3": 0.01767052986292612,
+              "B4": 0.0032387503873944437,
+              "B5": 0.017332843368075824
+            },
+            "c_alpha_lower": 2.2760538843567693,
+            "c_alpha_upper": 2.2939144393665627,
+            "lower": {
+              "B1": 0.2892482878301455,
+              "B2": 0.24545367015841507,
+              "B3": 0.2491824274358691,
+              "B4": -0.013242908956546586,
+              "B5": 0.20206641484487942
+            },
+            "upper": {
+              "B1": 0.37390185561859385,
+              "B2": 0.32853322951884223,
+              "B3": 0.32993618917284867,
+              "B4": 0.0015580777222926907,
+              "B5": 0.28127695999704394
+            },
+            "degenerate_blocks": [],
+            "coverage": "nominal (asymptotic; depends on grouped-bootstrap validity and regularity conditions) — NOT a finite-sample guarantee"
+          },
+          "m1b_iv_a_direct_superiority": {
+            "criterion": "iv-a (PRIMARY, sole authorising path)",
+            "L_marg": {
+              "B1": 0.33104656845286384,
+              "B2": 0.28664515642234617,
+              "B3": 0.29119826362888707,
+              "B4": 0.014541555528289197,
+              "B5": 0.24295832974695122
+            },
+            "passed": true,
+            "failed_blocks": [],
+            "note": "iv-b is a sensitivity/consistency check only and never authorises the claim on its own; no OR of the two paths"
+          },
+          "m1b_iv_b_consistency": {
+            "criterion": "iv-b (SENSITIVITY / consistency check only)",
+            "conjunction_required": "M1b CERTIFIED AND Delta_H CI lower bound > eps_NI",
+            "m1b_certified": true,
+            "delta_h_ci_lo": 0.01894145177401823,
+            "eps_ni": 0.02,
+            "second_term_holds": false,
+            "holds": false,
+            "must_not": "不得只写第二项；不得与 (iv-a) 取并集作正面主张 —— 两条路径的并集会重新引入择优触发与 look-elsewhere"
+          }
+        },
+        "secs": 713.4
+      },
+      "full_output": {
+        "b3_field": "模型**可见输出全文**（Llama 侧即整段解释）",
+        "b3_len": {
+          "median": 1,
+          "min": 1,
+          "max": 9
+        },
+        "n": 1750,
+        "n_positive": 318,
+        "auroc": {
+          "S*": 0.8220884133843973,
+          "S*+H": 0.8494701814178467,
+          "B1": 0.48835760631507447,
+          "B2": 0.532936152395676,
+          "B3": 0.515416198189335,
+          "B4": 0.8256385931625734,
+          "B5": 0.5782503542859819,
+          "H": 0.8292444046238713
+        },
+        "delta_h_point": 0.02738176803344931,
+        "delta_h_ci": {
+          "ci_lo": 0.017198418060840506,
+          "ci_hi": 0.03780819731732499,
+          "width": 0.02060977925648448
+        },
+        "precision": {
+          "precision": "adequate",
+          "width": 0.02060977925648448,
+          "mc_band": [
+            0.02034265204554109,
+            0.02087690646742787
+          ],
+          "max_ci_width": 0.04,
+          "note": null
+        },
+        "m1b": {
+          "m1b_non_inferiority": {
+            "eps_ni": 0.02,
+            "primary": "marginal one-sided lower bounds (IUT; no multiplicity correction)",
+            "L_marg": {
+              "B1": 0.30293515854295067,
+              "B2": 0.2590976570006019,
+              "B3": 0.272974716744667,
+              "B4": -0.008304411008661404,
+              "B5": 0.21537111758714195
+            },
+            "L_sim": {
+              "B1": 0.29223910427989114,
+              "B2": 0.2479443403127656,
+              "B3": 0.2610164384280319,
+              "B4": -0.01002373357273042,
+              "B5": 0.20503137897068324
+            },
+            "certified": true,
+            "status": "CERTIFIED",
+            "failed_blocks": [],
+            "wording": "S* is non-inferior to each of the selected blocks (marginal one-sided 95%, margin eps_NI, IUT overall alpha<=0.05 *nominal*)",
+            "must_not_write": "family-wise certified"
+          },
+          "m1b_simultaneous_secondary": {
+            "alpha": 0.05,
+            "m": 5,
+            "se": {
+              "B1": 0.018569969230915195,
+              "B2": 0.01844296009990224,
+              "B3": 0.020433636432805897,
+              "B4": 0.0028972948010745118,
+              "B5": 0.01736826419448626
+            },
+            "c_alpha_lower": 2.234344186222804,
+            "c_alpha_upper": 2.271835767293433,
+            "lower": {
+              "B1": 0.29223910427989114,
+              "B2": 0.2479443403127656,
+              "B3": 0.2610164384280319,
+              "B4": -0.01002373357273042,
+              "B5": 0.20503137897068324
+            },
+            "upper": {
+              "B1": 0.3759187273656545,
+              "B2": 0.3310516373984449,
+              "B3": 0.35309408129898084,
+              "B4": 0.003031998179298359,
+              "B5": 0.28329590291125106
+            },
+            "degenerate_blocks": [],
+            "coverage": "nominal (asymptotic; depends on grouped-bootstrap validity and regularity conditions) — NOT a finite-sample guarantee"
+          },
+          "m1b_iv_a_direct_superiority": {
+            "criterion": "iv-a (PRIMARY, sole authorising path)",
+            "L_marg": {
+              "B1": 0.3315320332763168,
+              "B2": 0.2872176774590231,
+              "B3": 0.30152593008599327,
+              "B4": 0.01522722364578072,
+              "B5": 0.2436438203701721
+            },
+            "passed": true,
+            "failed_blocks": [],
+            "note": "iv-b is a sensitivity/consistency check only and never authorises the claim on its own; no OR of the two paths"
+          },
+          "m1b_iv_b_consistency": {
+            "criterion": "iv-b (SENSITIVITY / consistency check only)",
+            "conjunction_required": "M1b CERTIFIED AND Delta_H CI lower bound > eps_NI",
+            "m1b_certified": true,
+            "delta_h_ci_lo": 0.017198418060840506,
+            "eps_ni": 0.02,
+            "second_term_holds": false,
+            "holds": false,
+            "must_not": "不得只写第二项；不得与 (iv-a) 取并集作正面主张 —— 两条路径的并集会重新引入择优触发与 look-elsewhere"
+          }
+        },
+        "secs": 677.1
+      },
+      "option_plus_output": {
+        "b3_field": "选项文本 + 输出全文（冻结 B3 的**严格超集**）",
+        "b3_len": {
+          "median": 35,
+          "min": 3,
+          "max": 184
+        },
+        "n": 1750,
+        "n_positive": 318,
+        "auroc": {
+          "S*": 0.8221403850883665,
+          "S*+H": 0.8498215394165115,
+          "B1": 0.48835760631507447,
+          "B2": 0.532936152395676,
+          "B3": 0.5050108774580421,
+          "B4": 0.8256385931625734,
+          "B5": 0.5782503542859819,
+          "H": 0.8292444046238713
+        },
+        "delta_h_point": 0.027681154328144997,
+        "delta_h_ci": {
+          "ci_lo": 0.017559083322367615,
+          "ci_hi": 0.037864041613467556,
+          "width": 0.02030495829109994
+        },
+        "precision": {
+          "precision": "adequate",
+          "width": 0.02030495829109994,
+          "mc_band": [
+            0.020046605555993212,
+            0.02056331102620667
+          ],
+          "max_ci_width": 0.04,
+          "note": null
+        },
+        "m1b": {
+          "m1b_non_inferiority": {
+            "eps_ni": 0.02,
+            "primary": "marginal one-sided lower bounds (IUT; no multiplicity correction)",
+            "L_marg": {
+              "B1": 0.3029309072166332,
+              "B2": 0.25968472738149057,
+              "B3": 0.29130083521869776,
+              "B4": -0.008814577094735425,
+              "B5": 0.21555521688407256
+            },
+            "L_sim": {
+              "B1": 0.29182738993526475,
+              "B2": 0.24823656912913936,
+              "B3": 0.2817049261262479,
+              "B4": -0.010909026293278045,
+              "B5": 0.20497338051352326
+            },
+            "certified": true,
+            "status": "CERTIFIED",
+            "failed_blocks": [],
+            "wording": "S* is non-inferior to each of the selected blocks (marginal one-sided 95%, margin eps_NI, IUT overall alpha<=0.05 *nominal*)",
+            "must_not_write": "family-wise certified"
+          },
+          "m1b_simultaneous_secondary": {
+            "alpha": 0.05,
+            "m": 5,
+            "se": {
+              "B1": 0.018603400399931393,
+              "B2": 0.018165434043877562,
+              "B3": 0.015707581123000382,
+              "B4": 0.0032860240946099768,
+              "B5": 0.017255996133006674
+            },
+            "c_alpha_lower": 2.2552537673801862,
+            "c_alpha_upper": 2.2893062784822873,
+            "lower": {
+              "B1": 0.29182738993526475,
+              "B2": 0.24823656912913936,
+              "B3": 0.2817049261262479,
+              "B4": -0.010909026293278045,
+              "B5": 0.20497338051352326
+            },
+            "upper": {
+              "B1": 0.3763716601099749,
+              "B2": 0.3307904749006953,
+              "B3": 0.35308897171497905,
+              "B4": 0.004024507516827865,
+              "B5": 0.2833942910911428
+            },
+            "degenerate_blocks": [],
+            "coverage": "nominal (asymptotic; depends on grouped-bootstrap validity and regularity conditions) — NOT a finite-sample guarantee"
+          },
+          "m1b_iv_a_direct_superiority": {
+            "criterion": "iv-a (PRIMARY, sole authorising path)",
+            "L_marg": {
+              "B1": 0.33195758855670765,
+              "B2": 0.28773041670333405,
+              "B3": 0.320135074214387,
+              "B4": 0.015598961523710052,
+              "B5": 0.2441905790770333
+            },
+            "passed": true,
+            "failed_blocks": [],
+            "note": "iv-b is a sensitivity/consistency check only and never authorises the claim on its own; no OR of the two paths"
+          },
+          "m1b_iv_b_consistency": {
+            "criterion": "iv-b (SENSITIVITY / consistency check only)",
+            "conjunction_required": "M1b CERTIFIED AND Delta_H CI lower bound > eps_NI",
+            "m1b_certified": true,
+            "delta_h_ci_lo": 0.017559083322367615,
+            "eps_ni": 0.02,
+            "second_term_holds": false,
+            "holds": false,
+            "must_not": "不得只写第二项；不得与 (iv-a) 取并集作正面主张 —— 两条路径的并集会重新引入择优触发与 look-elsewhere"
+          }
+        },
+        "secs": 711.6
+      }
+    }
+  },
+  "total_secs": 5728.6,
+  "inputs": {
+    "llama_mcq_completion_records.jsonl": "a9268da4277e6743",
+    "qwen_mcq_completion_records.jsonl": "6540d160b33dbd0d"
+  }
+}

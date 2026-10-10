@@ -1,7 +1,47 @@
-# Pre-registration：内部 hidden-state probe 的条件增量检验（v2.3，已冻结）
+# Pre-registration：内部 hidden-state probe 的条件增量检验（v2.4，已冻结）
 
 > 投稿前预注册。跑任何全量生成之前写死;跑完只填结果,不改判读规则。
 > 冻结指纹见 `preregistration.lock`（sha256）。改设计须 bump version + 重算 hash。
+
+## v2.4 修订记录（2026-07-19）
+
+```text
+v2.4 amendment:
+  Decouple the scientific launch gate from the venue CFP gate, add a
+  performance-blind production quality check (G4), and commit to one-shot
+  unblinding.
+
+本次修订**不改动任何**测量、population、特征、融合协议、判读规则或可允许结论。
+它只改"什么条件下允许开始跑",并**新增两条约束**。
+
+(1) 为什么 G1 不该当科学启动闸
+    §2 v2.3 把 G1(目标 workshop 的 CFP 已确认)与 G2 并列为启动 gate。但这两者是
+    **不同种类的事实**:
+      G2/G3 是科学前提 —— 设计已冻结、schema 与管线已验证。不满足则结果无效。
+      G1 是场地事实 —— 页数决定"能报告多少"、归档决定"能否扩展"、截止日期决定日程。
+        **它不改变测到了什么**:§12 的可允许结论与投哪个会场无关。
+    把场地事实当科学前提有一个具体危害:它把实验压到临近截止,制造的时间压力恰恰
+    损害分析质量。实测例:目标 EIML3 的投稿系统 7/29 才开放、页数届时才公布,
+    照 v2.3 会把 Stage 0 卡到 7/29,freeze(8/22) 前只剩约 3.4 周(原计划 5 周)。
+    越早得到冻结的主结论,越有时间决定投 EIML3 / 其他 workshop / 扩展到 ARR ——
+    而结论本身不因这个决定而改变。
+(2) G1 保留,改为**投稿就绪 gate**:未确认不得提交投稿,但不阻塞实验。
+    G1 仍由代码校验内容(deadline / page_limit / archival 三项齐全 + status=confirmed),
+    仍是外部事实,仍不得由脚本或代理自行置位。
+(3) 新增 G4(§2.1):性能盲的小批生产质量检查。只看管线能否产出可用记录,
+    **禁止**在该阶段计算或查看任何性能指标。若 G4 能看性能,就等于冻结前偷看结果。
+(4) 新增 §2.2:一次性揭盲,并由可审计记录强制,而非仅承诺。
+
+修订正当性(与 v2.2/v2.3 同一把尺):
+  - Stage 0 未启动,无任何正式结果;
+  - 不改测量/样本/假设空间/评价协议/预注册比较关系,故不影响任何已冻结的比较;
+  - 不指向任何结论方向 —— 它改的是时机,不是判读;
+  - 净效果是**收紧**:去掉一条与科学无关的闸,换来两条与科学有关的新约束(G4 性能盲、
+    一次性揭盲),后者是 v2.3 之前完全没有的保护;
+  - v2.1/v2.2/v2.3 的 hash 与实现保留在 git,不覆盖。
+后果:v2.3 的 G3 失效(冻结文件已变),须重跑 ≤20 prompt smoke 取得新 G2 + 新 G3;
+  随后跑 G4;三者齐备即可启动 Stage 0,不再等 G1。
+```
 
 ## v2.3 修订记录（2026-07-16）
 
@@ -138,12 +178,58 @@ PARALLAX(2605.17028):22 方法×12 模型×6 数据,揭示 benchmark 构造 arti
   并对照输出易观测错误(MCQ)与高置信 fabrication(H1),检验增量是否随 observability 变化。
 ```
 
-## 2. 启动 gate（代码强制,未过不许跑生成）
+## 2. 启动 gate（代码强制,未过不许跑生成）—— v2.4 起分为两类
 
 ```text
-G1 目标 workshop 的 CFP 已确认(deadline / page limit / archival),记入 preflight。
-G2 本文件已冻结:preflight 记录本文件的 sha256,跑后不许改判读规则/定义。
-脚本 preflight 必须显式检查 G1、G2,缺任一 → 停。旧脚本不检查,不得用于本实验。
+**科学启动 gate**（决定"能不能跑实验"）:
+  G2 本文件已冻结:preflight 记录本文件的 sha256,跑后不许改判读规则/定义。
+  G3 ≤20 prompt 真实 model-in-loop smoke 通过(两臂 + backend invariant)。
+  G4 production quality check 通过:小批真实生成,**只看运行质量,不看任何性能指标**
+     (§2.1)。
+  三者齐备 → 允许启动 Stage 0 全量生成。
+
+**投稿就绪 gate**（决定"能不能投",不阻塞实验）:
+  G1 目标 workshop 的 CFP 已确认(deadline / page limit / archival),记入 preflight。
+  G1 未过 → 不得提交投稿;但**不阻塞** Stage 0。
+
+脚本 preflight 必须显式检查全部四道并分别报告,缺任一对应动作即停。
+旧脚本不检查,不得用于本实验。
+```
+
+## 2.1 production quality check（G4，v2.4 新增，**性能盲**）
+
+```text
+目的:在烧掉全量之前确认"生成管线在真实数据上产出可用记录",而不是确认"结果好看"。
+样本:每臂 ≤40 prompt 的真实生成(H1 按 K=6;MCQ 按每题 1 greedy + 5 sampled),
+  **取自将来正式 population 之外的样本**(H1 用 dev/test split;MCQ 用 burned 240),
+  以免烧掉 confirmatory 样本。
+判据(全部为运行质量,与标签/性能无关):
+  emission / parse:H1 eligible rate ≥ 0.80;MCQ parse-failure rate ≤ 0.10
+  退化:degeneration rate ≤ 0.10;touched max_new_tokens ≤ 0.10
+  完整性:每条 eligible 记录都有 hidden;hidden 维度一致且全有限
+  F5:每个连续量列非零(稀疏指示量可整列 0)
+  层位:forward hook == hidden_states[⌊0.7L⌋+1]
+  指纹:model/tokenizer/backend 指纹已落盘且两臂一致(backend invariant)
+**禁止**在 G4 阶段计算或查看:AUROC、AUPRC、Δ_H、S、D、任何 ladder rung 的性能。
+  代码层面强制:quality check 不导入 evaluation 包、不接触 label 以外的标签统计,
+  报告 schema 不含任何性能字段。
+理由:G4 若能看性能,就等于在冻结前先偷看结果,再据此决定要不要重跑 —— 那正是
+  预注册要防的事。只看"管线能不能产出记录",不看"记录说明了什么"。
+```
+
+## 2.2 一次性揭盲（v2.4 新增，硬承诺）
+
+```text
+Stage 0 全量生成完成并冻结后,正式分析**运行一次**,结果即为最终结果。
+  - 生成产物在分析前落 freeze manifest(记录每臂的记录数、hidden 数、run fingerprint、
+    内容 sha256),冻结后不得追加或重生成。
+  - 分析入口记录每一次调用(时间、config hash、输入 freeze hash、输出 hash)。
+    第一次为 confirmatory;此后任何一次都必须显式标 rerun 并写明理由,且**不得**替换
+    已发布的 confirmatory 结果。
+  - 不得因为结果不理想而:追加样本、改 ε/δ、换判读规则、换融合协议、换层、换 pooling。
+    (§7.2 的"扩容只此一次"同样适用。)
+理由:预注册的价值全在"跑之前写死、跑之后不改"。若分析可以反复跑到满意为止,
+  前面所有冻结都失效。故把"只揭盲一次"由承诺升级为**可审计记录**。
 ```
 
 ## 3. 统计单位与 population（P0 修正:completion-level）

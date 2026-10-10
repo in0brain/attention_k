@@ -1,0 +1,440 @@
+{
+  "schema": "posthoc_readout_probe_final_config_v1",
+  "frozen_at": "2026-09-17T22:48:28-0400",
+  "frozen_before": "任何外层测试结果之前（原网格 L2 复现核对之后）",
+  "question": "当前 H 侧读出器及其调参设置，是否限制了隐藏状态能够提供的增量？",
+  "data": {
+    "stage": "Stage 1 Qwen confirmatory，两臂",
+    "reuse": "复用既有隐藏向量",
+    "no_regeneration": "不重新生成、不重新前向、不做逐 token / 跨层特征抽取",
+    "inputs": {
+      "h1_completion_records.jsonl": {
+        "path": "outputs\\stage1\\production\\h1_completion_records.jsonl",
+        "bytes": 29767808,
+        "sha256": "748ea3b910e55853e6206775ed34f0eb5e9346d1d6b183bcc5e9c2e105a98cd7"
+      },
+      "h1_hidden.npz": {
+        "path": "outputs\\stage1\\production\\h1_hidden.npz",
+        "bytes": 103568971,
+        "sha256": "f5ab45267f2fe98875527dfe49898c3d60fb3ee762327ffa38835884ba162165"
+      },
+      "mcq_completion_records.jsonl": {
+        "path": "outputs\\stage1\\production\\mcq_completion_records.jsonl",
+        "bytes": 4910055,
+        "sha256": "6540d160b33dbd0d6b0f6a5cb3a13fb49b5968721add857d93a18afbbe6d3fd5"
+      },
+      "mcq_hidden.npz": {
+        "path": "outputs\\stage1\\production\\mcq_hidden.npz",
+        "bytes": 16085549,
+        "sha256": "e6a184792887f4e0e2418d8e317b64d2575bc0b0f227925a40d062e59fd9912f"
+      },
+      "confirmatory_result.json": {
+        "path": "outputs\\stage1\\confirmatory\\stage1_confirmatory_result.json",
+        "bytes": 584294,
+        "sha256": "ba467c670f10291946e18c3af2f857aaf68b0d3cf8e1504834ca9f31c9eeff5a",
+        "role": "只读参照，绝不写回"
+      }
+    }
+  },
+  "protocol_from_main_path": {
+    "n_repeats": 3,
+    "n_outer_folds": 5,
+    "n_inner_folds": 3,
+    "fold_seed_expr": "20260804 + 100*r",
+    "fold_seeds": [
+      20260804,
+      20260904,
+      20261004
+    ],
+    "base_random_state": 0,
+    "meta_random_state": 0,
+    "base_lr_kwargs_example": {
+      "C": 1.0,
+      "penalty": "l2",
+      "solver": "liblinear",
+      "max_iter": 2000,
+      "tol": 0.0001,
+      "fit_intercept": true,
+      "class_weight": null,
+      "random_state": 0
+    },
+    "dense_preprocess": "train-fold z-score → /sqrt(d)（口径 zscore_div_sqrt_d）",
+    "meta_input": "decision_function（log-odds，M8）",
+    "b_total": 20000,
+    "b_batch": 20,
+    "alpha": 0.05,
+    "bootstrap_unit": "cluster/group bootstrap（同主路径），条件间配对"
+  },
+  "conditions": [
+    {
+      "name": "ref_l2_frozen_grid",
+      "kind": "logreg_main",
+      "provenance": "project",
+      "source": "本项目冻结主路径（v3_config.c_grid + base_lr_kwargs）",
+      "n_candidates": 4,
+      "candidates": [
+        {
+          "C": 0.01
+        },
+        {
+          "C": 0.1
+        },
+        {
+          "C": 1.0
+        },
+        {
+          "C": 10.0
+        }
+      ],
+      "paper_reference_params": null,
+      "reduction_order": [],
+      "notes": "复现核对用：**逐项沿用主路径 kwargs**，否则复现核对无意义。",
+      "fit_accounting": {
+        "n_candidates": 4,
+        "n_inner_folds": 3,
+        "fits_inner_cf_stage": 39,
+        "fits_outer_full_stage": 13,
+        "fits_per_outer_fold": 52,
+        "fits_per_arm": 780,
+        "stages_covered": [
+          "inner_cf(选参+定参)",
+          "outer_full(选参+定参)"
+        ]
+      }
+    },
+    {
+      "name": "ref_l2_wide_grid",
+      "kind": "logreg_main",
+      "provenance": "project",
+      "source": "本项目（第 0 步：审计 H 侧 C 范围是否够宽）",
+      "n_candidates": 8,
+      "candidates": [
+        {
+          "C": 0.001
+        },
+        {
+          "C": 0.01
+        },
+        {
+          "C": 0.1
+        },
+        {
+          "C": 1.0
+        },
+        {
+          "C": 10.0
+        },
+        {
+          "C": 100.0
+        },
+        {
+          "C": 1000.0
+        },
+        {
+          "C": 10000.0
+        }
+      ],
+      "paper_reference_params": null,
+      "reduction_order": [
+        7,
+        6
+      ],
+      "notes": "**只放宽 H 侧候选**，包含原网格；输出侧与融合层规则不变。",
+      "fit_accounting": {
+        "n_candidates": 8,
+        "n_inner_folds": 3,
+        "fits_inner_cf_stage": 75,
+        "fits_outer_full_stage": 25,
+        "fits_per_outer_fold": 100,
+        "fits_per_arm": 1500,
+        "stages_covered": [
+          "inner_cf(选参+定参)",
+          "outer_full(选参+定参)"
+        ]
+      }
+    },
+    {
+      "name": "saplma_mlp",
+      "kind": "mlp",
+      "provenance": "implemented_from_paper",
+      "source": "Azaria & Mitchell 2023, Findings of EMNLP, §4（SAPLMA）",
+      "n_candidates": 6,
+      "candidates": [
+        {
+          "hidden_layer_sizes": [
+            256,
+            128,
+            64
+          ],
+          "alpha": 1e-05,
+          "max_iter": 5
+        },
+        {
+          "hidden_layer_sizes": [
+            256,
+            128,
+            64
+          ],
+          "alpha": 0.001,
+          "max_iter": 5
+        },
+        {
+          "hidden_layer_sizes": [
+            256,
+            128,
+            64
+          ],
+          "alpha": 0.1,
+          "max_iter": 5
+        },
+        {
+          "hidden_layer_sizes": [
+            256,
+            128,
+            64
+          ],
+          "alpha": 1e-05,
+          "max_iter": 50
+        },
+        {
+          "hidden_layer_sizes": [
+            256,
+            128,
+            64
+          ],
+          "alpha": 0.001,
+          "max_iter": 50
+        },
+        {
+          "hidden_layer_sizes": [
+            256,
+            128,
+            64
+          ],
+          "alpha": 0.1,
+          "max_iter": 50
+        }
+      ],
+      "paper_reference_params": {
+        "hidden_layer_sizes": [
+          256,
+          128,
+          64
+        ],
+        "activation": "relu",
+        "solver": "adam",
+        "epochs": 5
+      },
+      "reduction_order": [
+        5,
+        4,
+        3
+      ],
+      "notes": "**未找到可核实的作者官方实现**，依据论文 §4 自行实现架构。epoch 与 alpha 在训练折内选参；原文 5 epoch 列入候选。",
+      "fit_accounting": {
+        "n_candidates": 6,
+        "n_inner_folds": 3,
+        "fits_inner_cf_stage": 57,
+        "fits_outer_full_stage": 19,
+        "fits_per_outer_fold": 76,
+        "fits_per_arm": 1140,
+        "stages_covered": [
+          "inner_cf(选参+定参)",
+          "outer_full(选参+定参)"
+        ]
+      }
+    },
+    {
+      "name": "han_l1",
+      "kind": "logreg_author",
+      "provenance": "reused_author_code",
+      "source": "https://github.com/JThh/fact-probe @ 851b70cbdc8a :: get_classifier()",
+      "n_candidates": 5,
+      "candidates": [
+        {
+          "C": 0.01
+        },
+        {
+          "C": 0.1
+        },
+        {
+          "C": 0.5
+        },
+        {
+          "C": 1.0
+        },
+        {
+          "C": 10.0
+        }
+      ],
+      "paper_reference_params": {
+        "penalty": "l1",
+        "solver": "liblinear",
+        "C": 0.5,
+        "max_iter": 1000,
+        "random_state": 42
+      },
+      "reduction_order": [],
+      "notes": "分类器构造与参数复用作者代码；C 的候选集是本项目约定，作者默认 [0.1, 0.5] 与附录 D 的 0.5 均在其中。选参全在训练折内。",
+      "fit_accounting": {
+        "n_candidates": 5,
+        "n_inner_folds": 3,
+        "fits_inner_cf_stage": 48,
+        "fits_outer_full_stage": 16,
+        "fits_per_outer_fold": 64,
+        "fits_per_arm": 960,
+        "stages_covered": [
+          "inner_cf(选参+定参)",
+          "outer_full(选参+定参)"
+        ]
+      }
+    },
+    {
+      "name": "han_xgboost",
+      "kind": "xgb",
+      "provenance": "reused_author_code",
+      "source": "https://github.com/JThh/fact-probe @ 851b70cbdc8a :: get_classifier()",
+      "n_candidates": 4,
+      "candidates": [
+        {
+          "max_depth": 3,
+          "n_estimators": 200,
+          "learning_rate": 0.1
+        },
+        {
+          "max_depth": 3,
+          "n_estimators": 1000,
+          "learning_rate": 0.1
+        },
+        {
+          "max_depth": 6,
+          "n_estimators": 200,
+          "learning_rate": 0.1
+        },
+        {
+          "max_depth": 6,
+          "n_estimators": 1000,
+          "learning_rate": 0.1
+        }
+      ],
+      "paper_reference_params": {
+        "n_estimators": 1000,
+        "learning_rate": 0.1,
+        "max_depth": 6,
+        "objective": "binary:logistic",
+        "eval_metric": "auc",
+        "random_state": 42
+      },
+      "reduction_order": [],
+      "notes": "其余参数原样复用作者值；深度与树数的候选集是本项目约定，作者配置 (1000, 0.1, 6) 在其中。本地适配：n_jobs=1 + CPU。⚠️ 原写 reduction_order=(3, 1) **已在正式运行前撤回**：index 3 就是作者参照配置 (1000, 0.1, 6)，砍它会与『作者参照点必须在候选集内』自相矛盾。实测预算够用，故不砍。",
+      "fit_accounting": {
+        "n_candidates": 4,
+        "n_inner_folds": 3,
+        "fits_inner_cf_stage": 39,
+        "fits_outer_full_stage": 13,
+        "fits_per_outer_fold": 52,
+        "fits_per_arm": 780,
+        "stages_covered": [
+          "inner_cf(选参+定参)",
+          "outer_full(选参+定参)"
+        ]
+      }
+    }
+  ],
+  "selection": {
+    "metric": "mean grouped-inner-CV AUROC",
+    "tie_break": "ascending traversal + strict >; ties keep the first (simpler) candidate",
+    "scope": "全部在训练折内；外层划分/重复/种子沿用主路径"
+  },
+  "positive_class": {
+    "rule": "取 predict_proba 中 classes_==1 的那一列，不做任何 1-p 反转",
+    "why": "y 以 1 表示要检出的类；作者原任务以 supported 为正是他们的标签口径",
+    "verification": "verify_positive_class_direction() —— **用合成数据**，不是真实 Stage 1 数据"
+  },
+  "prob_to_log_odds": {
+    "eps": 1e-06,
+    "rule": "clip(p, eps, 1-eps) → log(p/(1-p))",
+    "applies_to": [
+      "mlp",
+      "xgb"
+    ],
+    "logreg": "直接取 decision_function，**不再换算**",
+    "train_test_same_rule": true,
+    "converted_once": true
+  },
+  "zero_missing_semantics": {
+    "h_matrix": "无非有限值、无全零行（两臂均已核对）",
+    "after_preprocess": "z-score + /sqrt(d) 后恰为 0 是普通取值（该维等于训练折均值），不是缺失；实测 MCQ/H1 训练折内恰为 0 的元素均为 0 个",
+    "xgboost_missing_default": "np.nan（实测 XGBClassifier().missing is nan）；DMatrix num_nonmissing 实测：含 0 的矩阵满格，显式 missing=0 才会把 0 当缺失。本项目不传 missing。",
+    "sparse_to_dense": "build_fold_design 返回 csr_matrix，MLP/XGB 需稠密，显式 .toarray() —— 只改容器不改数值"
+  },
+  "budget_vs_convergence": {
+    "max_iter_ladder": [
+      1000,
+      5000,
+      20000
+    ],
+    "logreg": "作者 max_iter=1000 起跑；未收敛按阶梯上调并记 max_iter_escalated；阶梯用尽仍未收敛则如实记 converged=False，不静默删除",
+    "mlp": "5/50 epochs 是**预定训练预算**，到达 max_iter 是预期内的，**不因此延长、不改该条件**；如实记 converged/n_iter",
+    "xgb": "树数固定，无收敛概念"
+  },
+  "local_execution": {
+    "threads": "OMP/OPENBLAS/MKL/NUMEXPR/VECLIB = 1（在 import numpy 之前设）",
+    "xgb_n_jobs": 1,
+    "device": "CPU",
+    "thread_determinism_measured": {
+      "xgb": "1/4/8 线程预测逐位相同",
+      "mlp": "1 vs 4 逐位相同；1 vs 8 差 3.5e-19",
+      "logreg": "1 vs 4/8 的 decision_function 差 6.7e-16（BLAS 归约顺序）",
+      "decision": "正式运行统一 OMP=1，与复现核对同设置"
+    },
+    "memory_gate": {
+      "self_rss_gb": 6.0,
+      "system_free_gb": 3.0,
+      "commit_headroom_gb": 3.0,
+      "behaviour": "吃紧先等，等不回来干净退出；分片已落盘可续跑"
+    }
+  },
+  "measured_cost": {
+    "note": "计时只用于定预算，**不用于挑选表现更好的条件**",
+    "single_fit_probe": "single_fit_probe_{arm}.json",
+    "generation_impact": {
+      "no_probe_window": "45.0 s/unit（901s / 20 unit）",
+      "with_cheap_probe": "53.3 s/unit（1917.6s / 36 unit）",
+      "caveat": "更早的探针窗口反而是 33-38 s/unit，故探针影响与题目长度漂移、整机内存压力**不可干净分离**"
+    }
+  },
+  "environment": {
+    "python": "3.10.20",
+    "platform": "Windows-10-10.0.26200-SP0",
+    "numpy": "2.2.6",
+    "scipy": "1.15.3",
+    "sklearn": "1.7.2",
+    "xgboost": "3.2.0",
+    "installed_this_round": "xgboost 3.2.0（--no-deps）；未安装或升级其他依赖"
+  },
+  "code_sha256": {
+    "scripts/posthoc_readout_probe_lib.py": "a210b24e4b2baece065c64c4f244de1ddb03d144af4b5f35e7a5afe6c2210ec3",
+    "scripts/posthoc_readout_probes_stage1.py": "988da1a064a20baa8feb21f93e752e6f755d209edbc2c5f042e881118beab41d"
+  },
+  "author_code": {
+    "repo": "https://github.com/JThh/fact-probe",
+    "commit": "851b70cbdc8a800b135afb9323ff6c4d6996b06c",
+    "reused": "long_fact_probes/train.py::get_classifier() 的分类器构造与参数",
+    "not_reused": "run_cv_probing()（无分组 CV / 跨层拼接选最佳层 / 全量重拟合 / 裸 except）",
+    "requirements_not_installed": "torch>=1.13.0,<2.0.0 会降级本机 torch 2.11"
+  },
+  "saplma": {
+    "status": "未找到可核实的作者官方实现，依据论文 §4 自行实现",
+    "paper": "Azaria & Mitchell 2023, Findings of EMNLP, §4",
+    "adaptations": [
+      "epoch 作为候选超参 (5/50)，原文 5 在候选内",
+      "alpha 训练折内选参（原文未说明正则）",
+      "不用 early_stopping=True（破坏分组隔离）",
+      "optimizer=adam，lr_init/beta/eps 用 sklearn 默认",
+      "batch_size 用 sklearn 默认 min(200, n)",
+      "输入是本项目冻结的 z-score + /sqrt(d) 后的 H"
+    ],
+    "naming": "统一称『基于作者实现的适配对照』，不称完整复现"
+  }
+}

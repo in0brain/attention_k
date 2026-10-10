@@ -21,6 +21,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import sys
 from pathlib import Path
@@ -39,6 +40,7 @@ from recover_attention.evaluation import increment as inc  # noqa: E402
 from recover_attention.evaluation import ladder as ld  # noqa: E402
 from recover_attention.evaluation import observability_gate as og  # noqa: E402
 from recover_attention.evaluation import rq2 as rq2m  # noqa: E402
+from recover_attention.evaluation import unblinding as ub  # noqa: E402
 from recover_attention.evaluation.config import Stage0Config, load_config  # noqa: E402
 from recover_attention.evaluation.feature_cache import (  # noqa: E402
     ARM_H1,
@@ -255,6 +257,50 @@ def dry_run(args) -> dict:
     return report
 
 
+def _arm_paths(in_dir: Path) -> dict[str, dict]:
+    """两臂的产物路径（freeze manifest 与 load_arm 必须指向同一批文件）。"""
+    return {
+        ARM_H1: {"records": in_dir / "h1_completion_records.jsonl",
+                 "hidden": in_dir / "h1_hidden.npz",
+                 "run_fingerprint": in_dir / "h1_run_fingerprint.json"},
+        ARM_MCQ: {"records": in_dir / "mcq_completion_records.jsonl",
+                  "hidden": in_dir / "mcq_hidden.npz",
+                  "run_fingerprint": in_dir / "mcq_run_fingerprint.json"},
+    }
+
+
+def freeze(args) -> dict:
+    """§2.2 第一步:冻结两臂产物并记 SHA-256。**在正式分析之前单独执行。**
+
+    做成独立命令而不是分析时顺带自动冻结 —— 冻结是一个需要有意为之的动作。若分析
+    时自动冻结,那么"分析前校验产物是否漂移"就退化成"校验产物与刚才那一刻是否一致",
+    永远为真,等于没校验。
+    """
+    in_dir = Path(args.input_dir)
+    out = Path(args.freeze_manifest)
+    if out.exists() and not args.refreeze:
+        raise SystemExit(
+            f"STOP: freeze manifest already exists at {out}. Re-freezing after the artifacts "
+            f"changed would silently rebase the audit trail onto the new data. If that is "
+            f"genuinely intended, pass --refreeze (the previous manifest is kept alongside).")
+    if out.exists() and args.refreeze:
+        keep = out.with_suffix(f".superseded_{args.timestamp.replace(':', '')}.json")
+        keep.write_text(out.read_text(encoding="utf-8"), encoding="utf-8")
+        print(f"[freeze] previous manifest preserved -> {keep}")
+
+    manifest = ub.build_freeze_manifest(in_dir, _arm_paths(in_dir))
+    manifest["frozen_at"] = args.timestamp
+    _write(out, manifest)
+    for arm, rec in manifest["arms"].items():
+        print(f"[freeze] {arm}: n_records={rec['n_records']} "
+              f"records_sha256={rec['records_sha256'][:16]}… "
+              f"hidden_sha256={rec['hidden_sha256'][:16]}… run_hash={str(rec['run_hash'])[:16]}…")
+    print(f"[freeze] freeze_hash={manifest['freeze_hash']}")
+    print(f"[freeze] manifest -> {out}")
+    print("[freeze] 产物已冻结。正式分析(揭盲)前不得再改动这两臂的 records / hidden。")
+    return manifest
+
+
 def production(args) -> dict:
     config = load_config(args.config)
     if config.mode != "production":
@@ -263,18 +309,56 @@ def production(args) -> dict:
     if not prereg["match"]:
         raise SystemExit("STOP (G2): preregistration hash mismatch")
 
+    # ---- §2.2 揭盲前置:必须先冻结,且冻结后产物不得漂移 ----
+    # 此前这三步（freeze / verify / log）**在生产路径上完全没有调用** —— 模块、文档与
+    # 单测都在，唯独分析入口没接线，于是"一次性揭盲由可审计记录强制"实际退化成一句承诺:
+    # 分析可以无限次重跑且不留任何痕迹。这与 attach_cross_sample_f5 / wrong_label 是同一
+    # 类事故（模块存在但生产路径漏调），故此处按同一标准补齐并加回归测试。
+    fm_path = Path(args.freeze_manifest)
+    if not fm_path.exists():
+        raise SystemExit(
+            f"STOP (§2.2): no freeze manifest at {fm_path}. Freeze both arms first:\n"
+            f"    python scripts/run_stage0_analysis.py --freeze --timestamp <ISO8601>\n"
+            f"Analysing before the freeze means the artifacts could still change underneath "
+            f"the result, which is exactly what the freeze exists to rule out.")
+    manifest = json.loads(fm_path.read_text(encoding="utf-8"))
+    fv = ub.verify_freeze(manifest)
+    if not fv["ok"]:
+        raise SystemExit(f"STOP (§2.2): {fv['meaning']} — drift={fv['drift']}")
+    print(f"[stage0] freeze verified: {fv['meaning']} (freeze_hash={manifest['freeze_hash'][:16]}…)")
+
+    config_hash = hashlib.sha256(
+        json.dumps(config.to_jsonable(), sort_keys=True, default=str).encode("utf-8")).hexdigest()
+    entry = ub.record_unblinding(
+        Path(args.unblinding_log), freeze_hash=manifest["freeze_hash"], config_hash=config_hash,
+        timestamp=args.timestamp, is_rerun=args.rerun, reason=args.reason)
+    print(f"[stage0] unblinding recorded: role={entry['role']} "
+          f"(n_prior={entry['n_prior_unblindings']}) -> {args.unblinding_log}")
+
     in_dir = Path(args.input_dir)
     arms = {
         ARM_MCQ: load_arm(ARM_MCQ, in_dir / "mcq_completion_records.jsonl",
                           in_dir / "mcq_hidden.npz", config, label_field="wrong_label"),
+        # H1 的主样本是每条 completion（§3），故按 trace_id 索引 hidden；
+        # group 仍是 prompt（同一 prompt 的 K=6 条共享 group，不当独立样本）。
         ARM_H1: load_arm(ARM_H1, in_dir / "h1_completion_records.jsonl",
-                         in_dir / "h1_hidden.npz", config, label_field="label"),
+                         in_dir / "h1_hidden.npz", config, label_field="label",
+                         id_field="trace_id"),
     }
     report = run_analysis(arms, config, {"sha256": prereg["current"], "match": prereg["match"]})
     report["mode"] = "production"
-    out = Path(args.output_dir) / "stage0_analysis_report.json"
+    report["freeze"] = {"freeze_hash": manifest["freeze_hash"], "verified": fv["ok"],
+                        "manifest_path": str(fm_path)}
+    report["unblinding"] = entry
+    # 只有第一次(confirmatory)的产物才是可写进论文的结果;rerun 另存,不覆盖。
+    name = ("stage0_analysis_report.json" if entry["role"] == "confirmatory"
+            else f"stage0_analysis_report_{entry['role']}.json")
+    out = Path(args.output_dir) / name
     _write(out, report)
     print(f"[stage0] report -> {out}")
+    if entry["role"] != "confirmatory":
+        print(f"[stage0] NOTE: this is {entry['role']}, not the confirmatory result. "
+              f"It must not replace the published confirmatory report.")
     return report
 
 
@@ -282,14 +366,37 @@ def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--dry-run", action="store_true",
                     help="合成 cache 跑通整条正式链路;不调模型、不读真数据")
+    ap.add_argument("--freeze", action="store_true",
+                    help="§2.2 第一步:冻结两臂产物并记 SHA-256(不做分析、不揭盲)")
+    ap.add_argument("--refreeze", action="store_true",
+                    help="覆盖已存在的 freeze manifest(旧的另存保留);仅在确有正当理由时用")
+    ap.add_argument("--rerun", action="store_true",
+                    help="§2.2:声明这是重跑而非 confirmatory 揭盲(必须同时给 --reason)")
+    ap.add_argument("--reason", default=None, help="重跑理由(--rerun 时必填)")
+    ap.add_argument("--timestamp", default=None,
+                    help="ISO8601 时间戳,写进 freeze manifest / unblinding log。"
+                         "由调用方传入而非脚本自取,便于复现与审计")
     ap.add_argument("--input-dir", default="outputs/stage0/features")
     ap.add_argument("--output-dir", default="outputs/stage0/evaluation")
+    ap.add_argument("--freeze-manifest",
+                    default="outputs/stage0/evaluation/stage0_freeze_manifest.json")
+    ap.add_argument("--unblinding-log",
+                    default="outputs/stage0/evaluation/stage0_unblinding_log.jsonl")
     ap.add_argument("--config", default="configs/stage0.yaml")
     ap.add_argument("--prereg", default="docs/paper/preregistration.md")
     ap.add_argument("--lock", default="docs/paper/preregistration.lock")
     ap.add_argument("--seed", type=int, default=0)
     args = ap.parse_args()
-    (dry_run if args.dry_run else production)(args)
+    if args.freeze and args.dry_run:
+        raise SystemExit("--freeze 与 --dry-run 互斥")
+    if not args.dry_run and args.timestamp is None:
+        raise SystemExit("--timestamp is required for freeze/production (ISO8601)")
+    if args.freeze:
+        freeze(args)
+    elif args.dry_run:
+        dry_run(args)
+    else:
+        production(args)
 
 
 if __name__ == "__main__":

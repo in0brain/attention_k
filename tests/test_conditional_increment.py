@@ -544,13 +544,22 @@ def test_cfp_page_limit_must_be_positive_int(tmp_path):
 
 
 def test_real_project_cfp_record_is_provisional_and_blocks_g1():
-    """对仓库里真实的 CFP 记录跑一遍:EIML3 页数未定 → G1 必须红。"""
+    """对仓库里真实的 CFP 记录跑一遍：G1 必须红。
+
+    **刻意不耦合到具体场地** —— 2026-08-19 目标从 EIML3 改为 ICASSP 2027 /
+    COLING 2027 并列候选后，缺的事实从 page_limit 变成三项全缺。要保护的不变量是
+    「真实记录不得让 G1 转绿」，不是「缺哪一项」。
+    """
+    import json as _json
+
     r = ci.check_cfp_confirmed("docs/paper/cfp_record.json")
     assert r["ok"] is False
     assert r["status"] == "provisional"
-    assert r["missing"] == ["page_limit"]
-    assert r["archival"] is False
-    assert r["deadline"] == "2026-08-29 AoE"
+    assert r["missing"], "真实记录必须至少缺一项事实，否则 G1 会被刷绿"
+    assert set(r["missing"]) <= set(ci.CFP_REQUIRED_FACTS)
+    rec = _json.loads(Path("docs/paper/cfp_record.json").read_text(encoding="utf-8-sig"))
+    assert rec.get("primary_target") is None, "primary 未定时不得填 flat 事实"
+    assert len(rec.get("candidates") or []) >= 2
 
 
 def test_build_ladder_specs_rejects_hidden_row_mismatch():

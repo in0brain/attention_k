@@ -82,6 +82,7 @@ def test_response_format_records_wrapping_without_affecting_eligibility():
         assert mci.canonicalize_mcq_output("D", CHOICES)["eligible_for_primary"] is True
 
 
+@pytest.mark.local_artifacts('outputs/logs/sprint_4B_3_full_f5_baseline_and_site_transfer/trace_sampling_manifest.jsonl')
 def test_real_upstream_parse_failure_row_stays_a_failure():
     """真实产物:cybermetric_000437 的 completion 是 'Answer! <D>',但**上游**
     parsed_label=null / parse_failure=true。按 parser contract 应记 parse_failure,
@@ -203,6 +204,7 @@ def test_split_is_by_id_not_by_count():
     assert r["n_pool"] == 3 and r["n_fresh"] == 2
 
 
+@pytest.mark.local_artifacts('data/processed/cyber/cybermetric.jsonl', 'outputs/logs/sprint_4B_3_full_f5_baseline_and_site_transfer/trace_sampling_manifest.jsonl')
 def test_real_pool_split_is_2000_minus_240():
     """对真实产物跑一遍:CyberMetric 2000 − 4B-3 已用 240 = fresh 1760。"""
     import json

@@ -141,12 +141,14 @@ def test_bare_option_token_ids_are_pairwise_distinct() -> None:
 
 
 def test_parse_explicit_answer_marker() -> None:
-    parsed = dlp.parse_option_answer("Reasoning. Answer: B", ["A", "B", "C", "D"])
-    assert parsed == {
-        "parsed_label": "B",
-        "parse_method": "explicit_answer_marker",
-        "parse_failure": False,
-    }
+    text = "Reasoning. Answer: B"
+    parsed = dlp.parse_option_answer(text, ["A", "B", "C", "D"])
+    # 标签与口径不变；2026-09-15 起返回值**多带**答案字符区间与失败原因
+    # （标签和区间必须出自同一次判定，见 test_mcq_answer_extraction_fix.py）。
+    assert (parsed["parsed_label"], parsed["parse_method"], parsed["parse_failure"])         == ("B", "explicit_answer_marker", False)
+    span = parsed["answer_char_span"]
+    assert text[span[0]:span[1]] == "B"
+    assert parsed["parse_failure_reason"] is None
 
 
 def test_parse_explicit_answer_marker_is_case_insensitive() -> None:
@@ -155,12 +157,32 @@ def test_parse_explicit_answer_marker_is_case_insensitive() -> None:
     )["parsed_label"] == "B"
 
 
-def test_parse_last_isolated_label_fallback() -> None:
-    parsed = dlp.parse_option_answer(
-        "After checking the evidence, I choose C.", ["A", "B", "C", "D"]
-    )
+def test_parse_choice_statement() -> None:
+    """"I choose C" 自 2026-09-15 起走**明确选择语句**这一级，而不是末尾孤立字母。
+
+    标签不变（仍是 C）；变的是口径名与它带出的字符区间 —— 修复前这句要靠
+    "全文最后一个孤立字母" 才碰巧命中，那条无条件推断正是本次要去掉的。
+    """
+    text = "After checking the evidence, I choose C."
+    parsed = dlp.parse_option_answer(text, ["A", "B", "C", "D"])
     assert parsed["parsed_label"] == "C"
-    assert parsed["parse_method"] == "last_isolated_label"
+    assert parsed["parse_method"] == "answer_statement"
+    span = parsed["answer_char_span"]
+    assert text[span[0]:span[1]] == "C"
+
+
+def test_parse_bare_letter() -> None:
+    """裸字母回答（Qwen 的 9,799 条走这条路），口径名 2026-09-15 起为 bare_letter。
+
+    ⚠️ "全文末尾孤立字母可作为答案"这条回退**已取消**：提到一个选项不等于选择它。
+    裸字母回答由本级覆盖；"…Officer (D)." 这类不再被当作答案。
+    """
+    parsed = dlp.parse_option_answer("C", ["A", "B", "C", "D"])
+    assert parsed["parsed_label"] == "C"
+    assert parsed["parse_method"] == "bare_letter"
+    assert dlp.parse_option_answer(
+        "…would be the Chief Information Officer (D).",
+        ["A", "B", "C", "D"])["parsed_label"] is None
 
 
 @pytest.mark.parametrize(

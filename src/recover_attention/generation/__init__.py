@@ -14,6 +14,7 @@
 
 from recover_attention.generation.manifest import (  # noqa: F401
     STATUS_DONE,
+    STATUS_EXCLUDED,
     STATUS_FAILED,
     STATUS_PENDING,
     STATUS_RUNNING,

@@ -1,0 +1,137 @@
+# Pre-registration freeze lock — Stage 1 / v3
+
+file:      docs/paper/preregistration_v3.md
+version:   v3.1
+hash_mode: text-lf-utf8
+sha256:    d483914c1290a62757f55d1e4b0b375e0fa3746fdc5ecd9207abd4f6de1813df
+frozen_on: 2026-08-08
+
+## v3.0 → v3.1（2026-08-08）：G5 发现的数据身份冲突
+
+    改动  N_H1 1547 → **1544**；H1 traces 9,282 → **9,264**；总 traces 19,842 → **19,824**
+          新增 M6 的确定性排除规则与 §11.10 修订记录
+    未动  判读规则、全部估计量、M8、所有阈值、F=5、R=3、B_per_batch=1000、K=6、
+          N_MCQ=1760、**§10 的三条预期一字未动**、route=recall only、外推禁令
+
+    为什么这是一次合规的 bump 而不是设计反悔：
+      触发信息是「两条 prompt 的文本是否逐字节相同」，由 G5 在**任何模型运行之前**判定，
+      **不含任何性能量**、不含 AUROC/Δ/CI、不涉及择优。
+      根因是 ATT&CK 的 revoked 条目与其继任者共享 name+description，
+      而 recall_v1 模板只用这两个字段 → 产出逐字节相同的 prompt。
+      Stage 0 每族只抽 140 条没撞上，取满整池才暴露。
+
+    被排除的三条：
+      attack:T1134.004 (active)   prompt ≡ Stage 0 的 attack:T1502
+      attack:T1656     (revoked)  prompt ≡ Stage 0 的 attack:T1684.001
+      attack:T1536     (revoked)  与 active 的 attack:T1578.004 同 prompt，按规则保留后者
+
+    历史留痕（v3.0，已被本次 bump 取代，**不覆盖历史**）：
+      v3.0 canonical-LF digest ce5888e6b952276b6ec023ed6383d87b12a1d6a2cbe81d7563d12cbadfb8bb55
+      v3.0 raw-bytes  digest   01df52e4c5cb77f9cb97843ddd0103a20e0d7e673a0f1ecd5435f35ebb1b2287
+      v3.0 的 G5 冲突诊断报告   outputs/logs/stage1_g5_conflict_report.json
+        （**保留不覆盖**，它是本次修订的依据）
+
+## hash_mode（2026-08-08 补，**不 bump version**）
+
+    定义  bytes → UTF-8 **strict** decode → CRLF 与裸 CR 统一为 LF
+                → UTF-8 encode → SHA-256
+
+    为什么需要：本仓库 core.autocrlf=true 且无 .gitattributes，
+    preregistration_v3.md 在本机是全 CRLF（1416 行）。Linux checkout 会得到 LF，
+    原始字节口径下 hash 立刻改变 —— **内容一字未动却触发 G2**。那是假警报，
+    而假警报会训练人去忽略 gate，比没有 gate 更糟。
+
+    只规范化行尾，**别的一概不动**：尾随空格、缩进、空行增删、最末换行的有无
+    仍然改变哈希。多规范化一样东西，就多一种能掩盖真实改动的途径。
+    BOM **不静默剥离**，检测到即具名报错（文件被别的编辑器重存过 = 需要人工确认）。
+
+    为什么不 bump version：**被冻结的内容一字未改**，改的只是指纹的计算方式。
+    它不改判读规则、不改样本、不改假设空间、不指向任何结论方向；§10 不重开。
+    与 v2.4 当年补 backend invariant 而不 bump 属同一类处理。
+
+    历史留痕（原始字节口径，2026-08-08 冻结当刻的值，**已停用**）：
+        raw-bytes digest 01df52e4c5cb77f9cb97843ddd0103a20e0d7e673a0f1ecd5435f35ebb1b2287
+    两者对应**同一份内容**：前者含 CRLF，后者为其 LF 规范化形式。
+
+本 lock 与 `preregistration.lock`（v2.4，Stage 0）**并存，互不覆盖**。
+两份设计权威并存是有意的：正文报 Stage 1，附录报 Stage 0 及其教训，各自可独立校验。
+v2.4 的 lock 保持原样；本文件只管 Stage 1。
+
+## 强制程度（**如实陈述，不得夸大** —— 见 preregistration_v3 §12.1）
+
+    ✔ 已有  本 lock（记录 v3.0 的指纹）
+            evaluation/v3_freeze.py::{check_v3_frozen, require_v3_frozen}
+            tests/test_v3_freeze.py 的"篡改即拒"回归测试
+    ❌ 尚无  Stage 1 的 preflight / sample-builder / generation 入口
+            → 目前**没有任何生产路径在调用 G2**
+
+    ⇒ 现状 = **文件级冻结 + 可调用的校验函数**，**不是端到端强制**。
+      不得声称"v3 的冻结已由代码端到端强制"。
+      （v2.4 的同款教训："由代码强制，不只写在 lock —— 散文会悄悄漂移。"）
+
+## 冻结后的执行顺序（固定，不得跳步）
+
+    v3 lock
+    → Stage 1 入口 + G2/G5 接线        ← 下一 sprint 必须先做这一步
+    → 正式样本名单物化与互斥审计        ← 在 G2 接线之前**不得**物化名单
+    → G3 smoke（≤20 prompt 真实模型）
+    → G4 性能盲质量检查
+    → 正式生成
+
+## 规则
+
+- 本 hash 是冻结后 `preregistration_v3.md` 内容的指纹。任何 Stage 1 入口在启动前
+  必须重算并与本值比对，不一致则停（防止跑后改判读规则/定义）。
+- 冻结后不再改设计。若确需修改：先 bump version（v3.1…）、重算 hash、更新本文件，
+  并在 preregistration_v3 顶部状态段记录变更；不得静默改动。
+- **G3 / G4 / G5 须按 v3 重挣**：三者的校验均含 `prereg_sha256`，
+  v2.4 的旧 report 会被自动拒。G3 需真实模型 smoke（≤20 prompt），属独立一轮。
+- 本 lock 不参与被冻结文件的 sha256；本文件的散文改动不改变 gate 结果。
+  因此**凡需强制的东西都必须落到代码**：F / 两个 salt / population 已进
+  `v3_config.FROZEN_FIELDS`，由 `assert_production` 逐项精确核对。
+
+## 冻结时已填实的量（`[[待定]]` 清零）
+
+    R = 3                B_per_batch = 1000     B_batch = 20  → B_total = 20,000
+                         （§7.3 收敛研究 2026-08-07；r_b_source = "convergence_study"）
+    F = 5                E3 block salt = "recover_attention/v3/E3_vocab_block/2026-08-08"
+                         block = int(sha256(salt + "|" + normalized_id), 16) mod 5
+                         （块本身充当 outer fold，故 F 必须 = n_outer_folds = 5）
+    N_H1 = 1544          route = **recall only**；family ∈ {attack, cwe}；K = 6
+                         eligible pool 1547 − 2（跨 Stage prompt 碰撞）− 1（内部同 prompt 去重）
+                         正式集须满足 **1544 records = 1544 distinct prompts = 1544 groups**
+                         → 9,264 traces。容量上界决策，**不是**精度规划（§7.5）。
+    N_MCQ = 1760         新池 8,187 题（10,178 distinct − 1,991 overlap）
+                         MCQ salt = "recover_attention/v3/mcq_selection/2026-08-08"
+                         → 10,560 traces
+    §10 预期             T1 预期触发；E2 预期 NON-ESTIMABLE；
+                         E1 预期 width ∈ [0.015, 0.050]（有意跨越 0.04 阈值）
+
+## 冻结时随附的只读审计产物（sha256 记于此，产物本身进版本库）
+
+    outputs/logs/stage0_development_convergence_R_Bperbatch.json
+        digest 2afdbe2a749b5c5467452c54b4438119df7c092f3e0f4c81f5872f3b0c5e9feb
+        performance_blind: false —— **仅**用于定 R 与 B_per_batch，
+        其 Δ̂_H / width 不得用于选 N、不得作为结果引用。
+    outputs/logs/stage1_capacity_audit.json
+        digest 99373bf2d55df6b3a09ed7cc2c82bd04a50ce3740f4b667d801ec38c197a84ad
+        reads_labels_or_performance: false；pool_materialized / selection_materialized 均 false。
+        它更正了两个数字：attack+cwe 上限 1,545 → **1,547**（141/141 把 open_gen 的
+        "None" 哨兵计成了条目，实际消耗 140/140）；MCQ 新池 **8,187**（8,189 未去重，作废）。
+
+    两份产物内记录的 `prereg_v3_sha256` 都是**运行时的旧值**，
+    **不得回写或伪造**成本文件记录的冻结值。SHA 链见
+    docs/progress/stage1_v3_analysis_history.md。
+
+## 继承自 v2.4 且在 Stage 1 继续适用的硬约束
+
+- **backend invariant**：两臂（MCQ 与 H1）必须使用同一推理后端（当前 = 本地 8-bit）。
+  §6 的 gate 是 D = S_MCQ − S_H1；两臂后端不同 → S 之差分不清是 observability 差异
+  还是量化差异，gate 失去意义。若改用远程算力换精度，**两臂都要换**，且 G3/G4 须重挣。
+- **一次性揭盲**（v2.4 §2.2 逐字适用）：全量冻结后分析只跑一次，每次调用留可审计记录，
+  rerun 须显式标注，不得替换已发布的 confirmatory 结果。
+  Stage 1 产物目录 `outputs/stage1/`，与 `outputs/stage0/` 完全隔离；
+  **绝不触碰** Stage 0 的 freeze manifest / unblinding log / analysis report。
+- **扩容承诺**：N、K 一经冻结不得追加。若精度不足，如实记 inconclusive；
+  §10 的 E1 预期区间跨越 0.04 是有意的，实测落在区间外**不算协议失败**，
+  也不得触发追加样本、修改 N/F/R/B_per_batch 或重跑择优。

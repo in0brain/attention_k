@@ -228,6 +228,26 @@ def check_scale(output_root: Path) -> dict:
 
 
 # ------------------------------------------------------------- invariants
+def check_g4(report_path: Path, prereg_sha: str) -> dict:
+    """读 G4 报告（§2.1）。hash 一变即失效 —— 协议变了，旧质量检查不算数。"""
+    if not report_path.exists():
+        return {"ok": False, "reason": f"missing {report_path}; run run_stage0_quality_check.py"}
+    try:
+        rep = json.loads(report_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        return {"ok": False, "reason": f"unreadable G4 report: {exc}"}
+    checks = {
+        "passed": rep.get("passed") is True,
+        "prereg_sha256_matches": rep.get("prereg_sha256") == prereg_sha,
+        "performance_blind": rep.get("performance_blind") is True,
+        "backend_invariant": bool((rep.get("backend_invariant") or {}).get("ok")),
+        "both_arms_present": set(rep.get("per_arm") or {}) >= {"h1", "mcq"},
+    }
+    return {"ok": all(checks.values()), "checks": checks,
+            "per_arm_ok": {a: v.get("ok") for a, v in (rep.get("per_arm") or {}).items()},
+            "report": str(report_path)}
+
+
 def check_frozen_invariants() -> dict:
     """代码里的常量必须与预注册一致。config 改不动它们（load_config 会拒）。"""
     return {
@@ -248,36 +268,51 @@ def check_frozen_invariants() -> dict:
 
 # --------------------------------------------------------------- verdict
 def launch_readiness(gates: dict, code: dict, assets: dict, scale: dict,
-                     invariants: dict) -> dict:
-    """把"缺外部事实"和"缺代码"分开 —— 这就是本模块存在的理由。"""
-    blocked_by: list[str] = []
-    if not gates["G1"]["ok"]:
-        blocked_by.append("external_cfp_confirmation")
-    if not gates["G2"]["ok"]:
-        blocked_by.append("preregistration_hash_mismatch")
-    if not gates["G3"]["ok"]:
-        blocked_by.append("model_smoke_not_green")
-    if not code["ok"]:
-        blocked_by.append("code_not_ready")
-    if not assets["ok"]:
-        blocked_by.append("input_assets_missing")
-    if not scale["ok"]:
-        blocked_by.append("insufficient_disk")
-    if not invariants["ok"]:
-        blocked_by.append("frozen_constants_drifted")
+                     invariants: dict, g4: dict | None = None) -> dict:
+    """v2.4：**科学启动**与**投稿就绪**是两类 gate，分别报告。
 
-    # 除 G1 外全绿 = 我们这边做完了,只等外部事实
-    everything_but_cfp = blocked_by == ["external_cfp_confirmation"]
+    科学启动 = G2(冻结) + G3(smoke) + G4(性能盲质量检查) + 代码/资产/磁盘/常量。
+    投稿就绪 = G1(CFP)。G1 未过不得投稿,但**不阻塞实验** —— 它是场地事实,
+      决定"能报告多少"而非"测到了什么"(§2)。
+    """
+    g4 = g4 or {"ok": False, "reason": "production quality check not run"}
+    science: list[str] = []
+    if not gates["G2"]["ok"]:
+        science.append("preregistration_hash_mismatch")
+    if not gates["G3"]["ok"]:
+        science.append("model_smoke_not_green")
+    if not g4.get("ok"):
+        science.append("production_quality_check_not_passed")
+    if not code["ok"]:
+        science.append("code_not_ready")
+    if not assets["ok"]:
+        science.append("input_assets_missing")
+    if not scale["ok"]:
+        science.append("insufficient_disk")
+    if not invariants["ok"]:
+        science.append("frozen_constants_drifted")
+
+    submission: list[str] = []
+    if not gates["G1"]["ok"]:
+        submission.append("external_cfp_confirmation")
+
     return {
-        "stage0_launch_allowed": not blocked_by,
-        "blocked_by": blocked_by,
-        "blocked_only_by_external_cfp": everything_but_cfp,
-        "readiness": ("READY — blocked only by external CFP confirmation"
-                      if everything_but_cfp else
-                      "LAUNCH ALLOWED" if not blocked_by else
-                      f"NOT READY: {blocked_by}"),
-        "what_unblocks_it": (
+        "stage0_launch_allowed": not science,
+        "stage0_blocked_by": science,
+        "submission_allowed": not submission,
+        "submission_blocked_by": submission,
+        "G4_production_quality": g4,
+        "readiness": ("STAGE 0 LAUNCH ALLOWED" if not science
+                      else f"NOT READY FOR STAGE 0: {science}"),
+        "submission_readiness": ("SUBMISSION READY" if not submission
+                                 else f"NOT READY TO SUBMIT: {submission}"),
+        "gate_separation_note": (
+            "v2.4: G1 (venue CFP) is a submission-readiness gate, not a scientific one. "
+            "It决定 how much can be reported, not what was measured (§12's admissible "
+            "conclusions are venue-independent). G1 remains content-validated, remains an "
+            "external fact, and may never be asserted by a script or agent."),
+        "what_unblocks_submission": (
             "EIML3 opens submissions 2026-07-29; fill page_limit in docs/paper/cfp_record.json "
-            "and set status=confirmed. G1 is an external fact — no script or agent may assert it."
-            if "external_cfp_confirmation" in blocked_by else None),
+            "and set status=confirmed."
+            if submission else None),
     }

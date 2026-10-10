@@ -50,7 +50,9 @@ def main() -> None:
                                    Path(args.model_path))
     scale = pf.check_scale(Path(args.output_root))
     inv = pf.check_frozen_invariants()
-    verdict = pf.launch_readiness(gates, code, assets, scale, inv)
+    g4 = pf.check_g4(Path(args.output_root) / "stage0_g4_quality_check.json",
+                     gates["G2"]["current"])
+    verdict = pf.launch_readiness(gates, code, assets, scale, inv, g4=g4)
 
     report = {
         "schema_version": REPORT_SCHEMA,
@@ -92,11 +94,16 @@ def main() -> None:
     print(f"  disk free              : {scale['disk_free_gb']} GB "
           f"(need ~{scale['estimated_need_gb']} GB)")
     print("-" * 72)
+    print("  [scientific launch gate]  G2 + G3 + G4 (v2.4 §2)")
+    print(f"  G4 quality check       : {'OK' if verdict['G4_production_quality'].get('ok') else 'NOT RUN/FAILED'}")
     print(f"  stage0_launch_allowed  : {verdict['stage0_launch_allowed']}")
-    print(f"  blocked_by             : {verdict['blocked_by']}")
+    print(f"  stage0_blocked_by      : {verdict['stage0_blocked_by']}")
     print(f"  readiness              : {verdict['readiness']}")
-    if verdict["what_unblocks_it"]:
-        print(f"  what unblocks it       : {verdict['what_unblocks_it']}")
+    print("  [submission-readiness gate]  G1 — does NOT block the experiment")
+    print(f"  submission_allowed     : {verdict['submission_allowed']}")
+    print(f"  submission_blocked_by  : {verdict['submission_blocked_by']}")
+    if verdict["what_unblocks_submission"]:
+        print(f"  what unblocks it       : {verdict['what_unblocks_submission']}")
     print("=" * 72)
     print(f"report -> {out}")
 

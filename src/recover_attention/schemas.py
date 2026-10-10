@@ -3,7 +3,126 @@
 from __future__ import annotations
 
 from numbers import Real
+import math
 from typing import Any
+
+
+def validate_stage1_diagnostic_oof(records: list[dict]) -> None:
+    """Validate aligned, per-repeat outer-test probabilities for one arm/run/path.
+
+    This validates an export's declared provenance, not the training procedure.
+    The producer must independently audit that all preprocessing was fold-local.
+    """
+    if not records:
+        raise ValueError("OOF input is empty")
+    string_fields = ("model", "run_id", "arm", "path", "sample_id", "group_id")
+    identity = None
+    predictor_set = None
+    seen = set()
+    samples = {}
+    group_folds = {}
+    repeats = {}
+    for line, record in enumerate(records, 1):
+        where = f"OOF record {line}"
+        if not isinstance(record, dict):
+            raise ValueError(f"{where}: expected an object")
+        for field in string_fields:
+            if not isinstance(record.get(field), str) or not record[field].strip():
+                raise ValueError(f"{where}: {field} must be a nonempty string")
+        for field in ("repeat", "fold"):
+            value = record.get(field)
+            if type(value) is not int or value < 0:
+                raise ValueError(f"{where}: {field} must be a nonnegative integer")
+        if type(record.get("y")) is not int or record["y"] not in (0, 1):
+            raise ValueError(f"{where}: y must be 0 (correct) or 1 (error)")
+        if record.get("schema") != "stage1_diagnostic_oof_v1":
+            raise ValueError(f"{where}: unsupported schema")
+        if record.get("prediction_origin") != "outer_fold_test":
+            raise ValueError(f"{where}: prediction_origin must be outer_fold_test")
+        if record.get("score_type") != "error_probability":
+            raise ValueError(f"{where}: score_type must be error_probability")
+        if record.get("data_role") not in ("observed", "synthetic"):
+            raise ValueError(f"{where}: data_role must be observed or synthetic")
+        current = tuple(record[k] for k in ("model", "run_id", "arm", "path", "data_role"))
+        if identity is not None and current != identity:
+            raise ValueError(f"{where}: mixed model/run/arm/path/data_role")
+        identity = current
+        scores = record.get("scores")
+        if not isinstance(scores, dict) or not {"S*", "H", "S*+H"} <= scores.keys():
+            raise ValueError(f"{where}: scores must contain S*, H, S*+H")
+        if not set(scores) <= {"S*", "H", "S*+H", "B1", "B2", "B3", "B4", "B5"}:
+            raise ValueError(f"{where}: unsupported predictor name")
+        if predictor_set is not None and set(scores) != predictor_set:
+            raise ValueError(f"{where}: predictor sets differ")
+        predictor_set = set(scores)
+        for name, value in scores.items():
+            if (isinstance(value, bool) or not isinstance(value, Real)
+                    or not math.isfinite(value) or not 0 <= value <= 1):
+                raise ValueError(f"{where}: {name} must be a finite probability in [0,1]")
+        sample, repeat = record["sample_id"], record["repeat"]
+        if (repeat, sample) in seen:
+            raise ValueError(f"{where}: duplicate sample/repeat")
+        seen.add((repeat, sample))
+        invariant = (record["group_id"], record["y"])
+        if sample in samples and samples[sample] != invariant:
+            raise ValueError(f"{where}: sample label/group changes across repeats")
+        samples[sample] = invariant
+        group_key = (repeat, record["group_id"])
+        if group_key in group_folds and group_folds[group_key] != record["fold"]:
+            raise ValueError(f"{where}: group split across outer folds")
+        group_folds[group_key] = record["fold"]
+        repeats.setdefault(repeat, set()).add(sample)
+    for repeat, ids in repeats.items():
+        if ids != set(samples):
+            raise ValueError(f"repeat {repeat}: sample coverage differs across repeats")
+        rows = [r for r in records if r["repeat"] == repeat]
+        if len({r["fold"] for r in rows}) < 2:
+            raise ValueError(f"repeat {repeat}: at least two outer folds required")
+        if {r["y"] for r in rows} != {0, 1}:
+            raise ValueError(f"repeat {repeat}: both outcome classes required")
+
+
+def validate_stage1_diagnostic_result(result: dict) -> None:
+    """Check the existing frozen summary fields consumed by diagnostic plots."""
+    paths = ("frozen_implementation_primary", "stable_shadow_sensitivity",
+             "no_B4_dependency_sensitivity")
+    if result.get("contract", {}).get("ok") is not True:
+        raise ValueError("result contract.ok must be true")
+    if result.get("frozen_paths") != list(paths):
+        raise ValueError("unexpected frozen_paths")
+    for path in paths:
+        for arm in ("h1", "mcq"):
+            try:
+                row = result["arms"][path][arm]
+                scores = row["auroc"]
+                blocks = row["block_names_s_star"]
+                expected = [f"B{i}" for i in range(1, 6) if not (path == paths[2] and i == 4)]
+                if blocks != expected:
+                    raise ValueError("unexpected baseline block list")
+                for key in (*blocks, "S*", "S*+H", "H"):
+                    value = scores[key]
+                    if isinstance(value, bool) or not isinstance(value, Real) or not math.isfinite(value) or not 0 <= value <= 1:
+                        raise ValueError(f"invalid AUROC for {key}")
+                for field in ("n", "n_groups"):
+                    if type(row[field]) is not int or row[field] < 1:
+                        raise ValueError(f"invalid {field}")
+                def equal(value, expected_value):
+                    if not isinstance(value, Real) or isinstance(value, bool) or not math.isfinite(value) or not math.isclose(value, expected_value, abs_tol=1e-10):
+                        raise ValueError("inconsistent AUROC difference")
+                equal(row["delta_h_point"], scores["S*+H"] - scores["S*"])
+                for block in blocks:
+                    equal(row["delta_k_point"][block], scores["S*"] - scores[block])
+                    equal(row["delta_direct_k_point"][block], scores["S*+H"] - scores[block])
+                for key in ("m1b_non_inferiority", "m1b_iv_a_direct_superiority"):
+                    for block in blocks:
+                        value = row[key]["L_marg"][block]
+                        if isinstance(value, bool) or not isinstance(value, Real) or not math.isfinite(value) or not -1 <= value <= 1:
+                            raise ValueError("invalid one-sided lower bound")
+                eps = row["m1b_non_inferiority"]["eps_ni"]
+                if isinstance(eps, bool) or not isinstance(eps, Real) or not math.isfinite(eps) or not 0 < eps < 1:
+                    raise ValueError("invalid non-inferiority margin")
+            except (KeyError, TypeError, ValueError) as exc:
+                raise ValueError(f"{path}/{arm}: {exc}") from exc
 
 
 ALLOWED_SPAN_TYPES = {

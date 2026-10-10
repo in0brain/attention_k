@@ -60,6 +60,13 @@ def model_fingerprint(model: Any, model_path: str, backend: dict) -> dict:
     return {**payload, "model_hash": stable_hash(payload)}
 
 
+#: `generation_params` 的口径标记。带这个标记的指纹**记录了实际生效的 top_k /
+#: repetition_penalty**；不带的产生于只记录 K/max_new_tokens/temperature/top_p/seed
+#: 的旧口径,其两个采样键的实际取值**无从得知**（由各模型的 generation_config 兜底）。
+#: 因此"缺字段"必须判为**不可比**,不能当作"与任意取值兼容"。
+GENERATION_PARAMS_SCHEMA = "explicit_sampling_v2"
+
+
 def run_fingerprint(*, model_fp: dict, tokenizer_fp: dict, arm: str,
                     hidden_index: dict, gen_params: dict) -> dict:
     """一次 production run 的完整指纹。写进 feature cache 的头部。"""

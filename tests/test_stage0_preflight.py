@@ -2,7 +2,7 @@
 
 这个 preflight 的价值全在于**它不能骗人**:
   - G1 红时绝不许 launch_allowed
-  - 代码没写完时不许把锅推给 CFP（blocked_only_by_external_cfp 必须为假）
+  - 代码没写完时不许把锅推给 CFP（须落在 stage0_blocked_by，而非投稿项）
   - 只读:不得改 G1、不得改 hash、不得加载权重
 """
 
@@ -30,38 +30,43 @@ def _gates(g1=True, g2=True, g3=True):
             "G3": {"ok": g3, "h1_arm": OK, "mcq_arm": OK, "backend_invariant": OK}}
 
 
-# ---- verdict：区分"缺外部事实"与"缺代码" ----
-def test_only_cfp_missing_reports_ready_but_not_allowed():
-    v = pf.launch_readiness(_gates(g1=False), OK, OK, OK, OK)
+# ---- verdict：v2.4 起分两类 gate（科学启动 / 投稿就绪）----
+def test_cfp_blocks_submission_only():
+    """v2.4:G1 是场地事实,不再阻塞实验,但仍阻塞投稿(§2)。"""
+    v = pf.launch_readiness(_gates(g1=False), OK, OK, OK, OK, g4=OK)
+    assert v["stage0_launch_allowed"] is True
+    assert v["submission_allowed"] is False
+    assert v["submission_blocked_by"] == ["external_cfp_confirmation"]
+    assert "2026-07-29" in v["what_unblocks_submission"]
+
+
+def test_missing_code_still_blocks_stage0():
+    """原意保留:代码没写完不得启动全量 —— 只是不再和 CFP 混为一谈。"""
+    v = pf.launch_readiness(_gates(g1=False), BAD, OK, OK, OK, g4=OK)
     assert v["stage0_launch_allowed"] is False
-    assert v["blocked_by"] == ["external_cfp_confirmation"]
-    assert v["blocked_only_by_external_cfp"] is True
-    assert "external fact" in v["what_unblocks_it"]
-
-
-def test_missing_code_is_not_disguised_as_waiting_for_cfp():
-    """核心:代码没写完时,不许报"只差 CFP"。"""
-    v = pf.launch_readiness(_gates(g1=False), BAD, OK, OK, OK)
-    assert v["blocked_only_by_external_cfp"] is False
-    assert set(v["blocked_by"]) == {"external_cfp_confirmation", "code_not_ready"}
+    assert "code_not_ready" in v["stage0_blocked_by"]
+    # 且它不该被算进投稿阻塞项
+    assert v["submission_blocked_by"] == ["external_cfp_confirmation"]
 
 
 def test_all_green_allows_launch():
-    v = pf.launch_readiness(_gates(), OK, OK, OK, OK)
-    assert v["stage0_launch_allowed"] is True and v["blocked_by"] == []
+    v = pf.launch_readiness(_gates(), OK, OK, OK, OK, g4=OK)
+    assert v["stage0_launch_allowed"] is True and v["stage0_blocked_by"] == []
+    assert v["submission_allowed"] is True
 
 
 def test_each_failure_surfaces_its_own_reason():
     cases = [
-        (_gates(g2=False), OK, OK, OK, OK, "preregistration_hash_mismatch"),
-        (_gates(g3=False), OK, OK, OK, OK, "model_smoke_not_green"),
-        (_gates(), OK, BAD, OK, OK, "input_assets_missing"),
-        (_gates(), OK, OK, BAD, OK, "insufficient_disk"),
-        (_gates(), OK, OK, OK, BAD, "frozen_constants_drifted"),
+        (_gates(g2=False), OK, OK, OK, OK, OK, "preregistration_hash_mismatch"),
+        (_gates(g3=False), OK, OK, OK, OK, OK, "model_smoke_not_green"),
+        (_gates(), OK, BAD, OK, OK, OK, "input_assets_missing"),
+        (_gates(), OK, OK, BAD, OK, OK, "insufficient_disk"),
+        (_gates(), OK, OK, OK, BAD, OK, "frozen_constants_drifted"),
+        (_gates(), OK, OK, OK, OK, BAD, "production_quality_check_not_passed"),
     ]
-    for g, c, a, s, i, expected in cases:
-        v = pf.launch_readiness(g, c, a, s, i)
-        assert expected in v["blocked_by"], f"{expected} 未被报出"
+    for g, c, a, s, i, g4, expected in cases:
+        v = pf.launch_readiness(g, c, a, s, i, g4=g4)
+        assert expected in v["stage0_blocked_by"], f"{expected} 未被报出"
         assert v["stage0_launch_allowed"] is False
 
 
@@ -108,7 +113,9 @@ def test_real_repo_is_blocked_only_by_external_cfp():
     if not gates["G3"]["ok"]:
         pytest.skip("G3 smoke artifacts not present in this checkout")
     assert gates["G2"]["ok"] is True
-    assert gates["G1"]["ok"] is False and gates["G1"]["missing"] == ["page_limit"]
+    # 不耦合到具体场地：2026-08-19 换目标后缺的事实从 page_limit 变成三项全缺。
+    assert gates["G1"]["ok"] is False
+    assert gates["G1"]["missing"], "G1 必须因缺事实而红，不得被刷绿"
     inv = pf.check_frozen_invariants()
     assets = pf.check_input_assets(
         ROOT / "data/processed/h1/h1_samples.jsonl",

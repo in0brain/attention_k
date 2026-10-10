@@ -1,11 +1,24 @@
 # Pre-registration freeze lock
 
 file:      docs/paper/preregistration.md
-version:   v2.3
-sha256:    16fa43dbe1010a1d13e045af68530ce7e7053931214e7f32c71e760913d9cd0b
-frozen_on: 2026-07-16
+version:   v2.4
+sha256:    7c051d351ce18844e3272127b809d7182b6ea16061969a89d86d06fbf11fc0d0
+frozen_on: 2026-07-19
+
+启动 gate 自 v2.4 起分两类（详见 preregistration.md §2）:
+  科学启动 gate = G2(冻结) + G3(smoke) + G4(性能盲的生产质量检查) → 允许跑 Stage 0
+  投稿就绪 gate = G1(CFP 已确认) → 允许投稿,**不阻塞实验**
+  理由:G1 是场地事实,决定"能报告多少"而非"测到了什么";把它当科学闸会把实验压到
+  临近截止,时间压力反而损害分析质量。G1 仍校验内容、仍是外部事实、仍不得自行置位。
+v2.4 同时**收紧**两处(v2.3 之前没有的保护):
+  §2.1 G4 阶段禁止计算/查看任何性能指标(AUROC/AUPRC/Δ_H/S/D/ladder),代码层面强制;
+  §2.2 一次性揭盲:全量冻结后分析只跑一次,每次调用留可审计记录,rerun 须显式标注,
+       不得替换已发布的 confirmatory 结果。
 
 历史版本（保留,不覆盖）:
+- v2.3  sha256 16fa43dbe1010a1d13e045af68530ce7e7053931214e7f32c71e760913d9cd0b
+        frozen_on 2026-07-16;实现见 git commit 8e65598 / 8dff86d。
+        **v2.3 的 G3 已失效**:冻结文件已变,须按 v2.4 重跑 smoke。
 - v2.2  sha256 ffa722e8eee2af9487aca46f7270afd6423a9d0484ec1c1eb41b52d1e4b892fd
         frozen_on 2026-07-16;实现见 git commit f93877b。
         **v2.2 的 G3 已失效**:v2.3 改了 MCQ 侧的 O 表示与 population(§7.1/§7.2),

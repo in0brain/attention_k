@@ -1,32 +1,118 @@
 {
-  "_comment": "G1 CFP record (preregistration.md section 2). preflight 解析本文件的内容,不是看它存不存在。三项事实(deadline / page_limit / archival)齐全且 status=confirmed 才算 G1 通过。请勿为了让 gate 转绿而手改 status。",
-
+  "_comment": "G1 CFP record (preregistration.md section 2). preflight 解析本文件的内容,不是看它存不存在。三项事实(deadline / page_limit / archival)齐全且 status=confirmed 才算 G1 通过。请勿为了让 gate 转绿而手改 status。G1 是外部事实,不得由脚本或代理自行置位。",
   "status": "provisional",
-  "target": "EIML3 @ NeurIPS 2026",
-  "full_name": "The 3rd Workshop on Epistemic Intelligence in Machine Learning",
-
-  "deadline": "2026-08-29 AoE",
-  "archival": false,
+  "primary_target": null,
+  "target": null,
+  "deadline": null,
   "page_limit": null,
-  "page_limit_status": "pending_confirmation",
-
-  "submission_opens": "2026-07-29",
-  "notification": "2026-09-29",
-  "workshop_date": "2026-12-12",
-  "location": "Paris, France",
-
-  "archival_note": "NeurIPS workshop 论文统一非归档,不进入正式 proceedings;后续可扩展投主会。",
-  "page_limit_note": "官方 CFP 已列出日期、主题与评审安排,但未公布 submission type 或 page limit。投稿系统 2026-07-29 开放,届时确认页数后方可把 status 改为 confirmed。",
-
-  "fit_rationale": "EIML 关注 hallucination 与过度自信、系统能否识别'知道/不知道'、epistemic signal 能否指导 abstention/fallback、如何评价 ignorance 与 blind spots、以及经严格压力测试后的负结果。本工作可包装为:内部表征是否包含输出文本尚未暴露的幻觉信息?该增量是否依赖错误在输出空间中的可观测程度?这比'又一个 hallucination detector'更贴合主题,且负结果在此处是可发表的。",
-
+  "page_limit_status": "no_primary_target_selected",
+  "archival": null,
+  "archival_status": "no_primary_target_selected",
+  "candidates": [
+    {
+      "name": "ICASSP 2027",
+      "rank": "CCF B",
+      "deadline": "2026-09-16",
+      "page_limit": 4,
+      "page_limit_status": "confirmed",
+      "archival": true,
+      "archival_status": "confirmed",
+      "fit": "中等（用户评估）—— 唯一干净符合『9 月截稿 + CCF B』的选项",
+      "verification_status": "official_source_confirmed",
+      "verified_by": "user",
+      "verified_on": "2026-08-19",
+      "page_limit_basis": "main body",
+      "optional_fifth_page": "references/funding/ethics only",
+      "archival_basis": "accepted conference papers published in IEEE Xplore",
+      "source": [
+        "https://2027.ieeeicassp.org/call-for-papers/",
+        "https://2027.ieeeicassp.org/publishing-and-paper-presentation-options/"
+      ]
+    },
+    {
+      "name": "COLING 2027",
+      "rank": "CCF B",
+      "deadline": "2026-10-12 AoE",
+      "page_limit": null,
+      "page_limit_status": "multi_track_not_yet_chosen —— long/short 轨道未选定，**不得**把多轨页数压成一个含义不明的 scalar",
+      "archival": null,
+      "archival_status": "pending_explicit_source",
+      "fit": "高（用户评估）—— 明显更适合当前 NLP/LLM 论文",
+      "verification_status": "official_source_confirmed",
+      "verified_by": "user",
+      "verified_on": "2026-08-19",
+      "long_main_body_pages": 8,
+      "short_main_body_pages": 4,
+      "references_and_appendix": "unlimited",
+      "archival_note": "当前官方页面无足够直接的字面证据；**保守挂起，不猜**",
+      "source": [
+        "https://2027.coling-iccl.org/",
+        "https://www.aclweb.org/portal/content/32nd-international-conference-computational-linguistics"
+      ]
+    },
+    {
+      "name": "EIML3 @ NeurIPS 2026",
+      "full_name": "The 3rd Workshop on Epistemic Intelligence in Machine Learning",
+      "rank": "NeurIPS workshop (non-archival, inferred)",
+      "deadline": "2026-08-29 AoE",
+      "page_limit": null,
+      "page_limit_status": "pending_confirmation_never_published",
+      "archival": false,
+      "archival_status": "inferred_not_explicit",
+      "fit": "高 —— CFP **明列** 'Evaluation and negative results' 与 'Statistical foundations (partial identification / misspecification)' 两条，与本文定位直接对口",
+      "status": "retained_as_third_candidate",
+      "risk": "截稿 2026-08-29 AoE（距 2026-08-19 仅 10 天），page limit 至今未公布；且当前解盲与 Route-B 全量工作尚未完成",
+      "preserved_detail": {
+        "submission_opens": "2026-07-29",
+        "review_period": "2026-09-01 to 2026-09-27",
+        "notification": "2026-09-29",
+        "camera_ready": "2026-10-18",
+        "workshop_date": "2026-12-12 / 2026-12-13",
+        "location": "Paris, France",
+        "contact": "pc.eiml.workshop@gmail.com",
+        "reviewer_policy": "作者审稿:鼓励每篇至少一名作者担任 reviewer(义务性鼓励,非硬门槛)。",
+        "archival_note": "archival=false 目前是**推断**(NeurIPS workshop 一般非归档、可后续扩展投主会),官网 CFP 与站点(Home/CFP/Schedule 三页)均无明文。G1 确认前须显式核实,不能仅凭一般惯例。",
+        "page_limit_note": "官网已列日期/主题/评审安排/讲者/委员会,但**未公布** page limit、submission type(short/long)、是否强制 NeurIPS 模板、double-blind 细则、appendix/refs 是否计页。这些大概率在 OpenReview 投稿表单(submission_opens 后上线)或经 contact 邮件确认。站点上暂无 OpenReview 链接。",
+        "unconfirmed_pending_portal_or_email": [
+          "page_limit",
+          "submission_type (short / long tracks)",
+          "NeurIPS template mandatory?",
+          "double-blind / anonymity rules",
+          "appendix / references counted toward page limit?",
+          "archival / non-archival explicit statement"
+        ],
+        "fit_rationale": "EIML 关注 hallucination 与过度自信、系统能否识别'知道/不知道'、epistemic signal 能否指导 abstention/fallback、如何评价 ignorance 与 blind spots、以及经严格压力测试后的负结果。本工作定位为:内部表征是否包含输出文本尚未暴露的幻觉信息?该增量能否作为 epistemic evidence 被解释,需要哪些 identification conditions?负结果与 partial identification 在此处是可发表的,CFP 的 'Evaluation and negative results' 与 'Statistical foundations(partial identification/misspecification)' 两条直接对口。"
+      }
+    }
+  ],
+  "candidate_policy": "三个候选并列记录，**暂不指定 primary**。指定 primary 并补齐 deadline / page_limit / archival 三项**已核实**事实后，G1 才可能转绿 —— 由 user 提供外部事实，**不得**由脚本或代理自行置位。",
+  "blocking": [
+    "primary_target 未选定 -> flat 的 deadline / page_limit / archival 均为 null -> G1 保持 provisional（**投稿就绪闸**，v2.4 起不阻塞科学实验）",
+    "**补齐候选事实不等于选定 primary，更不等于把 G1 刷绿。**",
+    "COLING 2027 的 archival 仍为 pending_explicit_source；long/short 轨道未选定，故其 page_limit 保持 null（多轨事实已分字段记录）"
+  ],
+  "consequence_note": "页数上限直接决定改写规模：当前中文双栏稿为 gpt_v1.3。ICASSP 2027 = 正文 4 页（第 5 页仅限 references/funding/ethics）；COLING 2027 = long 正文 8 页 / short 正文 4 页，references 与 appendix 不限。选定 primary（及 COLING 的 long/short 轨道）前，论文构建目标保持不变。",
+  "what_is_given_up": "EIML3 的 CFP **明文**列出 negative results 与 partial identification —— 这种精确对口是 ICASSP / COLING 的公开 CFP 都不提供的。放弃它的代价应如实记录。",
   "provenance": {
     "recorded_on": "2026-07-16",
     "recorded_by": "user",
-    "source": "user 核对官方 CFP 页面后提供;日期/主题/评审安排已列出,page limit 未公布"
-  },
-
-  "blocking": [
-    "page_limit 未确认 -> G1 保持 provisional -> Stage 0 仍 No-Go"
-  ]
+    "source": "user 核对官方 CFP 页面后提供;日期/主题/评审安排已列出,page limit 未公布",
+    "updates": [
+      {
+        "on": "2026-07-29",
+        "by": "agent (site check) + user (relayed dates)",
+        "note": "投稿开放日复核 eiml.cc(Home/CFP/Schedule 三页):6 项投稿机制仍未公布,站上无 OpenReview 链接。补入 user 确认的 review_period / camera_ready / workshop 12-13 / reviewer_policy。修正过时的 blocking(v2.4 下 G1 不挡 Stage 0,Stage 0 已完成,G1 只挡投稿提交)。把 archival 标为 inferred_not_explicit。status 未动、page_limit 仍 null —— agent 未置位 G1。"
+      },
+      {
+        "on": "2026-08-19",
+        "by": "user (target change) + agent (record edit)",
+        "note": "投稿目标改为 ICASSP 2027（2026-09-16, CCF B）与 COLING 2027（2026-10-12, CCF B）并列候选；EIML3 保留为第三候选。**并列记录，暂不定 primary** —— 由 user 裁定。agent 未置位 G1：status 仍 provisional，三项事实仍为 null。EIML3 的既有事实全部保留在 candidates[2].preserved_detail 内，未删除。"
+      },
+      {
+        "on": "2026-08-19",
+        "by": "user (official CFP facts) + agent (record edit)",
+        "note": "补齐 ICASSP 2027 与 COLING 2027 的官方核实事实（来源 URL 已记入各候选的 source 字段），删除此前『仅由 user 提供、未独立核实』的过期措辞。COLING 的 archival 因缺直接字面证据保守挂为 pending_explicit_source；其 long/short 多轨页数分字段记录，**未**压成 scalar。顶层 status / primary_target / deadline / page_limit / archival 一律未动 —— agent 未置位 G1。"
+      }
+    ]
+  }
 }

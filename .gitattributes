@@ -1,0 +1,12 @@
+# Keep frozen text artifacts byte-stable across Windows and Unix checkouts.
+* text=auto
+*.py text eol=lf
+*.ps1 text eol=lf
+*.md text eol=lf
+*.yaml text eol=lf
+*.toml text eol=lf
+*.json -text
+*.jsonl -text
+*.lock -text
+docs/paper/preregistration.md -text
+docs/paper/preregistration_v3.md -text

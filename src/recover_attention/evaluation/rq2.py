@@ -73,11 +73,17 @@ def compute_rq2(cache: ArmCache, ladder: dict[str, Any], config: Stage0Config) -
         }
         per_stratum_delta[name] = d
 
-    # 层间差（§5 要求"+ 层间差 CI"）
+    # 层间差 CI（§5 明文要求"+ 层间差 CI"）。
+    # 早期版本只报点估计,并留了一句"CI 见 report 中的 between_strata_ci" —— 那个字段
+    # 从未存在。那不是欠功能,是指向空处的注释,会在 Stage 0 当天才暴露。
     if len(per_stratum_delta) == 2:
+        out["between_strata_difference"] = bs.between_strata_delta(
+            cache.y, s_o, s_oh, cache.groups, hi, config)
+    else:
         out["between_strata_difference"] = {
-            "point": per_stratum_delta["high_conf"]["point"] - per_stratum_delta["low_conf"]["point"],
-            "note": ("两层的 Δ_H 之差。两层样本不重叠,故非 paired;此处只报点估计,"
-                     "CI 需 independent bootstrap —— 见 report 中的 between_strata_ci"),
+            "status": "unavailable",
+            "reason": ("需要两层都可算 Δ_H;当前至少一层 insufficient(§5 要求每层 "
+                       f"pos>={config.rq2_min_per_cell} 且 neg>={config.rq2_min_per_cell})"),
+            "strata_status": {k: v.get("status") for k, v in out["strata"].items()},
         }
     return out

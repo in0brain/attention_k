@@ -145,7 +145,7 @@ def load_arm(arm: str, records_path: Path, hidden_path: Path, config: Stage0Conf
     else:
         feat_names |= set(ci.SURFACE_FEATURE_NAMES)
 
-    backend = _read_backend(records_path.parent)
+    backend = _read_backend(records_path.parent, arm)
     validation = {
         "arm": arm, "n_records": len(records), "n_eligible": len(eligible),
         "n_positive": int((y == 1).sum()), "n_negative": int((y == 0).sum()),
@@ -160,17 +160,34 @@ def load_arm(arm: str, records_path: Path, hidden_path: Path, config: Stage0Conf
                     backend=backend, validation=validation)
 
 
-def _read_backend(dir_path: Path) -> dict:
-    """从同目录的 *_report.json 里找 backend 指纹。"""
-    for name in ("mcq_hidden_reforward_report.json", "smoke_report_h1.json",
-                 "generation_report.json"):
+def _read_backend(dir_path: Path, arm: str) -> dict:
+    """从同目录的 *_report.json / *_run_fingerprint.json 里找 backend 指纹。
+
+    production 生成入口（run_stage0_generation.py::_build_feature_cache）把
+    `{arm}_run_fingerprint.json` 写在**这个目录**（records_path.parent，即
+    outputs/stage0/features/），schema 是 {"model": {"backend": {...}}}。这是
+    唯一保证与当前 records/hidden 同源的文件名 —— 优先找它。
+
+    后面几个是 smoke 阶段（W0.5-B/D）产出的旧文件名，为兼容 smoke 输出目录保留,
+    但**不在 records 所在目录**，故对 production 调用而言基本不会命中。
+    此前这里只认这几个旧名字、且从未加 arm 前缀查找 —— production 的
+    {arm}_generation_report.json 既不在这个目录（在 outputs/stage0/generation/），
+    文件名也对不上,check_backend_invariant 因此从真实产物写出的第一天起就没在生产
+    路径上跑对过：本仓库唯一覆盖"backend invariant"的测试测的是另一个并行实现
+    （sprint_4D_2_conditional_increment.py::_check_backend_invariant，G3 阶段用），
+    从未触达这里。
+    """
+    candidates = [f"{arm}_run_fingerprint.json", "mcq_hidden_reforward_report.json",
+                 "smoke_report_h1.json", "generation_report.json"]
+    for name in candidates:
         p = dir_path / name
         if p.exists():
             try:
                 rep = json.loads(p.read_text(encoding="utf-8"))
             except (OSError, json.JSONDecodeError):
                 continue
-            bk = rep.get("backend") or (rep.get("fingerprint") or {}).get("backend")
+            bk = (rep.get("backend") or (rep.get("fingerprint") or {}).get("backend")
+                 or (rep.get("model") or {}).get("backend"))
             if isinstance(bk, dict):
                 return bk
     return {}

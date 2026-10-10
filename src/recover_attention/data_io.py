@@ -3,8 +3,34 @@
 from __future__ import annotations
 
 import json
+import hashlib
 from pathlib import Path
 from typing import Any, Iterable
+
+
+def file_sha256(path: str | Path) -> str:
+    """Hash a source artifact without changing it."""
+    digest = hashlib.sha256()
+    with Path(path).open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def save_plot_pair(figure: Any, output_dir: str | Path, stem: str) -> list[Path]:
+    """Save a vector PDF and PNG preview; never overwrite existing files."""
+    directory = Path(output_dir)
+    if Path(stem).name != stem or stem in {"", ".", ".."}:
+        raise ValueError("figure stem must be a plain filename")
+    targets = [directory / f"{stem}.{ext}" for ext in ("pdf", "png")]
+    if any(path.exists() for path in targets):
+        raise FileExistsError(f"figure outputs already exist for {directory / stem}")
+    ensure_dir(directory)
+    for path in targets:
+        # Exclusive open also protects against another writer after the check.
+        with path.open("xb") as handle:
+            figure.savefig(handle, format=path.suffix[1:], dpi=180, bbox_inches="tight")
+    return targets
 
 
 def ensure_dir(path: str | Path) -> None:

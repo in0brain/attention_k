@@ -1,0 +1,201 @@
+{
+  "schema": "p3_mcq_output_baseline_check_v2",
+  "run_id": "run_20260921T122151Z_7ce9cb183ae98c11",
+  "run_started_utc": "20260921T122151Z",
+  "note": "第二十五轮：只为让关键一格可独立复算而重跑（不增加条件）",
+  "cells_requested": {
+    "models": [
+      "llama"
+    ],
+    "variants": [
+      "option_plus_output"
+    ]
+  },
+  "relation_to_first_run": "这是**新的独立运行**，产物只落在本运行目录。⚠️ 新运行**只能提供新证据**，**不能**补称第一轮（修复前代码）的运行日志 —— 第一轮的线程 / 库版本 / 机器状态本来就没有留下记录。第一轮汇总只作只读参照：outputs/stage1/posthoc_readout_probes/p3_mcq_output_baseline.json",
+  "question": "MCQ 的输出侧基线只读『所选选项文本』；Llama 的回答是整段解释。把 B3 换成**模型可见输出全文**之后，Δ_H 是否还保持？",
+  "why": "冻结的 B3 定义按 Qwen『只输出字母』制定（raw_completion 中位 1 字符）；Llama 的 raw_completion 中位 886 字符，B3 仍只读 31.5 字符的选项文本，**100%** 的记录里输出比基线读到的多。因此原 Δ_H **不能**解释为『超出完整输出所含信息』。",
+  "boundaries": [
+    "**不改冻结实现**，不写任何冻结产物；新条件**单独报告**",
+    "不重新生成、不重新提取隐藏态、不动 H",
+    "只跑 Path A；Path B / E3 的硬门不碰",
+    "这是**事后敏感性分析**，不是预注册条件",
+    "结论只对**本次 TF-IDF 编码的输出基线**成立；这是输出侧基线的一个下界，不是上界"
+  ],
+  "b3_variants": {
+    "option_plus_output": {
+      "field": null,
+      "what": "**选项文本与输出全文联合编码**（两段文本拼接后重新拟合 TF-IDF）",
+      "caveat": "⚠️ **不是『严格超集』**。拼接后词表、IDF 与行 L2 归一化都会变，所以**不能**据此要求性能只升不降。它只是『补齐输出覆盖』这个问题**最贴近**的一格。"
+    }
+  },
+  "variant_roles": {
+    "option_plus_output": "保留选项文本、同时补上输出全文 —— **这是『输出覆盖不足』问题最该看的一格**。"
+  },
+  "runtime": {
+    "threads": {
+      "OMP_NUM_THREADS": "8",
+      "OPENBLAS_NUM_THREADS": "8",
+      "MKL_NUM_THREADS": "8",
+      "NUMEXPR_NUM_THREADS": "8",
+      "VECLIB_MAXIMUM_THREADS": "8"
+    },
+    "python": "3.10.20",
+    "executable": "D:\\conda\\Miniconda3\\envs\\recover_attention\\python.exe",
+    "platform": "Windows-10-10.0.26200-SP0",
+    "numpy": "2.2.6",
+    "sklearn": "1.7.2",
+    "scipy": "1.15.3",
+    "recorded_before_compute": true
+  },
+  "input_fingerprints": {
+    "llama_mcq_completion_records.jsonl": "a9268da4277e6743",
+    "llama_mcq_hidden.npz": "22e730ee30d2cf52"
+  },
+  "code_fingerprint": "7ce9cb183ae98c11",
+  "numeric_integrity_scope": {
+    "marker_is_h1_scoped": "`path_markers()` 返回的 marker 与解释边界是**为 H1 的 B4 登记的**（H1 的 8 项 logit-derived F5 字段）。本脚本跑的是 **MCQ 臂**，marker 名字里的 `h1_b4_` 是**冻结登记名**，**不得**读成『本次 MCQ 的 B4 已被审计』。",
+    "mcq_b4_not_separately_audited": "⚠️ **两臂的 MCQ B4 数值完整性都没有单独审计。** 本轮只换 B3 的文本源，**没有**触碰 B4，也**没有**为 MCQ 的 B4 新增任何审计证据。",
+    "per_model": {
+      "qwen": "沿用既有裁定 `compromised`（来自 H1 侧）。它**不是**本次 MCQ B4 的审计结论。",
+      "llama": "`not_audited` —— **fail-closed，不继承 Qwen 的 compromised**，也**不因**落盘字段都是有限值就宣布通过。与 `run_stage1_llama_ac_analysis.py` 的登记一致。"
+    },
+    "unchanged_by_this_run": "本轮**不解除、也不加重**任何既有的数值完整性限制。"
+  },
+  "frozen_fields_sha256": "9197da3fe1a62370",
+  "results": {
+    "llama": {
+      "option_plus_output": {
+        "role": "保留选项文本、同时补上输出全文 —— **这是『输出覆盖不足』问题最该看的一格**。",
+        "oof_artifact": "outputs/stage1/posthoc_readout_probes/p3_mcq_baseline_runs/run_20260921T122151Z_7ce9cb183ae98c11/oof/oof_llama_option_plus_output.npz",
+        "oof_sha256": "cc1f73da8ac2f44c",
+        "audit_artifact": "outputs/stage1/posthoc_readout_probes/p3_mcq_baseline_runs/run_20260921T122151Z_7ce9cb183ae98c11/audit/audit_llama_option_plus_output.json",
+        "n_repeats_oof": 3,
+        "fold_map_provenance": "确定性重算（与 run_repeat_for_path 同一表达式、同一 seed），**不是**运行期记录",
+        "numeric_integrity_status": "not_audited",
+        "b3_field": "**选项文本与输出全文联合编码**（两段文本拼接后重新拟合 TF-IDF）",
+        "b3_len": {
+          "median": 929,
+          "min": 188,
+          "max": 1717
+        },
+        "n": 1746,
+        "n_positive": 328,
+        "auroc": {
+          "S*": 0.768856714483929,
+          "S*+H": 0.8075276353962412,
+          "B1": 0.4873214736202369,
+          "B2": 0.5424797464653067,
+          "B3": 0.6699433531711905,
+          "B4": 0.7548770454206658,
+          "B5": 0.5701506186429989,
+          "H": 0.791582097767381
+        },
+        "delta_h_point": 0.03867092091231213,
+        "delta_h_ci": {
+          "ci_lo": 0.026356769580701402,
+          "ci_hi": 0.05145909039262444,
+          "width": 0.025102320811923037
+        },
+        "precision": {
+          "precision": "adequate",
+          "width": 0.025102320811923037,
+          "mc_band": [
+            0.024749027923832982,
+            0.02545561370001309
+          ],
+          "max_ci_width": 0.04,
+          "note": null
+        },
+        "m1b": {
+          "m1b_non_inferiority": {
+            "eps_ni": 0.02,
+            "primary": "marginal one-sided lower bounds (IUT; no multiplicity correction)",
+            "L_marg": {
+              "B1": 0.24828323943777633,
+              "B2": 0.19449699449272137,
+              "B3": 0.07234297325703681,
+              "B4": 0.003064556943524914,
+              "B5": 0.17057517401457695
+            },
+            "L_sim": {
+              "B1": 0.23541518985099072,
+              "B2": 0.18270348437235528,
+              "B3": 0.06239818358193525,
+              "B4": -0.0012657901590353415,
+              "B5": 0.15976233201134432
+            },
+            "certified": true,
+            "status": "CERTIFIED",
+            "failed_blocks": [],
+            "wording": "S* is non-inferior to each of the selected blocks (marginal one-sided 95%, margin eps_NI, IUT overall alpha<=0.05 *nominal*)",
+            "must_not_write": "family-wise certified"
+          },
+          "m1b_simultaneous_secondary": {
+            "alpha": 0.05,
+            "m": 5,
+            "se": {
+              "B1": 0.020262841408504446,
+              "B2": 0.019187942195413192,
+              "B3": 0.016042940957694384,
+              "B4": 0.0066980915163381395,
+              "B5": 0.017109940102013988
+            },
+            "c_alpha_lower": 2.2760900153590713,
+            "c_alpha_upper": 2.2861863280262447,
+            "lower": {
+              "B1": 0.23541518985099072,
+              "B2": 0.18270348437235528,
+              "B3": 0.06239818358193525,
+              "B4": -0.0012657901590353415,
+              "B5": 0.15976233201134432
+            },
+            "upper": {
+              "B1": 0.32785987185877896,
+              "B2": 0.27024417912873383,
+              "B3": 0.13559051359155172,
+              "B4": 0.029292754311784033,
+              "B5": 0.23782260697550248
+            },
+            "degenerate_blocks": [],
+            "coverage": "nominal (asymptotic; depends on grouped-bootstrap validity and regularity conditions) — NOT a finite-sample guarantee"
+          },
+          "m1b_iv_a_direct_superiority": {
+            "criterion": "iv-a (PRIMARY, sole authorising path)",
+            "L_marg": {
+              "B1": 0.28931312594960634,
+              "B2": 0.23438840948204945,
+              "B3": 0.11218446852939294,
+              "B4": 0.03815180019918941,
+              "B5": 0.209850934462452
+            },
+            "passed": true,
+            "failed_blocks": [],
+            "note": "iv-b is a sensitivity/consistency check only and never authorises the claim on its own; no OR of the two paths"
+          },
+          "m1b_iv_b_consistency": {
+            "criterion": "iv-b (SENSITIVITY / consistency check only)",
+            "conjunction_required": "M1b CERTIFIED AND Delta_H CI lower bound > eps_NI",
+            "m1b_certified": true,
+            "delta_h_ci_lo": 0.026356769580701402,
+            "eps_ni": 0.02,
+            "second_term_holds": true,
+            "holds": true,
+            "must_not": "不得只写第二项；不得与 (iv-a) 取并集作正面主张 —— 两条路径的并集会重新引入择优触发与 look-elsewhere"
+          }
+        },
+        "bootstrap_budget": {
+          "R": 3,
+          "B_per_batch": 1000,
+          "B_batch": 20,
+          "B_total": 20000,
+          "n_valid_draws": 20000,
+          "n_discarded_single_class": 0
+        },
+        "secs": 1316.9
+      }
+    }
+  },
+  "total_secs": 1317.4,
+  "partial": false,
+  "elapsed_secs": 1317.4
+}

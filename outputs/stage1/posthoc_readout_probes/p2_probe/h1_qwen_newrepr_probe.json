@@ -1,0 +1,314 @@
+{
+  "schema": "p2_newrepr_probe_v1",
+  "representation": {
+    "source": "outputs\\stage1\\posthoc_readout_probes\\p2_vectors\\h1_qwen_block19_lasttoken.npz",
+    "what": "Qwen block 19 → hidden_states[20] 的**末词元**向量",
+    "n_unique_vectors": 870,
+    "d": 3584,
+    "n_statement_rows": 10168
+  },
+  "training_conditions": {
+    "training_unit": "陈述（10168 条记录；870 只是存储去重，训练不合并不降权）",
+    "evaluation_unit": "trace（8664）—— 与现有主分析同一总体",
+    "aggregation": "max over 该 trace 的陈述分数（**预先指定的建模约定**，不是推论）",
+    "aggregation_score_scale": "未裁剪的原始分数（decision_function = 原始 log-odds）",
+    "grouping_key": "group_id（提示级，1508 组）",
+    "splits": "冻结 fold_seed(r)；已物化并逐位核验；陈述**继承**其 trace 的折",
+    "readout": "L2 logistic，cfg.base_lr_kwargs；候选 = cfg.c_grid。**只改表示，不改读出器**",
+    "preprocess": "zscore_div_sqrt_d（直接调 ci._fit_dense_block，与主路径同一函数）",
+    "selection_metric": "**trace 级 AUROC（聚合之后）**，运行前声明",
+    "tie_break": "升序遍历 + 严格大于 → 并列保留先出现（更小的 C）",
+    "fusion_h_column": "**inner-OOF**（折外）分数聚合回 trace；绝不用训练集内预测"
+  },
+  "roster": {
+    "arm": "h1",
+    "n": 8664,
+    "n_raw_records": 9264,
+    "n_positive": 693,
+    "n_groups": 1508,
+    "id_field": "trace_id",
+    "ids_sha": "c02d38edf585e98a",
+    "ids_first": "stage1_h1_recall_attack_001b83a0289f__greedy_0",
+    "ids_last": "stage1_h1_recall_cwe_fffc19acd131__sampled_5",
+    "y_sha": "3131328525bf9421",
+    "groups_sha": "444377abb498e7e4",
+    "h_dim": 3584,
+    "blocks_sha": {
+      "B1": "274d463a78b04c78",
+      "B2": "495d5306204a956c",
+      "B3": "48d02e32a396a09f",
+      "B4": "016cdf1501f0eec9",
+      "B5": "2a4493a6078bb09b",
+      "H": "b9f073c5e81c82f5"
+    },
+    "outer_splits": {
+      "repeat0": {
+        "fold_seed": 20260804,
+        "test_sizes": [
+          1699,
+          1741,
+          1716,
+          1727,
+          1781
+        ],
+        "test_positives": [
+          165,
+          143,
+          133,
+          116,
+          136
+        ],
+        "fold_of_sha": "dd231be35d9a5ca7"
+      },
+      "repeat1": {
+        "fold_seed": 20260904,
+        "test_sizes": [
+          1697,
+          1750,
+          1709,
+          1780,
+          1728
+        ],
+        "test_positives": [
+          162,
+          155,
+          123,
+          146,
+          107
+        ],
+        "fold_of_sha": "f735e22816e84c83"
+      },
+      "repeat2": {
+        "fold_seed": 20261004,
+        "test_sizes": [
+          1755,
+          1726,
+          1716,
+          1744,
+          1723
+        ],
+        "test_positives": [
+          140,
+          161,
+          140,
+          125,
+          127
+        ],
+        "fold_of_sha": "f324ca150280cd24"
+      }
+    }
+  },
+  "results": {
+    "auroc_S*": 0.9888934207087513,
+    "auroc_H_new": 0.9779571316392293,
+    "auroc_S*+H_new": 0.9931450039341145,
+    "delta_H_new": 0.004251583225363158,
+    "delta_H_new_ci": {
+      "ci_lo": 0.00199619418540449,
+      "ci_hi": 0.007006091338197658,
+      "width": 0.005009897152793168
+    },
+    "per_repeat": [
+      {
+        "repeat": 0,
+        "auroc_S*": 0.9892747935653469,
+        "auroc_H_new": 0.9788743574968641,
+        "auroc_S*+H_new": 0.9931566502887542,
+        "delta_H_new": 0.003881856723407351
+      },
+      {
+        "repeat": 1,
+        "auroc_S*": 0.9895512285425722,
+        "auroc_H_new": 0.9762320229011987,
+        "auroc_S*+H_new": 0.9932533210666444,
+        "delta_H_new": 0.0037020925240722757
+      },
+      {
+        "repeat": 2,
+        "auroc_S*": 0.9878542400183349,
+        "auroc_H_new": 0.9787650145196249,
+        "auroc_S*+H_new": 0.9930250404469447,
+        "delta_H_new": 0.005170800428609845
+      }
+    ]
+  },
+  "bootstrap": {
+    "b_total": 20000,
+    "discarded_single_class": 0,
+    "unit": "cluster/group bootstrap（同主路径）"
+  },
+  "tuning_summary": {
+    "n_selections": 60,
+    "by_phase": {
+      "inner_cf": {
+        "n": 45,
+        "at_boundary": 45,
+        "upper": 45,
+        "lower": 0,
+        "chosen_C_counts": {
+          "10.0": 45
+        }
+      },
+      "outer_full": {
+        "n": 15,
+        "at_boundary": 15,
+        "upper": 15,
+        "lower": 0,
+        "chosen_C_counts": {
+          "10.0": 15
+        }
+      }
+    },
+    "chosen_C_counts": {
+      "10.0": 60
+    }
+  },
+  "leak_checks": {
+    "n_inner_folds_checked": 45,
+    "all_scored_traces_outside_train": true,
+    "all_group_disjoint": true,
+    "fusion_h_column": "inner-OOF 聚合回 trace；**非**训练集内预测"
+  },
+  "limitations_that_must_travel_with_this_result": [
+    "**跨折文本重复**：10168 条陈述只有 870 种文本，三轮各约 93.4~93.8% 的测试折文本已在训练折出现。高度重复使**编号记忆成为一种可能的解释**；**本实验没有分离记忆与泛化的贡献**。这**不**使当前 delta 不可报告 —— 可报告在当前提示分组、允许编号重复的评价总体上的预测增量，但**不得**称为未见编号的泛化能力，也**不得**称已证明记忆机制。按编号划分回答的是另一个问题，**不是**本轮估计量的验收门槛。",
+    "**下游 NaN 未修复**：提取时 870/870 条在 hidden_states[28] 与 logits 上有非有限值（起源在 block 27 内部）；必查范围 0..20 零异常只是提取的前提，**不等于**后端数值健康",
+    "**既有 B4 完整性限制继续保留**（h1_b4_numeric_integrity_compromised）；本结果不解释、不解除它",
+    "层 20 有限 ≠ 该层表示的**数值质量**已验证",
+    "任务名称：**采用作者独立陈述末词元表示思路的 Qwen/H1 编号存在性任务适配**；**不得**称『复现了 Han 的方法』，不得与原文数字并列",
+    "这是**事后分析**，不是预注册条件；与事前条件分开呈现"
+  ],
+  "secs": {
+    "train": 4926.6,
+    "total": 5175.1
+  },
+  "baseline_cache_check": {
+    "compared_against": "outputs/stage1/posthoc_readout_probes/oof_h1_ref_l2_frozen_grid.npz",
+    "WHAT_THIS_FILE_IS": "**首轮补充探针的 OOF，跑在 OMP_NUM_THREADS=1 下**（为给生成任务让路而设）。它**不是**默认线程的冻结 OOF —— reference_reproduction_index.json 明确把这两条记录分开登记，任一条都不得脱离另一条引用。",
+    "correction": "上一版把它称为冻结那次用默认线程，**错，已撤回**。",
+    "identical": [
+      "sample_id",
+      "y",
+      "group_id",
+      "三轮 fold_of"
+    ],
+    "s_star_max_abs_diff_vs_this_file": {
+      "repeat0": 0.0004760240283090411,
+      "repeat1": 0.00012045391112458503,
+      "repeat2": 0.00016076663790931534
+    },
+    "s_star_auroc_diff_vs_this_file": {
+      "repeat0": -1.810314192995932e-07,
+      "repeat1": 0.0,
+      "repeat2": 0.0
+    },
+    "note_on_metric_match": "本次 S* 平均 AUROC = 0.9888934207087513，与**冻结/默认线程复现**的值一致；而 OMP=1 那份是 0.9888934810525578。**指标相同不证明逐样本分数相同。**",
+    "delta_shift_arithmetic_only": {
+      "value": -6.034e-08,
+      "WHAT_IT_IS": "固定本次 S*+H_new、只把被减的 S* 换成另一份的**算术**变化",
+      "WHAT_IT_IS_NOT": "**不是**线程改变 B1..B5、meta 训练与融合输出的总影响上限 —— 那个没测"
+    },
+    "threads_at_training_time": {
+      "recorded": false,
+      "what_code_does": "脚本 import 时 os.environ.setdefault('8')，作用于 OMP/OPENBLAS/MKL/NUMEXPR/VECLIB",
+      "inference": "若调用环境未预先定义这些变量，训练时即为 8；**这是代码蕴含，不是运行期记录**",
+      "previous_report_error": "上一版 threads_used 写成 null —— 那是**事后另一个进程**的环境，不能冒充训练进程的记录",
+      "not_registered": "线程数**没有**写进事前登记的训练条件里 —— 我的疏漏"
+    }
+  },
+  "comparison_with_frozen_representation": {
+    "WHAT_THIS_IS": "**表示构造 + 陈述级训练/聚合方案的适配对照**，**不是**只换输入向量的纯表示消融。",
+    "correction": "上一版写只改表示，不改读出器**不准确，已撤回**。",
+    "same": [
+      "分类器类型（L2 logistic）",
+      "C 网格",
+      "trace 级评价协议",
+      "样本/标签/组/折",
+      "融合与区间协议"
+    ],
+    "different": [
+      "旧 H 按 **trace 向量 / trace 标签** 训练；新 H 按 **10168 条陈述 / 陈述标签** 训练",
+      "重复文本的记录在训练中各自成行（权重不同于按 trace 训练）",
+      "max 聚合回 trace —— 这是新增的方案环节，旧路径没有"
+    ],
+    "old_repr": {
+      "auroc_S*": 0.988893,
+      "auroc_H": 0.943756,
+      "auroc_S*+H": 0.990464,
+      "delta_H": 0.001570206
+    },
+    "new_repr": {
+      "auroc_S*": 0.988893,
+      "auroc_H_new": 0.977957,
+      "auroc_S*+H_new": 0.993145,
+      "delta_H_new": 0.004251583
+    },
+    "must_not_claim": [
+      "**不得**把差异严格归因于仅更换输入向量",
+      "**不得**称隐藏状态信息量因果性增加",
+      "**不得**做新旧探针优劣检验 —— 本任务的主问题不是比较谁更好"
+    ]
+  },
+  "selection_boundary_warning": "**60/60 次选参全部选到候选上界 C=10.0**（inner_cf 45/45、outer_full 15/15）。与此前 han_l1 在 H1 上 60/60 触上界是同一类现象。这说明当前网格可能**不够宽**；**本轮不放宽**（放宽属事后改设置），如实登记。",
+  "evidence_gaps": {
+    "honesty_note": "**缺失不等于已证明计算错误**。下面把「能只读确定性重建」与「确实未保存、只能重拟合才能拿到」分开列；**不补造历史日志，不把当前哈希冒充运行前登记**。",
+    "self_check_scope": "合成自检 8/8 是**局部**检查（聚合规则、组隔离、inner-OOF 覆盖、可复现性、z-score 口径），**不覆盖**实际 run() 的端到端流程。代码结构支持嵌套隔离，但不替代运行期中间证据。",
+    "read_only_rebuildable": [
+      {
+        "item": "外层划分 fold_of（三轮）",
+        "status": "已验证",
+        "how": "ci.stratified_grouped_folds 重算，与落盘 fold 列逐条一致",
+        "cost": "秒级"
+      },
+      {
+        "item": "内层 45 个折的 trace 映射",
+        "status": "已验证可重建",
+        "how": "同一表达式确定性重算；签名 c465c007c5556baf",
+        "cost": "秒级"
+      },
+      {
+        "item": "训练输入的内容摘要",
+        "status": "可算，但只是**当前**值",
+        "how": "向量 npz sha256=2629df126f624cff（与 Codex 记录一致）；completion_records=748ea3b910e55853；训练脚本=be96cceed590ffbd",
+        "cost": "秒级",
+        "caveat": "这是**事后**摘要，**不是**运行前登记"
+      },
+      {
+        "item": "陈述→trace→group→fold 的完整映射",
+        "status": "已在产物里",
+        "how": "向量 npz 的 statement_row / trace_id / group_id / fold_r*",
+        "cost": "秒级"
+      }
+    ],
+    "genuinely_unsaved_needs_refit": [
+      {
+        "item": "陈述级原始分数（10168 × 每折）",
+        "why": "脚本只写 trace 级聚合后的三路 OOF"
+      },
+      {
+        "item": "inner-OOF 的 H 训练列（meta-train 列本身）",
+        "why": "只在内存中用于 fit_stack"
+      },
+      {
+        "item": "B1..B5 的训练/测试共享缓存",
+        "why": "build_base_block_cache 的输出未落盘"
+      },
+      {
+        "item": "逐次最终拟合的 n_iter / 收敛告警",
+        "why": "本入口未接拟合日志（探针驱动有，这个新入口没有）"
+      },
+      {
+        "item": "运行期的线程与环境快照",
+        "why": "见 baseline_cache_check.threads_at_training_time"
+      }
+    ],
+    "targeted_replay_if_authorised": {
+      "WHAT_A_REPLAY_CAN_AND_CANNOT_DO": "⚠️ **历史环境无法靠重跑恢复。** 新运行只能产生**新的记录**，**不能**补称为首次运行的过程证据。即使把线程写死，也**不保证**复现首次运行的结果 —— 首次的线程、库版本与机器状态都没有留下记录。因此重放的价值是「为**将来**的运行留下完整证据」，**不是**「把首次运行的缺口补上」。",
+      "scope_if_ever_run": "重放 run()，只**增加落盘**：陈述级分数 / meta-train 列 / B1..B5 缓存 / 逐次拟合日志 / 运行期环境快照",
+      "changes_required": "**不改**划分、聚合规则、读出器、C 网格、表示 —— 一律不动",
+      "cost_cpu": "约 82 分钟（首次实测 4926.6 s），无 GPU；陈述级分数约 1.2 MB",
+      "determinism_caveat": "线程数会改变 liblinear 的停止点（已知量级 1e-6~1e-3）。**固定线程也不保证与首次逐位相同**，因为首次的线程值本身没有记录。",
+      "current_decision": "**不跑。** 监督方已裁定：不为补中间日志再重跑 82 分钟；代码审阅与指标复算未发现必须重跑的计算错误；缺失日志**如实登记即可**，但**不得**称过程证据完全齐全。"
+    }
+  },
+  "anomaly_summary_scope_note": "本次 870 条只有「层 21..27 干净、层 28 起异常」的**分层计数**。block 27 **内部**的定位（输入干净、输出已坏 → 起源不在 final norm）只在 **T1073 / T1002 两条**上用 forward hook 直接验证过，**不得**外推成「870 条都完成了内部定位」。"
+}

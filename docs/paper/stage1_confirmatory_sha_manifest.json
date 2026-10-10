@@ -1,0 +1,94 @@
+{
+  "additional_table_sources": {
+    "h1_finalization_report": {
+      "bytes": 3685,
+      "path": "outputs/stage1/production/h1_finalization_report.json",
+      "sha256": "1bf51dee6a574b06a1eda7ba5586078d927650b1955d21ed957483cc01a04ee8",
+      "used_for": "表 1 的 1b 逐级口径"
+    },
+    "mcq_finalization_report": {
+      "bytes": 4928,
+      "path": "outputs/stage1/production/mcq_finalization_report.json",
+      "sha256": "cab659ee19bf3f3267f37d532d1e80bc6470696d9ed235d2166a2808879d727f",
+      "used_for": "表 1 的 1b 逐级口径"
+    }
+  },
+  "f5_numeric_integrity_source": {
+    "NOT_registered": [
+      "整体 mean completion token 数（审计只登记了分长度桶的 mean_n_tok）",
+      "冻结字段 f5_completion_token_count 的整体均值",
+      "被过滤 token 的比例"
+    ],
+    "bytes": 344076,
+    "consequence": "上列三项**没有**机器可读真源，故已从 Abstract 与 L.6 移除；L.6 只保留本文件登记的字段。",
+    "evidence_caliber": "冻结 completion 文本在**当前、与冻结指纹兼容的 tokenizer 环境**下的确定性重建。**不是**原始 c_ids 的落盘回读，**不得**升格为原始运行日志。",
+    "evidence_class": "1b_deterministic_reconstruction_in_current_compatible_env",
+    "field_paths_registered": {
+      "delta_mean": "class_1b_primary_analyzable.delta_n_tok_minus_stored_count.mean",
+      "n_evaluated": "class_1b_primary_analyzable.n_evaluated",
+      "n_negative_delta": "class_1b_primary_analyzable.delta_n_tok_minus_stored_count.n_negative_delta",
+      "n_zero_delta": "class_1b_primary_analyzable.delta_n_tok_minus_stored_count.n_zero_delta",
+      "p50_p90_max": "class_1b_primary_analyzable.delta_n_tok_minus_stored_count.{p50,p90,max}"
+    },
+    "fingerprint_limitation": "tokenizer_fingerprint 的 payload 只有 class / name_or_path / vocab_size / special_token_ids，**不哈希 tokenizer 文件内容**。因此『指纹一致』不等于『分词器字节一致』。",
+    "mode": "diagnose",
+    "path": "outputs/stage1/audit/f5_numeric_integrity_diagnostic.json",
+    "schema": "stage1_f5_numeric_integrity_audit_v1",
+    "sha256": "e5256163b02f5f44364cacdebe17658b63c5a3171267c7f2702ffe93cb2a7e85",
+    "values": {
+      "max": 298,
+      "mean": 50.98303324099723,
+      "min": 0,
+      "n_evaluated": 8664,
+      "n_negative_delta": 0,
+      "n_zero_delta": 1,
+      "p50": 49,
+      "p90": 70
+    }
+  },
+  "lineage": {
+    "analysis_input_freeze_manifest": {
+      "bytes": 2964,
+      "path": "outputs/stage1/readiness/stage1_analysis_input_freeze_manifest.json",
+      "sha256": "feae4c0ee834456e9eda0a70cfef21a3e74859556e4c3c0c6a3cbdd7417a7637"
+    },
+    "finalized_freeze_manifest": {
+      "bytes": 1192,
+      "path": "outputs/stage1/readiness/stage1_finalized_freeze_manifest.json",
+      "sha256": "49b5a7a0fd852334748ac86741d9727ad7938e2f77f73bfc0a7a7bcd071ac78b"
+    },
+    "readiness_v3": {
+      "bytes": 5897,
+      "path": "outputs/stage1/readiness/stage1_confirmatory_readiness_v3.json",
+      "sha256": "7afa65c67d97b9ee0b96fb763b3b05c1703876f1f2e22fc7a266cb7739170e7e"
+    }
+  },
+  "note": "一次性解盲；log 与结果均为 no-clobber 创建。本清单**不是**冻结闸，只是引用锚点。",
+  "result": {
+    "bytes": 584294,
+    "contract_ok": true,
+    "e3_canonical_source": "repool",
+    "frozen_paths": [
+      "frozen_implementation_primary",
+      "stable_shadow_sensitivity",
+      "no_B4_dependency_sensitivity"
+    ],
+    "path": "outputs/stage1/confirmatory/stage1_confirmatory_result.json",
+    "path_b_implementation": "tail_stabilized_single_forward",
+    "schema": "stage1_v3_confirmatory_analysis_v2",
+    "sha256": "ba467c670f10291946e18c3af2f857aaf68b0d3cf8e1504834ca9f31c9eeff5a"
+  },
+  "role": "解盲产物与其血统的 SHA 固化。**只记录，不改变任何产物。**任何后续引用这些数字的文稿都应引用此处的 sha256。",
+  "schema": "stage1_confirmatory_sha_manifest_v1",
+  "unblinding": {
+    "analysis_input_freeze_hash": "2bad28700b63e96f390d62c12665d2e18c6320732872e0f0e7cab072c5a67ee8",
+    "config_hash": "1c5697250d63c0d665767578dde64b49d0baddb2b2a682a36587ee99605588dd",
+    "finalized_freeze_hash": "38a2071829675fd1674c0be5ce08a0b92f9311adc9ee9a5a63202aa0db62191e",
+    "log_bytes": 732,
+    "log_sha256": "ad5828610751dd53d1398a2967acfd1098b70d1fd66564c253449dce4727ffcb",
+    "prereg_sha256": "d483914c1290a62757f55d1e4b0b375e0fa3746fdc5ecd9207abd4f6de1813df",
+    "readiness_sha256": "7afa65c67d97b9ee0b96fb763b3b05c1703876f1f2e22fc7a266cb7739170e7e",
+    "schema_version": "stage1_v3_unblinding_log_v2",
+    "timestamp": "2026-08-23T05:47:11.928-04:00"
+  }
+}

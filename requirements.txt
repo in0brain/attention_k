@@ -1,6 +1,9 @@
 PyYAML>=6.0
 pytest>=8.0
 
+# Paper figures (scripts/make_paper_figures.py):
+matplotlib>=3.7
+
 # Optional for real NLI backends:
 # torch
 # transformers
@@ -8,3 +11,11 @@ pytest>=8.0
 
 # Optional for local Ollama recovery backend:
 # ollama server / Ollama app must be installed separately
+
+# CPU feature extraction, stacking, uncertainty estimation, and readout comparisons.
+numpy>=2.2
+scipy>=1.15
+scikit-learn>=1.7
+psutil>=7.2
+threadpoolctl>=3.6
+xgboost>=3.2

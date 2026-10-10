@@ -15,9 +15,56 @@ FORBIDDEN_INFERENCE_FEATURE_FIELDS = {
     "answer_key",
     "target_label",
 }
-_EXPLICIT_ANSWER_RE = re.compile(r"\b(?:final\s+)?answer\s*:\s*([A-Z])\b", re.IGNORECASE)
+#: 标准答案格式：`Answer: C` / `Final answer：C`。兼容英文与中文冒号、多余空格、
+#: 大小写与 Markdown 包裹。**在原文上匹配**，不做文本规范化 —— 一旦规范化，
+#: 回传的字符区间就会相对原文偏移。
+_EXPLICIT_ANSWER_RE = re.compile(
+    r"\b(?:final\s+)?answer\s*[:：]\s*(?:\*\*|__|\*)?\s*([A-Z])(?![A-Za-z0-9])", re.IGNORECASE)
 _ISOLATED_LETTER_RE = re.compile(r"(?<![A-Za-z])([A-Z])(?![A-Za-z])", re.IGNORECASE)
-_TRAILING_PUNCTUATION_RE = re.compile(r"^[\s.,;:!?()\[\]{}]*$")
+
+#: **明确的选择语句**：主语是 answer/option/choice，谓语是系动词，宾语是候选字母。
+#: ⚠️ 字母这一组**必须大写**：前半段用 `(?i:...)` 让 answer/option 这些词不区分
+#: 大小写，但字母本身区分 —— 否则英文冠词 "a" 会被当成选项 A。
+#: "…(option B) is a major challenge…" 曾因此与真正的 `Answer: B` 判成冲突。
+#: 选项标号在提示里本来就是大写，模型写 "answer is C" 而不是 "answer is c"。
+_ANSWER_ASSERTION_RE = re.compile(
+    r"(?i:\b(?:answer|option|choice)\b[^.\n]{0,40}?"
+    r"\b(?:is|are|would\s+be|will\s+be|must\s+be|should\s+be)\b"
+    r"\s*[:：]?\s*(?:\*\*|__|\*)?\s*(?:option\s+)?)([A-Z])(?![A-Za-z0-9])")
+#: **第一人称的选择动作**："I would choose option B"。限定主语，
+#: 因为无主语的 "choose B" 既可能是作答，也可能是指令或否定句的一部分。
+#: 字母同样必须大写，理由见上。
+_FIRST_PERSON_CHOICE_RE = re.compile(
+    r"(?i:\b(?:i|we)\b\s*(?:'ll|'d|\s+will|\s+would|\s+am\s+going\s+to|\s+shall)?\s*"
+    r"\b(?:choose|select|pick|go\s+with)\b\s*"
+    r"(?:option\s+)?(?:\*\*|__|\*)?\s*)([A-Z])(?![A-Za-z0-9])")
+
+#: 句级排除项。命中任一条 → 该句里的选择语句**不算**作答。
+#: 逐条对应 2026-09-15 Codex 实测到的缺陷类别；**只看句子，不看匹配片段** ——
+#: 上一版只查匹配片段，于是 "Do not choose A." 里的 "choose A" 逃掉了否定。
+_SENTENCE_DISQUALIFIERS = (
+    ("negation", re.compile(
+        r"\b(?:not|never|neither|nor|avoid|excludes?|excluding|incorrect|wrong|"
+        r"rule\s+out|ruled\s+out|rather\s+than|instead\s+of)\b|n['’]t",
+        re.IGNORECASE)),
+    ("conditional", re.compile(
+        r"\b(?:if|unless|whether|suppose|supposing|assuming|hypothetically|"
+        r"were\s+to|in\s+case|otherwise)\b", re.IGNORECASE)),
+    ("instruction", re.compile(
+        r"^\s*(?:do\b|don['’]t\b|please\b|you\s+(?:should|must|can|may)\b|"
+        r"let['’]s\b)", re.IGNORECASE)),
+    ("option_discussion", re.compile(
+        r"\b(?:options?|choices?|answers?)\s+"
+        r"(?:include|includes|included|are|were|list|listed|consist|contain|contains)\b",
+        re.IGNORECASE)),
+    ("quotation", re.compile(r"[“”‘’]|(?<!\w)\"")),
+)
+
+#: 裸字母回答两端允许剥掉的装饰（标点、括号、Markdown 强调、引号、空白）。
+_BARE_ANSWER_TRIM = ".,;:：!?()[]{}<>*_-\"' \t\n"
+#: 句子切分：句末标点或换行。保留偏移，**不改写原文**。
+_SENTENCE_SPLIT_RE = re.compile(r"[.!?;\n]+")
+
 _TOKEN_WHITESPACE_MARKERS = ("Ġ", "▁", "Ċ", "ĉ", "▏")
 _SINGLE_CHAR_RUN_RE = re.compile(r"(.)\1{29,}", re.S)
 _SUBSTRING_LOOP_RE = re.compile(r"(.{6,40}?)\1{4,}", re.S)
@@ -111,43 +158,129 @@ def _valid_label_set(valid_labels: list[str]) -> tuple[list[str], set[str]]:
     return normalized, set(normalized)
 
 
-def _trailing_isolated_matches(text: str, valid: set[str]) -> list[re.Match[str]]:
-    matches: list[re.Match[str]] = []
-    for match in _ISOLATED_LETTER_RE.finditer(text):
-        label = match.group(1).upper()
-        if label in valid and _TRAILING_PUNCTUATION_RE.fullmatch(text[match.end() :]):
-            matches.append(match)
-    return matches
+def _sentences(text: str) -> list[tuple[int, int]]:
+    """把 text 切成句子的 (start, end) —— **只切不改**，偏移始终对着原文。"""
+    spans, start = [], 0
+    for match in _SENTENCE_SPLIT_RE.finditer(text):
+        if match.start() > start:
+            spans.append((start, match.start()))
+        start = match.end()
+    if start < len(text):
+        spans.append((start, len(text)))
+    return spans or [(0, len(text))]
+
+
+def _sentence_of(spans: list[tuple[int, int]], index: int) -> tuple[int, int]:
+    for start, end in spans:
+        if start <= index < end:
+            return start, end
+    return spans[-1]
+
+
+def disqualifying_context(sentence: str) -> str | None:
+    """这句话里有没有让"选择语句"不算作答的东西。返回命中的类别名。"""
+    for name, pattern in _SENTENCE_DISQUALIFIERS:
+        if pattern.search(sentence):
+            return name
+    return None
+
+
+def _answer_claims(text: str, valid: set[str]) -> tuple[list[dict], list[dict]]:
+    """抽出全部**有效的答案声明**，以及被句级排除项挡掉的那些。
+
+    三种声明形式统一处理，冲突在调用方一并检查 —— 上一版让 `Answer: X` 分支
+    直接返回，于是 "Answer: A. Actually, the correct answer is C." 的冲突被掩盖。
+    """
+    spans = _sentences(text)
+    kept: list[dict] = []
+    rejected: list[dict] = []
+    sources = (
+        ("explicit_answer_marker", _EXPLICIT_ANSWER_RE, False),
+        ("answer_statement", _ANSWER_ASSERTION_RE, True),
+        ("answer_statement", _FIRST_PERSON_CHOICE_RE, True),
+    )
+    for kind, pattern, needs_context_check in sources:
+        for match in pattern.finditer(text):
+            label = match.group(1).upper()
+            if label not in valid:
+                continue
+            s_start, s_end = _sentence_of(spans, match.start(1))
+            claim = {"label": label, "kind": kind, "span": list(match.span(1)),
+                     "sentence": text[s_start:s_end]}
+            if needs_context_check:
+                reason = disqualifying_context(claim["sentence"])
+                if reason:
+                    rejected.append({**claim, "rejected_because": reason})
+                    continue
+            kept.append(claim)
+    kept.sort(key=lambda c: c["span"][0])
+    return kept, rejected
+
+
+def _result(label, method, span=None, reason=None, claims=None, rejected=None) -> dict:
+    """标签与字符区间**出自同一次判定** —— 下游定位不得另算一遍。"""
+    return {
+        "parsed_label": label,
+        "parse_method": method,
+        "parse_failure": label is None,
+        "answer_char_span": (None if span is None else [int(span[0]), int(span[1])]),
+        "parse_failure_reason": reason,
+        "answer_claims": [{k: c[k] for k in ("label", "kind", "span")}
+                          for c in (claims or [])],
+        "rejected_claims": [{k: c[k] for k in ("label", "kind", "span", "rejected_because")}
+                            for c in (rejected or [])],
+    }
 
 
 def parse_option_answer(text: str, valid_labels: list[str]) -> dict:
-    """Parse an explicit answer marker, then a final isolated option letter."""
+    """把 completion 解析成一个候选字母，并给出该字母在**原文**里的字符区间。
+
+    三条可靠规则，别的一律失败（2026-09-15 第二次修订）：
+
+        1. 标准答案格式   `Answer: C` / `Final answer：C`
+                          兼容中英文冒号、空格、大小写、Markdown 包裹
+        2. 明确的选择语句 "the correct answer is C" / "I would choose option B"
+                          **必须通过句级检查**：否定、条件假设、引用、指令、
+                          选项讨论 —— 命中任一条即不算作答
+        3. 裸字母回答     整条回答只有一个候选字母及装饰（`C` / `[C]` / `**C**`）
+
+    **取消**了"全文末尾孤立字母可作为答案"这条无依据的回退：提到一个选项不等于
+    选择它（"The options include A." 曾因此被判成 A）。裸字母回答由规则 3 覆盖。
+
+    冲突**统一检查**：把标准标记与选择语句里的有效声明放在一起看，出现不同标签
+    即判失败并记录原因，**不**凭分支优先级或"最后一次出现"推断改口。
+    上一版让 `Answer:` 分支直接返回，于是
+    "Answer: A. Actually, the correct answer is C." 被判成 A。
+
+    只给选项内容、不给字母的回答仍然失败 —— 不用字符串映射倒推字母，
+    那会制造一个并不存在的 hidden 读取位置。
+    """
     if not isinstance(text, str):
         raise ValueError("text must be a str")
     _, valid = _valid_label_set(valid_labels)
-    explicit = [
-        match for match in _EXPLICIT_ANSWER_RE.finditer(text)
-        if match.group(1).upper() in valid
-    ]
-    if explicit:
-        label = explicit[-1].group(1).upper()
-        return {
-            "parsed_label": label,
-            "parse_method": "explicit_answer_marker",
-            "parse_failure": False,
-        }
-    trailing = _trailing_isolated_matches(text, valid)
-    if trailing:
-        return {
-            "parsed_label": trailing[-1].group(1).upper(),
-            "parse_method": "last_isolated_label",
-            "parse_failure": False,
-        }
-    return {
-        "parsed_label": None,
-        "parse_method": "parse_failure",
-        "parse_failure": True,
-    }
+
+    claims, rejected = _answer_claims(text, valid)
+    if claims:
+        labels = {c["label"] for c in claims}
+        if len(labels) > 1:
+            return _result(None, "parse_failure",
+                           reason="contradictory_answer_claims",
+                           claims=claims, rejected=rejected)
+        # 标签一致时，用标准标记的区间（那是答案字母本身）；没有标记就用最后一条声明。
+        explicit = [c for c in claims if c["kind"] == "explicit_answer_marker"]
+        chosen = explicit[-1] if explicit else claims[-1]
+        return _result(chosen["label"], chosen["kind"], chosen["span"],
+                       claims=claims, rejected=rejected)
+
+    stripped = text.strip()
+    core = stripped.strip(_BARE_ANSWER_TRIM)
+    if len(core) == 1 and core.upper() in valid:
+        start = text.index(core, text.index(stripped))
+        return _result(core.upper(), "bare_letter", (start, start + 1),
+                       rejected=rejected)
+
+    reason = ("rejected_by_sentence_context" if rejected else "no_answer_claim")
+    return _result(None, "parse_failure", reason=reason, rejected=rejected)
 
 
 def detect_degeneration(

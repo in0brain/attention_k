@@ -6,7 +6,11 @@
   - 读取时重放全部事件 → 天然幂等,重复运行不会重算已 done 的 unit。
   - running 状态在恢复时视为**未完成**(可能是上次跑到一半被杀),重新入队。
 
-status: pending -> running -> done | failed
+status: pending -> running -> done | failed | excluded
+
+excluded 是终态但**不是** done:计入完成度、不参与重试、但不得混进
+`_build_feature_cache` 的 population —— 用于"这条 trace 的产物本身不可信"这类判定
+（例如 teacher-forced forward 输出非有限 logits）,与"重试可能会好"的 failed 明确分开。
 """
 
 from __future__ import annotations
@@ -22,7 +26,9 @@ STATUS_PENDING = "pending"
 STATUS_RUNNING = "running"
 STATUS_DONE = "done"
 STATUS_FAILED = "failed"
-VALID_STATUS = (STATUS_PENDING, STATUS_RUNNING, STATUS_DONE, STATUS_FAILED)
+STATUS_EXCLUDED = "excluded"
+VALID_STATUS = (STATUS_PENDING, STATUS_RUNNING, STATUS_DONE, STATUS_FAILED, STATUS_EXCLUDED)
+TERMINAL_STATUS = (STATUS_DONE, STATUS_EXCLUDED)
 
 
 @dataclass
@@ -96,13 +102,15 @@ class WorkManifest:
         return None
 
     def pending_units(self, all_units: Iterable[str]) -> list[str]:
-        """待跑 = 未 done 的。
+        """待跑 = 未到终态的。
 
         **running 视为未完成**:上次跑到一半被杀会留下 running,不重跑就会丢数据。
         failed 也重新入队(可能是瞬时错误);持续失败由调用方按 attempts 决定是否放弃。
+        **excluded 不重新入队**:它是终态判定(如 forward 输出非有限),重跑不会让数值
+        变得有限,重新排队只会原样再失败一次,把已经下过的结论又推翻成"待定"。
         """
         st = self.current_status()
-        return [u for u in all_units if st.get(u) != STATUS_DONE]
+        return [u for u in all_units if st.get(u) not in TERMINAL_STATUS]
 
     def counts(self) -> dict[str, int]:
         st = self.current_status()
@@ -117,18 +125,25 @@ class WorkManifest:
 
     def is_complete(self, all_units: Iterable[str]) -> bool:
         st = self.current_status()
-        return all(st.get(u) == STATUS_DONE for u in all_units)
+        return all(st.get(u) in TERMINAL_STATUS for u in all_units)
 
     def summary(self, all_units: Iterable[str]) -> dict:
         units = list(all_units)
         st = self.current_status()
         done = [u for u in units if st.get(u) == STATUS_DONE]
         failed = [u for u in units if st.get(u) == STATUS_FAILED]
+        excluded = [u for u in units if st.get(u) == STATUS_EXCLUDED]
+        excluded_by_reason: dict[str, int] = {}
+        for u in excluded:
+            reason = (self.last_event(u) or {}).get("reason", "unknown")
+            excluded_by_reason[reason] = excluded_by_reason.get(reason, 0) + 1
         return {
             "n_units": len(units), "n_done": len(done), "n_failed": len(failed),
-            "n_remaining": len(units) - len(done),
-            "complete": len(done) == len(units),
+            "n_excluded": len(excluded), "excluded_by_reason": excluded_by_reason,
+            "n_remaining": len(units) - len(done) - len(excluded),
+            "complete": len(done) + len(excluded) == len(units),
             "failed_units": sorted(failed)[:20],
+            "excluded_units": sorted(excluded)[:20],
             "n_events": len(self._events),
         }
 
